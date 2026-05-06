@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -19,6 +19,7 @@ import { FormsModule } from '@angular/forms';
 import { GeographyService } from '../../../core/services/geography.service';
 import { I18nService, SupportedLang } from '../../../core/services/i18n.service';
 import { LocationService } from '../../../core/services/location.service';
+import { SignupHandoffService, SignupPrefill } from '../../../core/services/signup-handoff.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
 @Component({
@@ -67,7 +68,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <a (click)="scrollTo('doctors')">OUR DOCTORS</a>
                 <a (click)="scrollTo('contact')">CONTACT</a>
               </div>
-              <button mat-flat-button class="nav-cta" (click)="showLocationPicker.set(true)">
+              <button mat-flat-button class="nav-cta" (click)="goToLogin()">
                 <mat-icon>person</mat-icon> Patient Portal
               </button>
             </div>
@@ -81,10 +82,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Bahrain since 2009.
                  NHRA licensed, internationally accredited, and trusted by over 100,000 patients.</p>
               <div class="hero-actions">
-                <button mat-flat-button class="hero-btn primary" (click)="showLocationPicker.set(true)">
+                <button mat-flat-button class="hero-btn primary" (click)="goToLogin()">
                   <mat-icon>login</mat-icon> Patient Portal
                 </button>
-                <button mat-flat-button class="hero-btn appointment-btn" (click)="showLocationPicker.set(true)">
+                <button mat-flat-button class="hero-btn appointment-btn" (click)="goToLogin()">
                   <mat-icon>event</mat-icon> Request Appointment
                 </button>
               </div>
@@ -156,7 +157,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 </div>
                 <div class="contact-box">
                   <span class="cb-label">Helpline:</span>
-                  <span class="cb-value clickable" (click)="showLocationPicker.set(true)">Request an Appointment</span>
+                  <span class="cb-value clickable" (click)="goToLogin()">Request an Appointment</span>
                 </div>
               </div>
             </div>
@@ -165,7 +166,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <!-- Footer Links Bar -->
           <div class="footer-links-bar">
             <div class="footer-links-inner">
-              <a (click)="showLocationPicker.set(true)">Patient Portal</a>
+              <a (click)="goToLogin()">Patient Portal</a>
               <span class="flink-sep">|</span>
               <a>Patient Feedback</a>
               <span class="flink-sep">|</span>
@@ -219,51 +220,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <a class="bnav-item" (click)="scrollTo('services')">
               <mat-icon>home</mat-icon><span>Home</span>
             </a>
-            <a class="bnav-item" (click)="showLocationPicker.set(true)">
+            <a class="bnav-item" (click)="goToLogin()">
               <mat-icon>event</mat-icon><span>Appointment</span>
             </a>
             <a class="bnav-item" (click)="scrollTo('doctors')">
               <mat-icon>search</mat-icon><span>Search</span>
             </a>
-            <a class="bnav-item" (click)="showLocationPicker.set(true)">
+            <a class="bnav-item" (click)="goToLogin()">
               <mat-icon>person</mat-icon><span>Login</span>
             </a>
-          </div>
-        </div>
-
-      } @else if (!showLogin()) {
-
-        <!-- ============================================ -->
-        <!--  STEP 2: LOCATION PICKER                     -->
-        <!-- ============================================ -->
-        <div class="location-gate">
-          <div class="gate-content">
-            <button mat-icon-button class="gate-back" (click)="showLocationPicker.set(false)">
-              <mat-icon>arrow_back</mat-icon>
-            </button>
-            <div class="gate-logo">
-              <mat-icon class="gate-logo-icon">local_hospital</mat-icon>
-              <h1 class="gate-brand">BSH</h1>
-            </div>
-            <h2 class="gate-title">Select Your Clinic</h2>
-            <p class="gate-subtitle">Choose the location you'd like to visit</p>
-
-            <div class="locations-list">
-              @for (loc of locationService.locations; track loc.id) {
-                <mat-card class="gate-location-card" (click)="onLocationSelected(loc.id)">
-                  <div class="gate-loc-row">
-                    <div class="gate-loc-icon">
-                      <mat-icon>local_hospital</mat-icon>
-                    </div>
-                    <div class="gate-loc-info">
-                      <strong>{{ loc.name }}</strong>
-                      <span class="gate-loc-address">{{ loc.address }}, {{ loc.city }}</span>
-                    </div>
-                    <mat-icon class="gate-arrow">arrow_forward</mat-icon>
-                  </div>
-                </mat-card>
-              }
-            </div>
           </div>
         </div>
 
@@ -273,73 +238,341 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <!--  STEP 3: LOGIN SCREEN                        -->
         <!-- ============================================ -->
         <div class="login-page">
+          <!-- Top strip: BSH hospital brand + branch with Change -->
+          <div class="login-topbar">
+            <div class="topbar-inner">
+              <button mat-icon-button class="topbar-back" (click)="goBackToLanding()" matTooltip="Back to website">
+                <mat-icon>arrow_back</mat-icon>
+              </button>
+              <div class="hospital-brand">
+                <div class="hospital-brand-icon"><mat-icon>local_hospital</mat-icon></div>
+                <div class="hospital-brand-text">
+                  <strong>Bahrain Specialist Hospital</strong>
+                  <span class="hospital-brand-ar">مستشفى البحرين التخصصي</span>
+                </div>
+              </div>
+              <button mat-stroked-button class="topbar-loc-btn" [matMenuTriggerFor]="locChangeMenu">
+                <mat-icon class="loc-pin">location_on</mat-icon>
+                <span class="topbar-loc-name">{{ getLocationName(pendingLocationId()) }}</span>
+                <mat-icon class="loc-change-arrow">expand_more</mat-icon>
+              </button>
+              <mat-menu #locChangeMenu="matMenu" class="loc-change-menu">
+                @for (loc of locationService.locations; track loc.id) {
+                  <button mat-menu-item (click)="pendingLocationId.set(loc.id)">
+                    <mat-icon [class.loc-current]="pendingLocationId() === loc.id">
+                      {{ pendingLocationId() === loc.id ? 'check_circle' : 'local_hospital' }}
+                    </mat-icon>
+                    <div class="menu-loc">
+                      <strong>{{ loc.name }}</strong>
+                      <span>{{ loc.address }}, {{ loc.city }}</span>
+                    </div>
+                  </button>
+                }
+              </mat-menu>
+            </div>
+          </div>
+
           <div class="login-card-wrapper">
             <mat-card class="login-card">
-              <!-- Header with logo -->
-              <div class="login-header">
-                <div class="login-logo-row">
-                  <mat-icon class="login-logo-icon">local_hospital</mat-icon>
-                  <div class="login-logo-text">
-                    <span class="login-logo-ar">مستشفى البحرين التخصصي</span>
-                    <span class="login-logo-en">Bahrain Specialist Hospital</span>
+              <!-- Medinous wordmark inside the login card -->
+              <div class="login-medinous-strip">
+                <img src="medinous-logo.svg" alt="Medinous" class="medinous-logo">
+                <span class="medinous-tag">Patient Portal</span>
+              </div>
+
+              <!-- ============= MODE: SIGN IN ============= -->
+              @if (loginMode() === 'signin') {
+                <div class="login-body">
+                  <h2 class="login-title">Sign in to your account</h2>
+
+                  <mat-form-field appearance="outline" class="login-field">
+                    <mat-label>CPR No / Patient ID</mat-label>
+                    <mat-icon matPrefix>person</mat-icon>
+                    <input matInput [ngModel]="loginCpr()" (ngModelChange)="loginCpr.set($event)" placeholder="Enter CPR or Patient ID">
+                    <mat-icon matSuffix class="info-icon"
+                              matTooltip="CPR is your Bahrain national ID (8 digits). Patient ID is provided by the hospital at registration."
+                              matTooltipPosition="above">info_outline</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="login-field">
+                    <mat-label>Password</mat-label>
+                    <mat-icon matPrefix>lock</mat-icon>
+                    <input matInput [type]="showPassword() ? 'text' : 'password'" [ngModel]="loginPassword()" (ngModelChange)="loginPassword.set($event)" placeholder="Enter your password">
+                    <button mat-icon-button matSuffix (click)="togglePassword()">
+                      <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                    </button>
+                  </mat-form-field>
+
+                  <div class="login-options">
+                    <a class="forgot-link" (click)="setMode('forgot')">Forgot Password?</a>
                   </div>
-                </div>
-                @if (pendingLocationId()) {
-                  <p class="login-location">
-                    <mat-icon class="tiny-icon">location_on</mat-icon>
-                    {{ getLocationName(pendingLocationId()) }}
-                  </p>
-                }
-              </div>
 
-              <!-- Login Form -->
-              <div class="login-form">
-                <mat-form-field appearance="outline" class="login-field">
-                  <mat-label>CPR No / Patient ID</mat-label>
-                  <mat-icon matPrefix>person</mat-icon>
-                  <input matInput [ngModel]="loginCpr()" (ngModelChange)="loginCpr.set($event)" placeholder="Enter your CPR or Patient ID">
-                  <button mat-icon-button matSuffix color="primary">
-                    <mat-icon>search</mat-icon>
+                  <div class="login-terms">
+                    <mat-checkbox [ngModel]="termsAccepted()" (ngModelChange)="termsAccepted.set($event)">
+                      I agree to the <a class="terms-link">Terms &amp; Conditions</a>
+                    </mat-checkbox>
+                  </div>
+
+                  <button mat-flat-button class="login-btn"
+                          [disabled]="!loginCpr() || !loginPassword() || !termsAccepted()"
+                          (click)="signIn()">
+                    Sign In <mat-icon>arrow_forward</mat-icon>
                   </button>
-                </mat-form-field>
 
-                <mat-form-field appearance="outline" class="login-field">
-                  <mat-label>Password</mat-label>
-                  <mat-icon matPrefix>lock</mat-icon>
-                  <input matInput [type]="showPassword() ? 'text' : 'password'" [ngModel]="loginPassword()" (ngModelChange)="loginPassword.set($event)" placeholder="Enter your password">
-                  <button mat-icon-button matSuffix (click)="togglePassword()">
-                    <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                  <div class="login-divider"><span>or</span></div>
+
+                  <div class="login-alt-row">
+                    <span class="alt-text">New patient?</span>
+                    <a class="alt-link" (click)="setMode('create')">Create Account</a>
+                  </div>
+
+                  <a class="guest-login-link" (click)="loginAsGuest()">
+                    <mat-icon>person_outline</mat-icon>
+                    Continue as Guest
+                  </a>
+                </div>
+              }
+
+              <!-- ============= MODE: CREATE ACCOUNT ============= -->
+              @else if (loginMode() === 'create') {
+                <div class="login-body">
+                  <button mat-button class="back-btn" (click)="setMode('signin')">
+                    <mat-icon>arrow_back</mat-icon> Back to sign in
                   </button>
-                </mat-form-field>
+                  <h2 class="login-title">Create your account</h2>
 
-                <div class="login-options">
-                  <a class="forgot-link">Forgot Password / Send OTP</a>
+                  <div class="stepper">
+                    <div class="step" [class.active]="signupStep() >= 1" [class.done]="signupStep() > 1">
+                      <span class="step-num">{{ signupStep() > 1 ? '✓' : '1' }}</span>
+                      <span class="step-label">CPR</span>
+                    </div>
+                    <div class="step-line" [class.done]="signupStep() > 1"></div>
+                    <div class="step" [class.active]="signupStep() >= 2" [class.done]="signupStep() > 2">
+                      <span class="step-num">{{ signupStep() > 2 ? '✓' : '2' }}</span>
+                      <span class="step-label">Verify</span>
+                    </div>
+                    <div class="step-line" [class.done]="signupStep() > 2"></div>
+                    <div class="step" [class.active]="signupStep() >= 3">
+                      <span class="step-num">3</span>
+                      <span class="step-label">Password</span>
+                    </div>
+                  </div>
+
+                  @if (signupStep() === 1) {
+                    <p class="step-desc">Enter your details to begin registration.</p>
+
+                    <div class="signup-row">
+                      <mat-form-field appearance="outline" class="login-field signup-half">
+                        <mat-label>First Name</mat-label>
+                        <mat-icon matPrefix>person</mat-icon>
+                        <input matInput maxlength="60"
+                               [ngModel]="signupFirstName()"
+                               (ngModelChange)="signupFirstName.set($event)"
+                               placeholder="As per CPR">
+                        @if (fnInvalid()) {
+                          <mat-error>{{ signupFirstName().trim().length === 0 ? 'First name is required' : 'Maximum 60 characters' }}</mat-error>
+                        }
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="login-field signup-half">
+                        <mat-label>Last Name</mat-label>
+                        <input matInput maxlength="60"
+                               [ngModel]="signupLastName()"
+                               (ngModelChange)="signupLastName.set($event)"
+                               placeholder="Family name">
+                        @if (lnInvalid()) {
+                          <mat-error>{{ signupLastName().trim().length === 0 ? 'Last name is required' : 'Maximum 60 characters' }}</mat-error>
+                        }
+                      </mat-form-field>
+                    </div>
+
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>CPR Number</mat-label>
+                      <mat-icon matPrefix>badge</mat-icon>
+                      <input matInput inputmode="numeric" maxlength="8"
+                             [ngModel]="signupCpr()"
+                             (ngModelChange)="onSignupCprInput($event)"
+                             placeholder="8-digit CPR">
+                      @if (cprInvalid()) {
+                        <mat-error>CPR must be exactly 8 digits</mat-error>
+                      } @else {
+                        <mat-hint align="end">{{ signupCpr().length }}/8</mat-hint>
+                      }
+                    </mat-form-field>
+
+                    <div class="signup-row phone-row">
+                      <mat-form-field appearance="outline" class="login-field signup-cc">
+                        <mat-label>Code</mat-label>
+                        <mat-select [ngModel]="signupCountryCode()" (ngModelChange)="signupCountryCode.set($event)">
+                          @for (cc of countryCodes; track cc.code) {
+                            <mat-option [value]="cc.code">{{ cc.code }} · {{ cc.country }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="login-field signup-phone">
+                        <mat-label>Mobile Number</mat-label>
+                        <mat-icon matPrefix>phone</mat-icon>
+                        <input matInput inputmode="numeric" maxlength="10"
+                               [ngModel]="signupPhone()"
+                               (ngModelChange)="onSignupPhoneInput($event)"
+                               placeholder="10-digit number">
+                        @if (phInvalid()) {
+                          <mat-error>Mobile number must be exactly 10 digits</mat-error>
+                        } @else {
+                          <mat-hint align="end">{{ signupPhone().length }}/10</mat-hint>
+                        }
+                      </mat-form-field>
+                    </div>
+
+                    <button mat-flat-button class="login-btn" (click)="sendSignupOtp()">
+                      Send OTP <mat-icon>send</mat-icon>
+                    </button>
+                  }
+
+                  @if (signupStep() === 2) {
+                    <p class="step-desc">We sent a 6-digit code to the mobile number registered with CPR <strong>{{ signupCpr() }}</strong>.</p>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>Enter OTP</mat-label>
+                      <mat-icon matPrefix>sms</mat-icon>
+                      <input matInput [ngModel]="signupOtp()" (ngModelChange)="signupOtp.set($event)" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+                    </mat-form-field>
+                    <p class="otp-hint">Demo OTP: <code>123456</code></p>
+                    <div class="otp-meta">
+                      <span>Didn't receive it?</span>
+                      <a class="resend-link" (click)="sendSignupOtp()">Resend OTP</a>
+                    </div>
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="signupOtp().length !== 6" (click)="verifySignupOtp()">
+                      Verify <mat-icon>check</mat-icon>
+                    </button>
+                  }
+
+                  @if (signupStep() === 3) {
+                    <p class="step-desc">How would you like to set your password?</p>
+                    <div class="pwd-choice">
+                      <label class="choice-card" [class.selected]="passwordChoice() === 'hospital'">
+                        <input type="radio" name="pwdChoice" value="hospital"
+                               [checked]="passwordChoice() === 'hospital'"
+                               (change)="passwordChoice.set('hospital')">
+                        <mat-icon>business</mat-icon>
+                        <div class="choice-text">
+                          <strong>Use the password from hospital</strong>
+                          <span>The one given to you at registration</span>
+                        </div>
+                      </label>
+                      <label class="choice-card" [class.selected]="passwordChoice() === 'own'">
+                        <input type="radio" name="pwdChoice" value="own"
+                               [checked]="passwordChoice() === 'own'"
+                               (change)="passwordChoice.set('own')">
+                        <mat-icon>vpn_key</mat-icon>
+                        <div class="choice-text">
+                          <strong>Set my own password</strong>
+                          <span>Choose a new password right now</span>
+                        </div>
+                      </label>
+                    </div>
+
+                    @if (passwordChoice() === 'own') {
+                      <mat-form-field appearance="outline" class="login-field">
+                        <mat-label>New Password</mat-label>
+                        <mat-icon matPrefix>lock</mat-icon>
+                        <input matInput type="password"
+                               [ngModel]="signupNewPassword()"
+                               (ngModelChange)="signupNewPassword.set($event)"
+                               placeholder="Minimum 6 characters">
+                      </mat-form-field>
+                    }
+
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="!passwordChoice() || (passwordChoice() === 'own' && signupNewPassword().length < 6)"
+                            (click)="completeSignup()">
+                      Create Account <mat-icon>check_circle</mat-icon>
+                    </button>
+                  }
                 </div>
+              }
 
-                <div class="login-terms">
-                  <mat-checkbox [ngModel]="termsAccepted()" (ngModelChange)="termsAccepted.set($event)">
-                    <a class="terms-link">Terms & Conditions</a>
-                  </mat-checkbox>
+              <!-- ============= MODE: FORGOT PASSWORD ============= -->
+              @else if (loginMode() === 'forgot') {
+                <div class="login-body">
+                  <button mat-button class="back-btn" (click)="setMode('signin')">
+                    <mat-icon>arrow_back</mat-icon> Back to sign in
+                  </button>
+                  <h2 class="login-title">Reset your password</h2>
+
+                  <div class="stepper">
+                    <div class="step" [class.active]="forgotStep() >= 1" [class.done]="forgotStep() > 1">
+                      <span class="step-num">{{ forgotStep() > 1 ? '✓' : '1' }}</span>
+                      <span class="step-label">Identify</span>
+                    </div>
+                    <div class="step-line" [class.done]="forgotStep() > 1"></div>
+                    <div class="step" [class.active]="forgotStep() >= 2" [class.done]="forgotStep() > 2">
+                      <span class="step-num">{{ forgotStep() > 2 ? '✓' : '2' }}</span>
+                      <span class="step-label">Verify</span>
+                    </div>
+                    <div class="step-line" [class.done]="forgotStep() > 2"></div>
+                    <div class="step" [class.active]="forgotStep() >= 3">
+                      <span class="step-num">3</span>
+                      <span class="step-label">New Password</span>
+                    </div>
+                  </div>
+
+                  @if (forgotStep() === 1) {
+                    <p class="step-desc">Enter your CPR or Patient ID. We'll send an OTP to the mobile registered with your account.</p>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>CPR No / Patient ID</mat-label>
+                      <mat-icon matPrefix>person</mat-icon>
+                      <input matInput [ngModel]="forgotCpr()" (ngModelChange)="forgotCpr.set($event)" placeholder="Enter CPR or Patient ID">
+                    </mat-form-field>
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="!forgotCpr()" (click)="sendForgotOtp()">
+                      Send OTP <mat-icon>send</mat-icon>
+                    </button>
+                  }
+
+                  @if (forgotStep() === 2) {
+                    <p class="step-desc">Enter the 6-digit OTP we sent to your registered mobile.</p>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>Enter OTP</mat-label>
+                      <mat-icon matPrefix>sms</mat-icon>
+                      <input matInput [ngModel]="forgotOtp()" (ngModelChange)="forgotOtp.set($event)" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+                    </mat-form-field>
+                    <p class="otp-hint">Demo OTP: <code>123456</code></p>
+                    <div class="otp-meta">
+                      <span>Didn't receive it?</span>
+                      <a class="resend-link" (click)="sendForgotOtp()">Resend OTP</a>
+                    </div>
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="forgotOtp().length !== 6" (click)="verifyForgotOtp()">
+                      Verify <mat-icon>check</mat-icon>
+                    </button>
+                  }
+
+                  @if (forgotStep() === 3) {
+                    <p class="step-desc">Set a new password for your account.</p>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>New Password</mat-label>
+                      <mat-icon matPrefix>lock</mat-icon>
+                      <input matInput type="password"
+                             [ngModel]="forgotNewPassword()"
+                             (ngModelChange)="forgotNewPassword.set($event)"
+                             placeholder="Minimum 6 characters">
+                    </mat-form-field>
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="forgotNewPassword().length < 6" (click)="completeForgot()">
+                      Reset Password <mat-icon>check_circle</mat-icon>
+                    </button>
+                  }
                 </div>
-
-                <button mat-flat-button class="login-btn"
-                        [disabled]="!loginCpr() || !loginPassword() || !termsAccepted()"
-                        (click)="signIn()">
-                  Sign In <mat-icon>login</mat-icon>
-                </button>
-              </div>
-
-              <!-- Guest link -->
-              <div class="login-guest">
-                <mat-divider></mat-divider>
-                <a class="guest-login-link" (click)="loginAsGuest()">
-                  <mat-icon>person_add</mat-icon>
-                  Login as a Guest
-                </a>
-              </div>
+              }
             </mat-card>
 
-            <p class="powered-by">Powered by <strong>medinous</strong></p>
+            <p class="powered-by-foot">
+              <mat-icon class="shield-icon">verified_user</mat-icon>
+              Secured by
+              <img src="medinous-logo.svg" alt="Medinous" class="medinous-logo-foot">
+            </p>
           </div>
         </div>
       }
@@ -669,102 +902,329 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .gate-location-card:hover .gate-arrow { color: #3f51b5; }
 
     /* =============================================
-       LOGIN SCREEN (Step 3)
+       LOGIN SCREEN (Step 3) — REDESIGNED
        ============================================= */
     .login-page {
       min-height: 100vh;
-      background: linear-gradient(135deg, #e0e7ee 0%, #c8d6e0 50%, #dce4eb 100%);
-      display: flex; align-items: center; justify-content: center;
-      padding: 24px; position: relative;
+      background: linear-gradient(135deg, #f0f7f7 0%, #e0eef0 50%, #f5f9fa 100%);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0; position: relative;
     }
     .login-page::before {
       content: ''; position: absolute; inset: 0;
-      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><rect fill="%231b3a4b" opacity="0.03" x="0" y="0" width="1200" height="800"/></svg>');
-      opacity: 0.5;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(13,138,138,0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(27,58,75,0.06) 0%, transparent 40%);
+      pointer-events: none;
     }
+
+    /* ---------- Top brand strip (BSH hospital + location) ---------- */
+    .login-topbar {
+      width: 100%; background: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      position: relative; z-index: 2;
+    }
+    .topbar-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 12px 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .topbar-back {
+      color: #1b3a4b !important; flex-shrink: 0;
+    }
+    .hospital-brand {
+      display: flex; align-items: center; gap: 10px;
+      flex: 1; min-width: 0;
+    }
+    .hospital-brand-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #0d8a8a 0%, #1b3a4b 100%);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
+    }
+    .hospital-brand-icon mat-icon {
+      color: white; font-size: 24px; width: 24px; height: 24px;
+    }
+    .hospital-brand-text {
+      display: flex; flex-direction: column; line-height: 1.2;
+      min-width: 0; overflow: hidden;
+    }
+    .hospital-brand-text strong {
+      font-size: 15px; color: #1b3a4b; font-weight: 700;
+      letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hospital-brand-ar {
+      font-size: 11px; color: #0d8a8a; direction: rtl;
+      text-align: left; font-weight: 600;
+    }
+    .topbar-loc-btn {
+      flex-shrink: 0;
+      border-radius: 22px !important;
+      padding: 4px 12px !important;
+      height: 36px !important;
+      border-color: #80cbc4 !important;
+      background: #f0f7f7 !important;
+      display: flex !important; align-items: center !important; gap: 4px !important;
+      color: #0d8a8a !important; font-weight: 600 !important;
+      font-size: 13px !important;
+    }
+    .topbar-loc-btn:hover { background: #e0f2f1 !important; }
+    .topbar-loc-btn .loc-pin {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+      color: #0d8a8a;
+    }
+    .topbar-loc-name {
+      max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .topbar-loc-btn .loc-change-arrow {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a; margin-left: 2px;
+    }
+    .menu-loc { display: flex; flex-direction: column; gap: 2px; }
+    .menu-loc strong { font-size: 13px; color: #1b3a4b; }
+    .menu-loc span { font-size: 11px; color: #888; }
+    .loc-current { color: #0d8a8a !important; }
+
     .login-card-wrapper {
       position: relative; z-index: 1;
-      width: 100%; max-width: 440px;
+      width: 100%; max-width: 460px;
+      padding: 32px 16px 40px;
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1; justify-content: center;
     }
     .login-card {
-      padding: 0; border-radius: 12px !important;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.15) !important;
-      overflow: hidden;
+      width: 100%;
+      padding: 0; border-radius: 14px !important;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.04) !important;
+      overflow: hidden; background: white;
     }
 
-    .login-header {
-      background: #f8fafa; padding: 28px 32px 20px;
-      border-bottom: 1px solid #e8e8e8; text-align: center;
+    /* ---------- Medinous wordmark strip inside the card ---------- */
+    .login-medinous-strip {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; padding: 18px 24px;
+      background: linear-gradient(135deg, #f8fafa 0%, #eef5f5 100%);
+      border-bottom: 1px solid #e3ecec;
     }
-    .login-logo-row {
-      display: flex; align-items: center; justify-content: center; gap: 12px;
-      margin-bottom: 8px;
+    .medinous-logo {
+      height: 28px; width: auto; display: block;
     }
-    .login-logo-icon { font-size: 40px; width: 40px; height: 40px; color: #0d8a8a; }
-    .login-logo-text { display: flex; flex-direction: column; text-align: left; }
-    .login-logo-ar { font-size: 14px; color: #1b3a4b; font-weight: 600; direction: rtl; }
-    .login-logo-en { font-size: 12px; color: #666; }
-    .login-location {
-      display: flex; align-items: center; justify-content: center; gap: 4px;
-      font-size: 12px; color: #888; margin: 8px 0 0;
+    .medinous-tag {
+      font-size: 11px; color: #888; font-weight: 500;
+      padding-left: 12px; border-left: 1px solid #cfd8d8;
+      letter-spacing: 0.5px; text-transform: uppercase;
     }
-
-    .login-form { padding: 28px 32px; }
-
-    .login-field {
-      width: 100%; margin-bottom: 4px;
-    }
-    .login-field mat-icon {
-      color: #888;
+    .medinous-logo-foot {
+      height: 16px; width: auto; vertical-align: middle;
+      margin-left: 2px;
     }
 
-    .login-options {
-      text-align: right; margin-bottom: 16px;
+    /* ---------- Body & shared form ---------- */
+    .login-body { padding: 24px 28px 28px; }
+    .login-title {
+      margin: 0 0 18px; font-size: 18px; font-weight: 600;
+      color: #1b3a4b; text-align: center;
     }
+    .login-field { width: 100%; margin-bottom: 8px; }
+    .login-field mat-icon { color: #888; }
+    .info-icon {
+      cursor: help; color: #b0b0b0 !important;
+    }
+    .info-icon:hover { color: #0d8a8a !important; }
+
+    .login-options { text-align: right; margin-bottom: 14px; }
     .forgot-link {
       font-size: 13px; color: #0d8a8a; cursor: pointer; font-weight: 500;
     }
     .forgot-link:hover { text-decoration: underline; }
 
-    .login-terms { margin-bottom: 20px; }
-    .terms-link { font-size: 13px; color: #0d8a8a; cursor: pointer; }
+    .login-terms { margin-bottom: 18px; font-size: 13px; color: #555; }
+    .terms-link { color: #0d8a8a; cursor: pointer; font-weight: 500; }
     .terms-link:hover { text-decoration: underline; }
 
     .login-btn {
       width: 100%;
       padding: 14px !important;
-      font-size: 16px !important;
+      font-size: 15px !important;
       font-weight: 600 !important;
       background: #0d8a8a !important;
       color: white !important;
       border-radius: 8px !important;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.25) !important;
     }
     .login-btn:disabled {
       background: #b2dfdb !important;
-      color: rgba(255,255,255,0.7) !important;
+      color: rgba(255,255,255,0.85) !important;
+      box-shadow: none !important;
     }
+    .login-btn mat-icon { vertical-align: middle; margin-left: 4px; }
 
-    .login-guest {
-      padding: 0 32px 24px;
+    /* ---------- Sign-in alt actions ---------- */
+    .login-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0 16px;
+      color: #aaa; font-size: 12px; font-weight: 500;
     }
-    .login-guest mat-divider { margin-bottom: 16px; }
+    .login-divider::before, .login-divider::after {
+      content: ''; flex: 1; height: 1px; background: #e0e0e0;
+    }
+    .login-alt-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-bottom: 14px;
+    }
+    .alt-text { font-size: 14px; color: #555; }
+    .alt-link {
+      font-size: 14px; color: #0d8a8a; font-weight: 600;
+      cursor: pointer;
+    }
+    .alt-link:hover { text-decoration: underline; }
+
     .guest-login-link {
       display: flex; align-items: center; justify-content: center;
       gap: 8px; font-size: 14px; color: #0d8a8a;
       cursor: pointer; font-weight: 500;
-      padding: 10px; border-radius: 8px;
+      padding: 11px; border-radius: 8px;
       border: 1px dashed #80cbc4; transition: all 0.2s;
     }
-    .guest-login-link:hover {
-      background: #e0f2f1; text-decoration: none;
+    .guest-login-link:hover { background: #e0f2f1; }
+
+    /* ---------- Stepper (create / forgot) ---------- */
+    .back-btn {
+      font-size: 13px !important; color: #666 !important;
+      padding: 4px 8px !important; min-width: auto !important;
+      margin-bottom: 8px !important; height: 32px !important;
+    }
+    .back-btn mat-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      margin-right: 2px;
+    }
+    .stepper {
+      display: flex; align-items: center; gap: 6px;
+      margin: 4px 0 22px; padding: 0 8px;
+    }
+    .step {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .step-num {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+      background: #e8eaee; color: #999;
+      transition: all 0.25s;
+    }
+    .step.active .step-num {
+      background: #0d8a8a; color: white;
+      box-shadow: 0 2px 8px rgba(13,138,138,0.35);
+    }
+    .step.done .step-num { background: #80cbc4; color: white; }
+    .step-label {
+      font-size: 11px; color: #888; font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+    .step.active .step-label { color: #0d8a8a; font-weight: 600; }
+    .step-line {
+      flex: 1; height: 2px; background: #e8eaee;
+      margin-bottom: 18px; transition: background 0.25s;
+    }
+    .step-line.done { background: #80cbc4; }
+    .step-desc {
+      font-size: 13px; color: #555; line-height: 1.5;
+      margin: 0 0 16px; text-align: center;
+    }
+    .step-desc strong { color: #1b3a4b; }
+    .otp-hint {
+      font-size: 11px; color: #999; text-align: center;
+      margin: -4px 0 8px;
+    }
+    .otp-hint code {
+      background: #f0f7f7; padding: 1px 6px; border-radius: 4px;
+      color: #0d8a8a; font-weight: 600;
+    }
+    .otp-meta {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; font-size: 12px; color: #888;
+      margin: 4px 0 14px;
+    }
+    .resend-link {
+      color: #0d8a8a; cursor: pointer; font-weight: 600;
+    }
+    .resend-link:hover { text-decoration: underline; }
+
+    /* ---------- Prefill banner (from guest booking) ---------- */
+    .prefill-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px; margin: 0 0 14px;
+      background: #e0f2f1; border-left: 3px solid #0d8a8a;
+      border-radius: 8px;
+    }
+    .prefill-banner > mat-icon {
+      color: #0d8a8a; font-size: 20px; width: 20px; height: 20px;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .prefill-text {
+      display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    }
+    .prefill-text strong {
+      font-size: 13px; color: #1b3a4b; font-weight: 700;
+    }
+    .prefill-text > span {
+      font-size: 12px; color: #555;
     }
 
-    .powered-by {
-      text-align: center; margin-top: 20px;
-      font-size: 12px; color: #999;
+    /* ---------- Signup row (first/last name, country code + phone) ---------- */
+    .signup-row {
+      display: flex; gap: 10px; align-items: flex-start;
     }
-    .powered-by strong { color: #0d8a8a; font-weight: 700; letter-spacing: 0.5px; }
+    .signup-half { flex: 1; min-width: 0; }
+    .phone-row { gap: 8px; }
+    .signup-cc { width: 110px; flex-shrink: 0; }
+    .signup-phone { flex: 1; min-width: 0; }
+    @media (max-width: 420px) {
+      .signup-row { flex-direction: column; gap: 0; }
+      .signup-cc { width: 100%; }
+    }
+
+    /* ---------- Password choice cards ---------- */
+    .pwd-choice {
+      display: flex; flex-direction: column; gap: 10px;
+      margin-bottom: 14px;
+    }
+    .choice-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px; border-radius: 10px;
+      border: 2px solid #e3ecec; background: #fafcfc;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .choice-card:hover { border-color: #80cbc4; background: #f5fafa; }
+    .choice-card.selected {
+      border-color: #0d8a8a; background: #e0f2f1;
+      box-shadow: 0 2px 8px rgba(13,138,138,0.15);
+    }
+    .choice-card input[type="radio"] {
+      accent-color: #0d8a8a; width: 18px; height: 18px; flex-shrink: 0;
+      margin: 0;
+    }
+    .choice-card mat-icon {
+      color: #0d8a8a; font-size: 24px; width: 24px; height: 24px;
+      flex-shrink: 0;
+    }
+    .choice-text { display: flex; flex-direction: column; gap: 2px; }
+    .choice-text strong { font-size: 14px; color: #1b3a4b; font-weight: 600; }
+    .choice-text span { font-size: 12px; color: #777; }
+
+    /* ---------- Footer ---------- */
+    .powered-by-foot {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 18px; font-size: 12px; color: #888;
+    }
+    .powered-by-foot strong { color: #0d8a8a; font-weight: 700; letter-spacing: 0.3px; }
+    .shield-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+      color: #80cbc4;
+    }
 
     /* =============================================
        MAIN APP SHELL (Step 4)
@@ -809,8 +1269,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .content { padding: 16px; }
       .geo-select { width: 100px; }
       .location-chip { max-width: 150px; }
-      .gate-content { padding: 0 8px; }
-      .gate-loc-meta { flex-direction: column; gap: 4px; }
+
+      /* Login top bar — collapse to two rows on mobile */
+      .topbar-inner { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+      .hospital-brand-text strong { font-size: 13px; }
+      .hospital-brand-ar { font-size: 10px; }
+      .topbar-loc-btn { font-size: 12px !important; height: 32px !important; }
+      .topbar-loc-name { max-width: 120px; }
     }
 
     @media (max-width: 480px) {
@@ -821,6 +1286,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 })
 export class ShellComponent {
   private readonly router = inject(Router);
+  private readonly signupHandoff = inject(SignupHandoffService);
   readonly geo = inject(GeographyService);
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
@@ -832,6 +1298,106 @@ export class ShellComponent {
   readonly loginPassword = signal('');
   readonly showPassword = signal(false);
   readonly termsAccepted = signal(false);
+
+  // Login screen mode: signin | create | forgot
+  readonly loginMode = signal<'signin' | 'create' | 'forgot'>('signin');
+
+  // Create-account flow
+  readonly signupStep = signal<1 | 2 | 3>(1);
+  readonly signupCpr = signal('');
+  readonly signupFirstName = signal('');
+  readonly signupLastName = signal('');
+  readonly signupCountryCode = signal('+973');
+  readonly signupPhone = signal('');
+  readonly signupAttempted = signal(false);
+  readonly signupOtp = signal('');
+  readonly signupNewPassword = signal('');
+  readonly passwordChoice = signal<'hospital' | 'own' | null>(null);
+
+  readonly countryCodes = [
+    { code: '+973', country: 'Bahrain' },
+    { code: '+91',  country: 'India' },
+    { code: '+1',   country: 'USA' },
+    { code: '+44',  country: 'UK' },
+    { code: '+971', country: 'UAE' },
+    { code: '+966', country: 'Saudi Arabia' },
+    { code: '+965', country: 'Kuwait' },
+    { code: '+974', country: 'Qatar' },
+    { code: '+968', country: 'Oman' }
+  ];
+
+  // Field-level invalid states (only shown after first Send OTP attempt)
+  readonly fnInvalid = computed(() => {
+    if (!this.signupAttempted()) return false;
+    const v = this.signupFirstName().trim();
+    return v.length === 0 || v.length > 60;
+  });
+  readonly lnInvalid = computed(() => {
+    if (!this.signupAttempted()) return false;
+    const v = this.signupLastName().trim();
+    return v.length === 0 || v.length > 60;
+  });
+  readonly cprInvalid = computed(() => {
+    if (!this.signupAttempted()) return false;
+    return this.signupCpr().length !== 8;
+  });
+  readonly phInvalid = computed(() => {
+    if (!this.signupAttempted()) return false;
+    return this.signupPhone().length !== 10;
+  });
+  readonly signupStep1Valid = computed(() => {
+    const fn = this.signupFirstName().trim();
+    const ln = this.signupLastName().trim();
+    return fn.length > 0 && fn.length <= 60 &&
+           ln.length > 0 && ln.length <= 60 &&
+           this.signupCpr().length === 8 &&
+           this.signupPhone().length === 10;
+  });
+
+  // Forgot-password flow
+  readonly forgotStep = signal<1 | 2 | 3>(1);
+  readonly forgotCpr = signal('');
+  readonly forgotOtp = signal('');
+  readonly forgotNewPassword = signal('');
+
+  // Carries name/phone/email from guest booking into the signup banner
+  readonly signupPrefill = signal<SignupPrefill | null>(null);
+
+  // Auto-open Create Account when guest booking hands off prefill data.
+  private readonly _handoffEffect = effect(() => {
+    const data = this.signupHandoff.prefillData();
+    if (!data) return;
+    this.signupPrefill.set(data);
+    this.signupFirstName.set(data.firstName || '');
+    this.signupLastName.set(data.lastName || '');
+    this.signupCpr.set((data.cpr || '').replace(/\D/g, '').slice(0, 8));
+    const parsed = this.parsePrefillPhone(data.phone);
+    this.signupCountryCode.set(parsed.code);
+    this.signupPhone.set(parsed.number);
+    this.signupAttempted.set(false);
+    this.signupOtp.set('');
+    this.signupNewPassword.set('');
+    this.passwordChoice.set(null);
+    this.signupStep.set(1);
+    if (!this.pendingLocationId()) {
+      this.pendingLocationId.set(this.locationService.locations[0].id);
+    }
+    this.showLocationPicker.set(true);
+    this.showLogin.set(true);
+    this.loginMode.set('create');
+    this.signupHandoff.consume();
+  });
+
+  private parsePrefillPhone(phone: string | undefined): { code: string; number: string } {
+    if (!phone) return { code: '+973', number: '' };
+    const cleaned = phone.replace(/\s+/g, '');
+    for (const cc of this.countryCodes) {
+      if (cleaned.startsWith(cc.code)) {
+        return { code: cc.code, number: cleaned.slice(cc.code.length).replace(/\D/g, '').slice(0, 10) };
+      }
+    }
+    return { code: '+973', number: cleaned.replace(/\D/g, '').slice(0, 10) };
+  }
 
   readonly previewDoctors = [
     { name: 'Dr. Rajesh Kumar', dept: 'Cardiology' },
@@ -856,6 +1422,20 @@ export class ShellComponent {
   onLocationSelected(locationId: string): void {
     this.pendingLocationId.set(locationId);
     this.showLogin.set(true);
+  }
+
+  goToLogin(): void {
+    if (!this.pendingLocationId()) {
+      this.pendingLocationId.set(this.locationService.locations[0].id);
+    }
+    this.showLocationPicker.set(true);
+    this.showLogin.set(true);
+  }
+
+  goBackToLanding(): void {
+    this.showLogin.set(false);
+    this.showLocationPicker.set(false);
+    this.loginMode.set('signin');
   }
 
   signIn(): void {
@@ -891,5 +1471,74 @@ export class ShellComponent {
 
   scrollTo(id: string): void {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  setMode(mode: 'signin' | 'create' | 'forgot'): void {
+    this.loginMode.set(mode);
+    if (mode === 'create') {
+      this.signupStep.set(1);
+      this.signupFirstName.set('');
+      this.signupLastName.set('');
+      this.signupCpr.set('');
+      this.signupCountryCode.set('+973');
+      this.signupPhone.set('');
+      this.signupAttempted.set(false);
+      this.signupOtp.set('');
+      this.signupNewPassword.set('');
+      this.passwordChoice.set(null);
+      this.signupPrefill.set(null);
+    } else if (mode === 'forgot') {
+      this.forgotStep.set(1);
+      this.forgotCpr.set('');
+      this.forgotOtp.set('');
+      this.forgotNewPassword.set('');
+    } else {
+      this.signupPrefill.set(null);
+    }
+  }
+
+  onSignupCprInput(value: string): void {
+    this.signupCpr.set(value.replace(/\D/g, '').slice(0, 8));
+  }
+
+  onSignupPhoneInput(value: string): void {
+    this.signupPhone.set(value.replace(/\D/g, '').slice(0, 10));
+  }
+
+  sendSignupOtp(): void {
+    this.signupAttempted.set(true);
+    if (!this.signupStep1Valid()) return;
+    this.signupOtp.set('');
+    this.signupStep.set(2);
+  }
+
+  verifySignupOtp(): void {
+    if (this.signupOtp() === '123456') {
+      this.signupStep.set(3);
+    }
+  }
+
+  completeSignup(): void {
+    // Account created — drop them into sign-in with their CPR pre-filled.
+    this.loginCpr.set(this.signupCpr());
+    this.loginPassword.set('');
+    this.setMode('signin');
+  }
+
+  sendForgotOtp(): void {
+    this.forgotOtp.set('');
+    this.forgotStep.set(2);
+  }
+
+  verifyForgotOtp(): void {
+    if (this.forgotOtp() === '123456') {
+      this.forgotStep.set(3);
+    }
+  }
+
+  completeForgot(): void {
+    this.loginCpr.set(this.forgotCpr());
+    this.loginPassword.set('');
+    this.setMode('signin');
   }
 }

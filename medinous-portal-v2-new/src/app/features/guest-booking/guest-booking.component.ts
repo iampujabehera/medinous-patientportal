@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,6 +18,7 @@ import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { LocationService } from '../../core/services/location.service';
+import { SignupHandoffService } from '../../core/services/signup-handoff.service';
 import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation } from '../../core/models/patient.model';
 
 @Component({
@@ -40,7 +42,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
 
       @if (!bookingResult()) {
         <mat-stepper [linear]="true" #stepper [selectedIndex]="currentStep()">
-          <!-- Step 1: Location -->
+          <!-- Step 1: Select Location -->
           <mat-step [completed]="!!selectedLocation()">
             <ng-template matStepLabel>{{ 'location.select' | translate }}</ng-template>
             <div class="step-content">
@@ -78,7 +80,8 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                   </mat-card>
                 }
               </div>
-              <div class="step-actions">
+              <div class="step-actions sticky-actions">
+                <span class="step-spacer"></span>
                 <button mat-flat-button color="primary"
                         [disabled]="!selectedLocation()"
                         (click)="goToStep(1)">
@@ -88,60 +91,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
             </div>
           </mat-step>
 
-          <!-- Step 2: Guest Details -->
-          <mat-step [completed]="isGuestValid()">
-            <ng-template matStepLabel>{{ 'guest.your_details' | translate }}</ng-template>
-            <div class="step-content">
-              <mat-card class="form-card">
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.first_name' | translate }}</mat-label>
-                    <input matInput [ngModel]="guest().firstName" (ngModelChange)="updateGuest('firstName', $event)" required>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.last_name' | translate }}</mat-label>
-                    <input matInput [ngModel]="guest().lastName" (ngModelChange)="updateGuest('lastName', $event)" required>
-                  </mat-form-field>
-                </div>
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.phone' | translate }}</mat-label>
-                    <input matInput type="tel" [ngModel]="guest().phone" (ngModelChange)="updateGuest('phone', $event)" required>
-                    <mat-icon matPrefix>phone</mat-icon>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.email' | translate }}</mat-label>
-                    <input matInput type="email" [ngModel]="guest().email" (ngModelChange)="updateGuest('email', $event)" required>
-                    <mat-icon matPrefix>email</mat-icon>
-                  </mat-form-field>
-                </div>
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.id_type' | translate }}</mat-label>
-                    <mat-select [ngModel]="guest().idType" (ngModelChange)="updateGuest('idType', $event)">
-                      <mat-option value="national_id">CPR / National ID</mat-option>
-                      <mat-option value="passport">Passport</mat-option>
-                      <mat-option value="driving_license">Driving License</mat-option>
-                    </mat-select>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.id_number' | translate }}</mat-label>
-                    <input matInput [ngModel]="guest().idNumber" (ngModelChange)="updateGuest('idNumber', $event)">
-                  </mat-form-field>
-                </div>
-              </mat-card>
-              <div class="step-actions">
-                <button mat-stroked-button (click)="goToStep(0)">{{ 'appt.back' | translate }}</button>
-                <button mat-flat-button color="primary"
-                        [disabled]="!isGuestValid()"
-                        (click)="goToStep(2)">
-                  {{ 'appt.continue' | translate }}
-                </button>
-              </div>
-            </div>
-          </mat-step>
-
-          <!-- Step 3: Choose Doctor & Slot -->
+          <!-- Step 2: Choose Doctor & Slot -->
           <mat-step [completed]="!!selectedSlot()">
             <ng-template matStepLabel>{{ 'appt.choose_doctor' | translate }}</ng-template>
             <div class="step-content">
@@ -193,10 +143,66 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                 }
               }
 
-              <div class="step-actions">
-                <button mat-stroked-button (click)="goToStep(1)">{{ 'appt.back' | translate }}</button>
+              <div class="step-actions sticky-actions">
+                <button mat-stroked-button (click)="goToStep(0)">{{ 'appt.back' | translate }}</button>
+                <span class="step-spacer"></span>
                 <button mat-flat-button color="primary"
                         [disabled]="!selectedSlot()"
+                        (click)="goToStep(2)">
+                  {{ 'appt.continue' | translate }}
+                </button>
+              </div>
+            </div>
+          </mat-step>
+
+          <!-- Step 3: Enter Details -->
+          <mat-step [completed]="isGuestValid()">
+            <ng-template matStepLabel>{{ 'guest.your_details' | translate }}</ng-template>
+            <div class="step-content">
+              <mat-card class="form-card">
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.first_name' | translate }}</mat-label>
+                    <input matInput [ngModel]="guest().firstName" (ngModelChange)="updateGuest('firstName', $event)" required>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.last_name' | translate }}</mat-label>
+                    <input matInput [ngModel]="guest().lastName" (ngModelChange)="updateGuest('lastName', $event)" required>
+                  </mat-form-field>
+                </div>
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.phone' | translate }}</mat-label>
+                    <input matInput type="tel" [ngModel]="guest().phone" (ngModelChange)="updateGuest('phone', $event)" required>
+                    <mat-icon matPrefix>phone</mat-icon>
+                    <mat-hint>SMS confirmations will be sent here</mat-hint>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.email' | translate }}</mat-label>
+                    <input matInput type="email" [ngModel]="guest().email" (ngModelChange)="updateGuest('email', $event)" required>
+                    <mat-icon matPrefix>email</mat-icon>
+                  </mat-form-field>
+                </div>
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.id_type' | translate }}</mat-label>
+                    <mat-select [ngModel]="guest().idType" (ngModelChange)="updateGuest('idType', $event)">
+                      <mat-option value="national_id">CPR / National ID</mat-option>
+                      <mat-option value="passport">Passport</mat-option>
+                      <mat-option value="driving_license">Driving License</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>{{ 'guest.id_number' | translate }}</mat-label>
+                    <input matInput [ngModel]="guest().idNumber" (ngModelChange)="updateGuest('idNumber', $event)">
+                  </mat-form-field>
+                </div>
+              </mat-card>
+              <div class="step-actions sticky-actions">
+                <button mat-stroked-button (click)="goToStep(1)">{{ 'appt.back' | translate }}</button>
+                <span class="step-spacer"></span>
+                <button mat-flat-button color="primary"
+                        [disabled]="!isGuestValid()"
                         (click)="goToStep(3)">
                   {{ 'appt.continue' | translate }}
                 </button>
@@ -204,7 +210,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
             </div>
           </mat-step>
 
-          <!-- Step 4: Confirm -->
+          <!-- Step 4: Confirm Booking -->
           <mat-step>
             <ng-template matStepLabel>{{ 'appt.confirm' | translate }}</ng-template>
             <div class="step-content">
@@ -234,10 +240,16 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                   <mat-label>{{ 'appt.reason' | translate }}</mat-label>
                   <textarea matInput rows="3" [ngModel]="visitReason()" (ngModelChange)="visitReason.set($event)"></textarea>
                 </mat-form-field>
+
+                <div class="sms-notice">
+                  <mat-icon>sms</mat-icon>
+                  <span>Booking confirmation and reminders will be sent via SMS to <strong>{{ guest().phone }}</strong></span>
+                </div>
               </mat-card>
 
-              <div class="step-actions">
+              <div class="step-actions sticky-actions">
                 <button mat-stroked-button (click)="goToStep(2)">{{ 'appt.back' | translate }}</button>
+                <span class="step-spacer"></span>
                 <button mat-flat-button color="primary"
                         [disabled]="booking()"
                         (click)="confirmBooking()">
@@ -277,7 +289,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
             <mat-icon>how_to_reg</mat-icon>
             <p>{{ 'guest.register_prompt' | translate }}</p>
             <div class="register-actions">
-              <button mat-flat-button color="primary">
+              <button mat-flat-button color="primary" (click)="goToCreateAccount()">
                 <mat-icon>person_add</mat-icon>
                 {{ 'guest.register' | translate }}
               </button>
@@ -370,7 +382,38 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
     .register-prompt p { color: #666; margin: 8px 0 16px; }
     .register-actions { display: flex; gap: 12px; justify-content: center; }
 
-    .step-actions { display: flex; gap: 12px; margin-top: 24px; }
+    .step-actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; }
+    .step-spacer { flex: 1; }
+
+    /* Sticky Continue/Back footer — pinned to bottom of scroll viewport */
+    .sticky-actions {
+      position: sticky; bottom: 0; z-index: 10;
+      background: #f5f7fa;
+      padding: 14px 16px;
+      margin: 24px -24px 0;
+      border-top: 1px solid #e0e0e0;
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.04);
+    }
+    @media (max-width: 600px) {
+      .sticky-actions { margin: 24px -16px 0; padding: 12px; }
+    }
+
+    /* SMS notification banner */
+    .sms-notice {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 14px; margin-top: 16px;
+      background: #e0f2f1; border-left: 3px solid #0d8a8a;
+      border-radius: 6px;
+      font-size: 13px; color: #1b3a4b; line-height: 1.5;
+    }
+    .sms-notice mat-icon {
+      color: #0d8a8a; font-size: 20px; width: 20px; height: 20px;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .sms-notice strong { color: #0d8a8a; font-weight: 700; }
+    .success-sms {
+      max-width: 420px; margin: 16px auto 0; text-align: left;
+    }
 
     @media (max-width: 600px) {
       .form-row { flex-direction: column; }
@@ -383,6 +426,8 @@ export class GuestBookingComponent implements OnInit {
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly signupHandoff = inject(SignupHandoffService);
+  private readonly router = inject(Router);
 
   readonly currentStep = signal(0);
   readonly selectedLocation = signal<ClinicLocation | null>(null);
@@ -467,5 +512,19 @@ export class GuestBookingComponent implements OnInit {
     this.visitReason.set('');
     this.bookingResult.set(null);
     this.guest.set({ firstName: '', lastName: '', phone: '', email: '' });
+  }
+
+  goToCreateAccount(): void {
+    const g = this.guest();
+    this.signupHandoff.setPrefill({
+      firstName: g.firstName,
+      lastName: g.lastName,
+      cpr: g.idType === 'national_id' ? (g.idNumber || '') : '',
+      phone: g.phone,
+      email: g.email
+    });
+    // Drop the guest "session" so the shell renders the login flow again.
+    this.locationService.setLocation(null);
+    this.router.navigate(['/']);
   }
 }

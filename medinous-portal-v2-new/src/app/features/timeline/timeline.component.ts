@@ -1,20 +1,27 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed, ViewChild, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { TimelineEvent } from '../../core/models/patient.model';
 
-interface TimePeriod { label: string; days: number; }
+interface TimePeriod { label: string; short: string; days: number; }
+interface CategoryFilter {
+  value: string;
+  label: string;
+  icon: string;
+}
 
 @Component({
   selector: 'app-timeline',
@@ -22,71 +29,74 @@ interface TimePeriod { label: string; days: number; }
   imports: [
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
-    MatButtonToggleModule, MatInputModule, MatFormFieldModule,
-    MatSelectModule, MatSnackBarModule,
+    MatMenuModule, MatInputModule, MatFormFieldModule, MatSelectModule,
+    MatDialogModule, MatTooltipModule, MatSnackBarModule,
     SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
-      <!-- ===== TOP SECTION (matches image 1 exactly) ===== -->
-      <div class="top-section">
-        <div class="top-row">
-          <div>
-            <h1>Health Timeline</h1>
-            <p class="sub">Your complete health history in one place</p>
-          </div>
-          <button mat-flat-button class="upload-btn" (click)="showUpload.set(true)">
-            <mat-icon>cloud_upload</mat-icon> Upload
-          </button>
-        </div>
 
-        <!-- Search -->
+      <!-- Header -->
+      <div class="page-head">
+        <div>
+          <h1>My Records</h1>
+          <p class="sub">Your complete health history in one place</p>
+        </div>
+        <button mat-flat-button class="upload-btn" (click)="showUpload.set(true)">
+          <mat-icon>cloud_upload</mat-icon> Upload
+        </button>
+      </div>
+
+      <!-- Search + Period dropdown row -->
+      <div class="filter-row">
         <div class="search-wrap">
           <mat-icon class="s-icon">search</mat-icon>
           <input class="s-input"
                  [ngModel]="searchQuery()"
                  (ngModelChange)="searchQuery.set($event)"
-                 placeholder="Search records...">
+                 placeholder="Search records, providers...">
           @if (searchQuery()) {
             <button mat-icon-button class="s-clear" (click)="searchQuery.set('')">
               <mat-icon>close</mat-icon>
             </button>
           }
         </div>
-
-        <!-- Time Period Pills -->
-        <div class="pills-row">
+        <button mat-stroked-button class="period-btn" [matMenuTriggerFor]="periodMenu">
+          <mat-icon class="period-icon">event</mat-icon>
+          <span class="period-label">{{ getPeriodLabel() }}</span>
+          <mat-icon class="period-caret">expand_more</mat-icon>
+        </button>
+        <mat-menu #periodMenu="matMenu">
           @for (p of timePeriods; track p.days) {
-            <button class="pill" [class.active]="selectedPeriod() === p.days"
-                    (click)="selectedPeriod.set(p.days)">
-              {{ p.label }}
+            <button mat-menu-item (click)="selectedPeriod.set(p.days)">
+              <mat-icon [class.invisible]="selectedPeriod() !== p.days">check</mat-icon>
+              <span>{{ p.label }}</span>
             </button>
           }
-        </div>
+        </mat-menu>
+      </div>
 
-        <!-- Category Toggles -->
-        <mat-button-toggle-group [value]="activeFilter()" (change)="activeFilter.set($event.value)" class="cat-group">
-          <mat-button-toggle value="all">All</mat-button-toggle>
-          <mat-button-toggle value="appointment">Visits</mat-button-toggle>
-          <mat-button-toggle value="lab_result">Labs</mat-button-toggle>
-          <mat-button-toggle value="prescription">Rx</mat-button-toggle>
-          <mat-button-toggle value="imaging">Radiology</mat-button-toggle>
-          <mat-button-toggle value="procedure">Procedures</mat-button-toggle>
-          <mat-button-toggle value="medical_report">Reports</mat-button-toggle>
-          <mat-button-toggle value="vaccination">Vaccines</mat-button-toggle>
-        </mat-button-toggle-group>
-
-        @if (!loading()) {
-          <p class="count">{{ filteredEvents().length }} records
-            @if (selectedPeriod() < 9999) {
-              <span>in last {{ getPeriodLabel() }}</span>
-            }
-          </p>
+      <!-- Category filter chips with icons -->
+      <div class="cat-chips">
+        @for (cat of categories; track cat.value) {
+          <button class="cat-chip"
+                  [class.active]="activeFilter() === cat.value"
+                  (click)="activeFilter.set(cat.value)">
+            <mat-icon>{{ cat.icon }}</mat-icon>
+            <span>{{ cat.label }}</span>
+          </button>
         }
       </div>
 
-      <!-- ===== UPLOAD PANEL ===== -->
+      @if (!loading()) {
+        <p class="count">
+          {{ filteredEvents().length }} record{{ filteredEvents().length === 1 ? '' : 's' }}
+          <span class="count-period"> · {{ getPeriodLabel() }}</span>
+        </p>
+      }
+
+      <!-- Upload panel (unchanged) -->
       @if (showUpload()) {
         <mat-card class="upload-card">
           <div class="uc-header">
@@ -123,53 +133,52 @@ interface TimePeriod { label: string; days: number; }
         </mat-card>
       }
 
-      <!-- ===== CARDS GRID (matches image 2) ===== -->
+      <!-- Records list (compact horizontal cards) -->
       @if (loading()) {
-        <div class="grid">
+        <div class="rec-list">
           @for (i of [1,2,3,4]; track i) {
-            <app-skeleton-card [lines]="4" />
+            <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
           }
         </div>
       } @else if (!filteredEvents().length) {
         <div class="empty">
           <mat-icon>folder_open</mat-icon>
           <h3>No records found</h3>
-          <p>Try a different period or upload a document</p>
+          <p>Try a different period, category, or upload a document</p>
         </div>
       } @else {
-        <div class="grid">
+        <div class="rec-list">
           @for (event of filteredEvents(); track event.id) {
-            <mat-card class="rec-card">
-              <!-- Color Banner -->
-              <div class="card-banner" [ngClass]="'banner-' + event.type">
+            <div class="rec-row" [ngClass]="'type-' + event.type">
+              <div class="rec-icon" [ngClass]="'icon-' + event.type">
                 <mat-icon>{{ getEventIcon(event) }}</mat-icon>
               </div>
-              <!-- Card Body -->
-              <div class="card-body">
-                <h3>{{ event.title }}</h3>
-                <div class="card-meta">
-                  <mat-chip class="type-chip" [ngClass]="'chip-' + event.type">
+              <div class="rec-body">
+                <div class="rec-line-1">
+                  <strong class="rec-title">{{ event.title }}</strong>
+                  <span class="rec-type-chip" [ngClass]="'chip-' + event.type">
                     {{ formatType(event.type) }}
-                  </mat-chip>
+                  </span>
                 </div>
-                <div class="card-info">
-                  <span><mat-icon class="ci">person</mat-icon> {{ event.provider }}</span>
-                  <span><mat-icon class="ci">schedule</mat-icon> {{ formatDate(event.date) }}</span>
+                <div class="rec-meta">
+                  <span><mat-icon class="meta-icon">person</mat-icon>{{ event.provider }}</span>
+                  <span class="meta-dot">·</span>
+                  <span><mat-icon class="meta-icon">schedule</mat-icon>{{ formatDate(event.date) }}</span>
                 </div>
               </div>
-              <!-- Actions -->
-              <div class="card-actions">
-                <button mat-button class="ca-btn view">
-                  <mat-icon>visibility</mat-icon> View
+              <div class="rec-actions">
+                <button mat-icon-button matTooltip="View" class="ra-btn">
+                  <mat-icon>visibility</mat-icon>
                 </button>
-                <button mat-button class="ca-btn download">
-                  <mat-icon>download</mat-icon> Download
+                <button mat-icon-button matTooltip="Download" class="ra-btn">
+                  <mat-icon>download</mat-icon>
                 </button>
-                <button mat-button class="ca-btn delete" (click)="deleteRecord(event)">
-                  <mat-icon>delete</mat-icon> Delete
+                <button mat-icon-button matTooltip="Delete" class="ra-btn ra-delete"
+                        (click)="confirmDelete(event)">
+                  <mat-icon>delete_outline</mat-icon>
                 </button>
               </div>
-            </mat-card>
+            </div>
           }
         </div>
       }
@@ -179,61 +188,133 @@ interface TimePeriod { label: string; days: number; }
         <mat-icon>cloud_upload</mat-icon>
       </button>
     </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <ng-template #deleteDialog let-data>
+      <div class="del-dialog">
+        <div class="del-icon-wrap">
+          <mat-icon>warning_amber</mat-icon>
+        </div>
+        <h3>Delete this record?</h3>
+        <p><strong>{{ data.title }}</strong> will be permanently removed. This action cannot be undone.</p>
+        <div class="del-actions">
+          <button mat-stroked-button matDialogClose>Cancel</button>
+          <button mat-flat-button class="del-confirm-btn" [matDialogClose]="'confirm'">
+            <mat-icon>delete</mat-icon> Delete
+          </button>
+        </div>
+      </div>
+    </ng-template>
   `,
   styles: [`
     .page { max-width: 1000px; margin: 0 auto; padding-bottom: 80px; }
 
-    /* ===== TOP SECTION ===== */
-    .top-section { margin-bottom: 24px; }
-    .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
-    h1 { font-size: 28px; font-weight: 700; color: #1a237e; margin: 0; }
+    /* ===== HEADER ===== */
+    .page-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    h1 { font-size: 26px; font-weight: 700; color: #1b3a4b; margin: 0; }
     .sub { color: #888; font-size: 14px; margin: 4px 0 0; }
     .upload-btn {
       background: #0d8a8a !important; color: white !important;
       font-weight: 600 !important; border-radius: 8px !important;
+      padding: 0 18px !important;
     }
 
-    /* Search */
+    /* ===== SEARCH + PERIOD DROPDOWN ROW ===== */
+    .filter-row {
+      display: flex; gap: 10px; align-items: center;
+      margin-bottom: 14px;
+    }
     .search-wrap {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px; background: #f0f0f0; border-radius: 28px;
-      margin-bottom: 16px;
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px; height: 40px; box-sizing: border-box;
+      background: white; border: 1px solid #e0e8e8; border-radius: 22px;
+      transition: border-color 0.18s, box-shadow 0.18s;
     }
-    .s-icon { color: #999; font-size: 22px; width: 22px; height: 22px; }
+    .search-wrap:focus-within {
+      border-color: #0d8a8a;
+      box-shadow: 0 0 0 3px rgba(13,138,138,0.08);
+    }
+    .s-icon { color: #999; font-size: 20px; width: 20px; height: 20px; }
     .s-input {
-      flex: 1; border: none; outline: none; background: transparent;
-      font-size: 15px; font-family: inherit; color: #333;
+      flex: 1; min-width: 0;
+      border: none; outline: none; background: transparent;
+      font-size: 14px; font-family: inherit; color: #333;
     }
-    .s-input::placeholder { color: #bbb; }
-    .s-clear { color: #999; }
-
-    /* Pills */
-    .pills-row {
-      display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    .s-input::placeholder { color: #aaa; }
+    .s-clear {
+      width: 28px !important; height: 28px !important;
+      line-height: 28px !important; color: #999;
     }
-    .pill {
-      padding: 6px 18px; border-radius: 22px; border: 1.5px solid #ccc;
-      background: white; font-size: 13px; font-family: inherit;
-      color: #555; cursor: pointer; transition: all 0.15s; font-weight: 500;
+    .s-clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+    .period-btn {
+      flex-shrink: 0; height: 40px !important;
+      border-radius: 22px !important;
+      border-color: #d8e3e3 !important; background: white !important;
+      color: #1b3a4b !important; font-weight: 500 !important;
+      font-size: 13px !important;
+      padding: 0 14px !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
     }
-    .pill:hover { border-color: #1a237e; color: #1a237e; }
-    .pill.active { background: #1a237e; color: white; border-color: #1a237e; }
+    .period-btn .period-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a;
+    }
+    .period-btn .period-caret {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #888;
+    }
+    .period-label { white-space: nowrap; }
 
-    /* Category */
-    .cat-group { margin-bottom: 12px; }
-    .count { font-size: 13px; color: #aaa; margin: 0; }
-    .count span { color: #777; }
+    .invisible { visibility: hidden; }
 
-    /* ===== UPLOAD ===== */
+    /* ===== CATEGORY CHIPS ===== */
+    .cat-chips {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding: 2px 0 14px;
+      scrollbar-width: none;
+    }
+    .cat-chips::-webkit-scrollbar { display: none; }
+    .cat-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 20px;
+      border: 1px solid #d8e3e3; background: white;
+      font-size: 13px; font-weight: 500; color: #555;
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.18s;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    .cat-chip:hover { border-color: #80cbc4; color: #0d8a8a; }
+    .cat-chip mat-icon {
+      font-size: 16px; width: 16px; height: 16px;
+    }
+    .cat-chip.active {
+      background: #0d8a8a; color: white; border-color: #0d8a8a;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
+    }
+
+    .count {
+      font-size: 12px; color: #888; margin: 0 0 14px;
+    }
+    .count-period { color: #aaa; }
+
+    /* ===== UPLOAD PANEL ===== */
     .upload-card {
-      padding: 20px; margin-bottom: 20px; border: 2px dashed #0d8a8a;
+      padding: 20px; margin-bottom: 18px;
+      border: 2px dashed #0d8a8a;
       border-radius: 12px !important; background: #f0fafa;
     }
     .uc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .uc-header strong { font-size: 16px; color: #1b3a4b; }
     .uc-drop {
-      text-align: center; padding: 20px; cursor: pointer; border: 1px dashed #b2dfdb;
-      border-radius: 10px; background: white; margin-bottom: 12px;
+      text-align: center; padding: 20px; cursor: pointer;
+      border: 1px dashed #b2dfdb; border-radius: 10px;
+      background: white; margin-bottom: 12px;
     }
     .uc-drop:hover { background: #e0f2f1; }
     .uc-drop mat-icon { font-size: 32px; width: 32px; height: 32px; color: #0d8a8a; }
@@ -248,94 +329,143 @@ interface TimePeriod { label: string; days: number; }
     .uc-field { width: 100%; }
     .uc-submit { width: 100%; }
 
-    /* ===== CARD GRID ===== */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
+    /* ===== COMPACT RECORD ROWS ===== */
+    .rec-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .rec-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: white; border: 1px solid #e8eded;
+      border-radius: 10px; transition: all 0.18s;
+    }
+    .rec-row:hover {
+      border-color: #b2dfdb;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.06);
     }
 
-    .rec-card {
-      padding: 0; border-radius: 12px !important; overflow: hidden;
-      transition: box-shadow 0.2s;
+    /* Colored icon circle on the left */
+    .rec-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
     }
-    .rec-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+    .rec-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
+    .icon-appointment { background: linear-gradient(135deg, #3f51b5, #5c6bc0); }
+    .icon-lab_result { background: linear-gradient(135deg, #00897b, #26a69a); }
+    .icon-prescription { background: linear-gradient(135deg, #f57c00, #ffb74d); }
+    .icon-vaccination { background: linear-gradient(135deg, #7b1fa2, #ab47bc); }
+    .icon-note { background: linear-gradient(135deg, #546e7a, #78909c); }
+    .icon-imaging { background: linear-gradient(135deg, #0277bd, #29b6f6); }
+    .icon-procedure { background: linear-gradient(135deg, #e64a19, #ff8a65); }
+    .icon-medical_report { background: linear-gradient(135deg, #2e7d32, #66bb6a); }
 
-    /* Banner */
-    .card-banner {
-      height: 64px; display: flex; align-items: center; justify-content: center;
-    }
-    .card-banner mat-icon { font-size: 28px; width: 28px; height: 28px; color: white; }
-
-    .banner-appointment { background: linear-gradient(135deg, #3f51b5, #5c6bc0); }
-    .banner-lab_result { background: linear-gradient(135deg, #00897b, #26a69a); }
-    .banner-prescription { background: linear-gradient(135deg, #f57c00, #ffb74d); }
-    .banner-vaccination { background: linear-gradient(135deg, #7b1fa2, #ab47bc); }
-    .banner-note { background: linear-gradient(135deg, #546e7a, #78909c); }
-    .banner-imaging { background: linear-gradient(135deg, #0277bd, #29b6f6); }
-    .banner-procedure { background: linear-gradient(135deg, #e64a19, #ff8a65); }
-    .banner-medical_report { background: linear-gradient(135deg, #2e7d32, #66bb6a); }
-
-    /* Body */
-    .card-body { padding: 14px 16px 10px; }
-    .card-body h3 {
-      font-size: 15px; font-weight: 600; color: #222; margin: 0 0 8px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    .card-meta { margin-bottom: 8px; }
-    .type-chip {
-      font-size: 11px !important; min-height: 22px !important; font-weight: 600 !important;
-    }
-    .chip-appointment { background: #e8eaf6 !important; color: #3f51b5 !important; }
-    .chip-lab_result { background: #e0f2f1 !important; color: #00897b !important; }
-    .chip-prescription { background: #fff3e0 !important; color: #f57c00 !important; }
-    .chip-vaccination { background: #f3e5f5 !important; color: #7b1fa2 !important; }
-    .chip-note { background: #eceff1 !important; color: #546e7a !important; }
-    .chip-imaging { background: #e1f5fe !important; color: #0277bd !important; }
-    .chip-procedure { background: #fbe9e7 !important; color: #e64a19 !important; }
-    .chip-medical_report { background: #e8f5e9 !important; color: #2e7d32 !important; }
-
-    .card-info {
+    .rec-body {
+      flex: 1; min-width: 0;
       display: flex; flex-direction: column; gap: 3px;
     }
-    .card-info span {
-      display: flex; align-items: center; gap: 4px;
-      font-size: 13px; color: #888;
+    .rec-line-1 {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
     }
-    .ci { font-size: 15px; width: 15px; height: 15px; color: #aaa; }
+    .rec-title {
+      font-size: 14px; color: #1b3a4b; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex: 0 1 auto;
+    }
+    .rec-type-chip {
+      font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 8px;
+      flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .chip-appointment { background: #e8eaf6; color: #3f51b5; }
+    .chip-lab_result { background: #e0f2f1; color: #00897b; }
+    .chip-prescription { background: #fff3e0; color: #f57c00; }
+    .chip-vaccination { background: #f3e5f5; color: #7b1fa2; }
+    .chip-note { background: #eceff1; color: #546e7a; }
+    .chip-imaging { background: #e1f5fe; color: #0277bd; }
+    .chip-procedure { background: #fbe9e7; color: #e64a19; }
+    .chip-medical_report { background: #e8f5e9; color: #2e7d32; }
 
-    /* Actions */
-    .card-actions {
-      display: flex; border-top: 1px solid #f0f0f0; padding: 4px 8px;
+    .rec-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #888;
+      flex-wrap: wrap;
     }
-    .ca-btn {
-      flex: 1; font-size: 12px !important; color: #1976d2 !important; font-weight: 500 !important;
+    .rec-meta span { display: inline-flex; align-items: center; gap: 3px; }
+    .meta-icon {
+      font-size: 13px !important; width: 13px !important; height: 13px !important;
+      color: #aaa;
     }
-    .ca-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
-    .ca-btn.delete { color: #d32f2f !important; }
+    .meta-dot { color: #ccc; }
 
-    /* Empty */
+    .rec-actions {
+      display: flex; gap: 2px; flex-shrink: 0;
+    }
+    .ra-btn {
+      width: 34px !important; height: 34px !important;
+      line-height: 34px !important; color: #888 !important;
+    }
+    .ra-btn:hover { color: #0d8a8a !important; background: #f0f7f7 !important; }
+    .ra-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .ra-delete:hover { color: #d32f2f !important; background: #fdecea !important; }
+
+    /* ===== EMPTY ===== */
     .empty { text-align: center; padding: 60px 20px; color: #999; }
     .empty mat-icon { font-size: 48px; width: 48px; height: 48px; color: #ccc; margin-bottom: 8px; }
 
-    /* FAB */
+    /* ===== FAB ===== */
     .fab {
       position: fixed; bottom: 24px; right: 24px; z-index: 50;
       background: #0d8a8a !important; color: white !important;
     }
 
+    /* ===== DELETE DIALOG ===== */
+    .del-dialog { padding: 24px; text-align: center; max-width: 360px; }
+    .del-icon-wrap {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #fff3e0; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .del-icon-wrap mat-icon {
+      color: #f57c00; font-size: 32px; width: 32px; height: 32px;
+    }
+    .del-dialog h3 {
+      margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #1b3a4b;
+    }
+    .del-dialog p {
+      margin: 0 0 20px; font-size: 14px; color: #555; line-height: 1.5;
+    }
+    .del-dialog p strong { color: #1b3a4b; }
+    .del-actions {
+      display: flex; gap: 10px; justify-content: center;
+    }
+    .del-actions button { min-width: 110px; }
+    .del-confirm-btn {
+      background: #d32f2f !important; color: white !important;
+      font-weight: 600 !important;
+    }
+    .del-confirm-btn mat-icon {
+      font-size: 18px; width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;
+    }
+
     @media (min-width: 769px) { .fab { display: none; } }
     @media (max-width: 768px) {
       .upload-btn { display: none; }
-      .grid { grid-template-columns: 1fr; }
       h1 { font-size: 22px; }
+      .filter-row { flex-direction: column; gap: 8px; }
+      .search-wrap, .period-btn { width: 100%; }
+      .period-btn { justify-content: space-between !important; }
+      .rec-row { padding: 10px 12px; }
+      .rec-title { font-size: 13px; }
     }
   `]
 })
 export class TimelineComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
+
+  @ViewChild('deleteDialog', { static: true }) deleteDialogRef!: TemplateRef<unknown>;
 
   readonly loading = signal(true);
   readonly allEvents = signal<TimelineEvent[]>([]);
@@ -347,12 +477,23 @@ export class TimelineComponent implements OnInit {
   readonly uploadType = signal('');
 
   readonly timePeriods: TimePeriod[] = [
-    { label: 'Last 7 days', days: 7 },
-    { label: 'Last 30 days', days: 30 },
-    { label: '3 months', days: 90 },
-    { label: '6 months', days: 180 },
-    { label: '1 year', days: 365 },
-    { label: 'All time', days: 9999 }
+    { label: 'Last 7 days',  short: '7 days',  days: 7 },
+    { label: 'Last 30 days', short: '30 days', days: 30 },
+    { label: 'Last 3 months', short: '3 mo',   days: 90 },
+    { label: 'Last 6 months', short: '6 mo',   days: 180 },
+    { label: 'Last 1 year',  short: '1 yr',   days: 365 },
+    { label: 'All time',     short: 'All',    days: 9999 }
+  ];
+
+  readonly categories: CategoryFilter[] = [
+    { value: 'all',            label: 'All',         icon: 'apps' },
+    { value: 'appointment',    label: 'Visits',      icon: 'event' },
+    { value: 'lab_result',     label: 'Labs',        icon: 'science' },
+    { value: 'prescription',   label: 'Rx',          icon: 'medication' },
+    { value: 'imaging',        label: 'Radiology',   icon: 'image' },
+    { value: 'procedure',      label: 'Procedures',  icon: 'monitor_heart' },
+    { value: 'medical_report', label: 'Reports',     icon: 'summarize' },
+    { value: 'vaccination',    label: 'Vaccines',    icon: 'vaccines' }
   ];
 
   readonly filteredEvents = computed(() => {
@@ -395,9 +536,9 @@ export class TimelineComponent implements OnInit {
 
   formatType(type: string): string {
     const m: Record<string, string> = {
-      appointment: 'Visit', lab_result: 'Lab Report', prescription: 'Prescription',
+      appointment: 'Visit', lab_result: 'Lab', prescription: 'Rx',
       vaccination: 'Vaccine', note: 'Note', imaging: 'Radiology',
-      procedure: 'Procedure', medical_report: 'Medical Report'
+      procedure: 'Procedure', medical_report: 'Report'
     };
     return m[type] ?? type;
   }
@@ -407,7 +548,7 @@ export class TimelineComponent implements OnInit {
   }
 
   getPeriodLabel(): string {
-    return this.timePeriods.find(p => p.days === this.selectedPeriod())?.label.replace('Last ', '') ?? '';
+    return this.timePeriods.find(p => p.days === this.selectedPeriod())?.label ?? '';
   }
 
   onFileSelected(event: Event): void {
@@ -430,9 +571,22 @@ export class TimelineComponent implements OnInit {
     this.snackBar.open('Document uploaded', 'OK', { duration: 3000 });
   }
 
-  deleteRecord(event: TimelineEvent): void {
+  confirmDelete(event: TimelineEvent): void {
+    const ref = this.dialog.open(this.deleteDialogRef, {
+      width: '380px',
+      data: event,
+      panelClass: 'del-dialog-panel'
+    });
+    ref.afterClosed().subscribe(result => {
+      if (result === 'confirm') {
+        this.deleteRecord(event);
+      }
+    });
+  }
+
+  private deleteRecord(event: TimelineEvent): void {
     this.allEvents.update(list => list.filter(e => e.id !== event.id));
-    this.snackBar.open('Deleted', 'Undo', { duration: 4000 }).onAction().subscribe(() => {
+    this.snackBar.open('Record deleted', 'Undo', { duration: 4000 }).onAction().subscribe(() => {
       this.allEvents.update(list => [...list, event].sort((a, b) => b.date.localeCompare(a.date)));
     });
   }
