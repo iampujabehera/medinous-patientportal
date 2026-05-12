@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, computed, effect, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, effect, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -282,13 +282,32 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
               <!-- ============= MODE: SIGN IN ============= -->
               @if (loginMode() === 'signin') {
-                <div class="login-body">
+                <div class="login-body" [class.login-body-locked]="isLocked()">
                   <h2 class="login-title">Sign in to your account</h2>
+
+                  @if (isLocked()) {
+                    <div class="signin-locked" role="alert">
+                      <mat-icon class="lock-icon">lock</mat-icon>
+                      <div class="locked-text">
+                        <strong>Account temporarily locked</strong>
+                        <span>
+                          Too many login attempts. Please try again in
+                          <strong>{{ lockCountdown() }}</strong>.
+                        </span>
+                      </div>
+                    </div>
+                  } @else if (signInError()) {
+                    <p class="signin-error" role="alert">{{ signInError() }}</p>
+                  }
 
                   <mat-form-field appearance="outline" class="login-field">
                     <mat-label>CPR No / Patient ID</mat-label>
                     <mat-icon matPrefix>person</mat-icon>
-                    <input matInput [ngModel]="loginCpr()" (ngModelChange)="loginCpr.set($event)" placeholder="Enter CPR or Patient ID">
+                    <input matInput
+                           [ngModel]="loginCpr()"
+                           (ngModelChange)="onLoginCprInput($event)"
+                           [readonly]="isLocked()"
+                           placeholder="Enter CPR or Patient ID">
                     <mat-icon matSuffix class="info-icon"
                               matTooltip="CPR is your Bahrain national ID (8 digits). Patient ID is provided by the hospital at registration."
                               matTooltipPosition="above">info_outline</mat-icon>
@@ -297,8 +316,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   <mat-form-field appearance="outline" class="login-field">
                     <mat-label>Password</mat-label>
                     <mat-icon matPrefix>lock</mat-icon>
-                    <input matInput [type]="showPassword() ? 'text' : 'password'" [ngModel]="loginPassword()" (ngModelChange)="loginPassword.set($event)" placeholder="Enter your password">
-                    <button mat-icon-button matSuffix (click)="togglePassword()">
+                    <input matInput
+                           [type]="showPassword() ? 'text' : 'password'"
+                           [ngModel]="loginPassword()"
+                           (ngModelChange)="onLoginPasswordInput($event)"
+                           [readonly]="isLocked()"
+                           placeholder="Enter your password">
+                    <button mat-icon-button matSuffix (click)="togglePassword()" [disabled]="isLocked()">
                       <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
                     </button>
                   </mat-form-field>
@@ -308,13 +332,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   </div>
 
                   <div class="login-terms">
-                    <mat-checkbox [ngModel]="termsAccepted()" (ngModelChange)="termsAccepted.set($event)">
+                    <mat-checkbox [ngModel]="termsAccepted()" (ngModelChange)="termsAccepted.set($event)" [disabled]="isLocked()">
                       I agree to the <a class="terms-link">Terms &amp; Conditions</a>
                     </mat-checkbox>
                   </div>
 
                   <button mat-flat-button class="login-btn"
-                          [disabled]="!loginCpr() || !loginPassword() || !termsAccepted()"
+                          [disabled]="!loginCpr() || !loginPassword() || !termsAccepted() || isLocked()"
                           (click)="signIn()">
                     Sign In <mat-icon>arrow_forward</mat-icon>
                   </button>
@@ -344,7 +368,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   <div class="stepper">
                     <div class="step" [class.active]="signupStep() >= 1" [class.done]="signupStep() > 1">
                       <span class="step-num">{{ signupStep() > 1 ? '✓' : '1' }}</span>
-                      <span class="step-label">CPR</span>
+                      <span class="step-label">Identify</span>
                     </div>
                     <div class="step-line" [class.done]="signupStep() > 1"></div>
                     <div class="step" [class.active]="signupStep() >= 2" [class.done]="signupStep() > 2">
@@ -387,14 +411,14 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     </div>
 
                     <mat-form-field appearance="outline" class="login-field">
-                      <mat-label>CPR Number</mat-label>
+                      <mat-label>National ID / Patient ID</mat-label>
                       <mat-icon matPrefix>badge</mat-icon>
                       <input matInput inputmode="numeric" maxlength="8"
                              [ngModel]="signupCpr()"
                              (ngModelChange)="onSignupCprInput($event)"
-                             placeholder="8-digit CPR">
+                             placeholder="8-digit National ID or Patient ID">
                       @if (cprInvalid()) {
-                        <mat-error>CPR must be exactly 8 digits</mat-error>
+                        <mat-error>National ID / Patient ID must be exactly 8 digits</mat-error>
                       } @else {
                         <mat-hint align="end">{{ signupCpr().length }}/8</mat-hint>
                       }
@@ -431,7 +455,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   }
 
                   @if (signupStep() === 2) {
-                    <p class="step-desc">We sent a 6-digit code to the mobile number registered with CPR <strong>{{ signupCpr() }}</strong>.</p>
+                    <p class="step-desc">We sent a 6-digit code to the mobile number registered with ID <strong>{{ signupCpr() }}</strong>.</p>
                     <mat-form-field appearance="outline" class="login-field">
                       <mat-label>Enter OTP</mat-label>
                       <mat-icon matPrefix>sms</mat-icon>
@@ -519,7 +543,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   </div>
 
                   @if (forgotStep() === 1) {
-                    <p class="step-desc">Enter your CPR or Patient ID. We'll send an OTP to the mobile registered with your account.</p>
+                    <p class="step-desc">Enter your National ID or Patient ID. We'll send a 6-digit OTP to the mobile number registered with your account.</p>
                     <mat-form-field appearance="outline" class="login-field">
                       <mat-label>CPR No / Patient ID</mat-label>
                       <mat-icon matPrefix>person</mat-icon>
@@ -583,80 +607,128 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       <!--  STEP 4: MAIN APP (after login)              -->
       <!-- ============================================ -->
       <div class="shell-container" [class.rtl]="i18n.isRtl()">
-        <mat-toolbar color="primary" class="toolbar">
-          <button mat-icon-button (click)="toggleSidenav()">
-            <mat-icon>menu</mat-icon>
-          </button>
-          <span class="logo">BSH Patient Portal</span>
+        <mat-toolbar class="toolbar">
+          <!-- Hamburger only on mobile -->
+          @if (isMobile()) {
+            <button mat-icon-button class="hamburger" (click)="toggleSidenav()" aria-label="Menu">
+              <mat-icon>menu</mat-icon>
+            </button>
+          }
+
+          <!-- Brand: Medinous × BSH | Patient Portal -->
+          <div class="brand">
+            <img src="medinous-logo.svg" alt="Medinous" class="brand-medinous">
+            <span class="brand-cross">×</span>
+            <img src="bsh-logo.svg" alt="Bahrain Specialist Hospital" class="brand-bsh-img">
+            <span class="brand-divider"></span>
+            <span class="brand-tag">Patient Portal</span>
+          </div>
+
           <span class="toolbar-spacer"></span>
 
+          <!-- Location pill -->
           @if (locationService.selectedLocation(); as loc) {
-            <mat-chip class="location-chip" [matMenuTriggerFor]="locationMenu">
-              <mat-icon>location_on</mat-icon>
-              {{ loc.name | slice:0:25 }}
-            </mat-chip>
+            <button mat-stroked-button class="loc-pill" [matMenuTriggerFor]="locationMenu">
+              <mat-icon class="loc-pin">location_on</mat-icon>
+              <span class="loc-name">{{ shortLocationName(loc.name) }}</span>
+              <mat-icon class="loc-caret">expand_more</mat-icon>
+            </button>
           }
-          <mat-menu #locationMenu="matMenu">
+          <mat-menu #locationMenu="matMenu" class="hdr-menu">
+            <div class="menu-head">Choose location</div>
             @for (loc of locationService.locations; track loc.id) {
-              <button mat-menu-item (click)="locationService.setLocation(loc.id)">
-                <mat-icon>{{ locationService.selectedLocation()?.id === loc.id ? 'check_circle' : 'local_hospital' }}</mat-icon>
-                {{ loc.name }}
+              <button mat-menu-item class="menu-loc-item"
+                      (click)="locationService.setLocation(loc.id)">
+                <mat-icon [class.menu-current]="locationService.selectedLocation()?.id === loc.id">
+                  {{ locationService.selectedLocation()?.id === loc.id ? 'check_circle' : 'local_hospital' }}
+                </mat-icon>
+                <div class="menu-loc-text">
+                  <strong>{{ loc.name }}</strong>
+                  <span>{{ loc.address }}, {{ loc.city }}</span>
+                </div>
               </button>
             }
           </mat-menu>
 
+          <!-- Language pill -->
           @if (geo.config().languages.length > 1) {
-            <button mat-icon-button (click)="toggleLanguage()" [matTooltip]="i18n.lang() === 'en' ? 'العربية' : 'English'">
-              <mat-icon>translate</mat-icon>
+            <button mat-stroked-button class="lang-pill" [matMenuTriggerFor]="langMenu">
+              <mat-icon class="lang-globe">language</mat-icon>
+              <span class="lang-code">{{ i18n.lang() === 'ar' ? 'AR' : 'EN' }}</span>
+              <mat-icon class="lang-caret">expand_more</mat-icon>
             </button>
+            <mat-menu #langMenu="matMenu" class="hdr-menu">
+              <button mat-menu-item (click)="i18n.setLanguage('en')">
+                <mat-icon [class.invisible]="i18n.lang() !== 'en'">check</mat-icon>
+                English
+              </button>
+              <button mat-menu-item (click)="i18n.setLanguage('ar')">
+                <mat-icon [class.invisible]="i18n.lang() !== 'ar'">check</mat-icon>
+                العربية
+              </button>
+            </mat-menu>
           }
 
-          <mat-select
-            class="geo-select"
-            [value]="geo.config().code"
-            (selectionChange)="geo.setGeography($event.value)">
-            @for (region of geo.availableRegions; track region.code) {
-              <mat-option [value]="region.code">{{ region.name }}</mat-option>
-            }
-          </mat-select>
-
-          <button mat-icon-button [matMenuTriggerFor]="userMenu">
+          <!-- User menu -->
+          <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-btn" aria-label="Account">
             <mat-icon>account_circle</mat-icon>
           </button>
-          <mat-menu #userMenu="matMenu">
+          <mat-menu #userMenu="matMenu" class="hdr-menu">
             <button mat-menu-item>
               <mat-icon>person</mat-icon> {{ 'nav.profile' | translate }}
             </button>
             <button mat-menu-item>
               <mat-icon>settings</mat-icon> {{ 'nav.settings' | translate }}
             </button>
+            <button mat-menu-item [matMenuTriggerFor]="regionMenu">
+              <mat-icon>public</mat-icon> Region
+            </button>
             <mat-divider></mat-divider>
             <button mat-menu-item>
               <mat-icon>logout</mat-icon> {{ 'nav.signout' | translate }}
             </button>
           </mat-menu>
+          <mat-menu #regionMenu="matMenu">
+            @for (region of geo.availableRegions; track region.code) {
+              <button mat-menu-item (click)="geo.setGeography(region.code)">
+                <mat-icon [class.invisible]="geo.config().code !== region.code">check</mat-icon>
+                {{ region.name }}
+              </button>
+            }
+          </mat-menu>
         </mat-toolbar>
 
-        <mat-sidenav-container class="sidenav-container">
-          <mat-sidenav [mode]="'side'" [opened]="sidenavOpen()" class="sidenav">
+        <mat-sidenav-container class="sidenav-container" [hasBackdrop]="isMobile()">
+          <mat-sidenav
+            [mode]="isMobile() ? 'over' : 'side'"
+            [opened]="sidenavOpened()"
+            [fixedInViewport]="isMobile()"
+            [fixedTopGap]="isMobile() ? 64 : 0"
+            (closedStart)="sidenavOpen.set(false)"
+            class="sidenav">
             <mat-nav-list>
-              <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link">
+              <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>dashboard</mat-icon>
                 <span matListItemTitle>{{ 'nav.dashboard' | translate }}</span>
               </a>
-              <a mat-list-item routerLink="/appointments" routerLinkActive="active-link">
+              <a mat-list-item routerLink="/appointments" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>event</mat-icon>
                 <span matListItemTitle>{{ 'nav.appointments' | translate }}</span>
               </a>
-              <a mat-list-item routerLink="/timeline" routerLinkActive="active-link">
+              <a mat-list-item routerLink="/timeline" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>folder_shared</mat-icon>
                 <span matListItemTitle>My Records</span>
               </a>
-              <a mat-list-item routerLink="/medications" routerLinkActive="active-link">
+              <a mat-list-item routerLink="/medications" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>medication</mat-icon>
                 <span matListItemTitle>{{ 'nav.medications' | translate }}</span>
               </a>
-              <a mat-list-item routerLink="/payments" routerLinkActive="active-link">
+              <a mat-list-item routerLink="/payments" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>receipt_long</mat-icon>
                 <span matListItemTitle>{{ 'nav.payments' | translate }}</span>
               </a>
@@ -1061,6 +1133,47 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .login-btn mat-icon { vertical-align: middle; margin-left: 4px; }
 
+    /* ---------- Sign-in error message ---------- */
+    .signin-error {
+      margin: 0 0 16px;
+      padding: 12px 14px; border-radius: 6px;
+      background: #fdecea; border: 1px solid #f5b5b5;
+      color: #d23f3f; font-size: 13px; font-weight: 400;
+      text-align: left;
+    }
+
+    /* ---------- Locked banner (3 failed attempts) ---------- */
+    .signin-locked {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin: 0 0 16px; padding: 12px 14px;
+      background: #fff7e6; border: 1px solid #f3d6a3;
+      border-radius: 8px; text-align: left;
+    }
+    .signin-locked .lock-icon {
+      color: #c47700; font-size: 22px !important; width: 22px !important; height: 22px !important;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .locked-text {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: 13px; color: #6b4500; line-height: 1.5;
+    }
+    .locked-text strong { color: #8c5a00; font-weight: 700; }
+    .locked-text > span strong { color: #1b3a4b; }
+
+    /* Mute the form when locked so it visually reads as inactive */
+    .login-body-locked .login-field,
+    .login-body-locked .login-options,
+    .login-body-locked .login-terms {
+      opacity: 0.55; pointer-events: none;
+    }
+    .login-body-locked .login-btn {
+      background: #d8e0e6 !important; color: #6b7884 !important;
+      box-shadow: none !important;
+    }
+    .login-body-locked .login-btn[disabled] mat-icon {
+      color: #6b7884;
+    }
+
     /* ---------- Sign-in alt actions ---------- */
     .login-divider {
       display: flex; align-items: center; gap: 12px;
@@ -1227,28 +1340,121 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
 
     /* =============================================
-       MAIN APP SHELL (Step 4)
+       MAIN APP SHELL (Step 4) — REDESIGNED
        ============================================= */
     .shell-container { display: flex; flex-direction: column; height: 100vh; }
     .shell-container.rtl { direction: rtl; }
-    .toolbar { position: sticky; top: 0; z-index: 1000; }
-    .logo { font-size: 20px; font-weight: 600; margin-left: 8px; letter-spacing: 0.5px; }
-    .rtl .logo { margin-left: 0; margin-right: 8px; }
+
+    .toolbar {
+      position: sticky; top: 0; z-index: 1000;
+      background: white !important; color: #1b3a4b !important;
+      border-bottom: 1px solid #e3ecec;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      padding: 0 16px !important;
+      gap: 8px;
+    }
+    .hamburger { color: #1b3a4b !important; flex-shrink: 0; margin-right: 4px; }
+
+    /* Brand: Medinous × BSH | Patient Portal */
+    .brand {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0; min-width: 0;
+    }
+    .brand-medinous { height: 22px; width: auto; display: block; }
+    .brand-cross {
+      font-size: 14px; color: #aaa; font-weight: 300;
+      margin: 0 2px;
+    }
+    .brand-bsh-img {
+      height: 32px; width: auto; display: block;
+      object-fit: contain;
+    }
+    .brand-divider {
+      width: 1px; height: 22px; background: #d8e3e3;
+      margin: 0 4px;
+    }
+    .brand-tag {
+      font-size: 11px; color: #888; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      white-space: nowrap;
+    }
+
     .toolbar-spacer { flex: 1; }
-    .location-chip {
-      cursor: pointer; margin-right: 8px;
-      background: rgba(255,255,255,0.15) !important; color: white !important;
+
+    /* Pill buttons (location + language) */
+    .loc-pill, .lang-pill {
+      border-radius: 22px !important; height: 36px !important;
+      border-color: #d8e3e3 !important; background: white !important;
+      color: #1b3a4b !important; font-weight: 500 !important;
+      font-size: 13px !important;
+      padding: 0 12px !important;
+      display: inline-flex !important; align-items: center !important;
+      gap: 4px !important; flex-shrink: 0;
+      transition: all 0.18s;
     }
-    .geo-select {
-      width: 140px; margin-right: 8px;
-      ::ng-deep .mat-mdc-select-value { color: white; }
-      ::ng-deep .mat-mdc-select-arrow { color: rgba(255,255,255,0.7); }
+    .loc-pill:hover, .lang-pill:hover {
+      border-color: #80cbc4 !important; background: #f5fafa !important;
     }
-    .sidenav-container { flex: 1; }
-    .sidenav { width: 240px; border-right: 1px solid rgba(0,0,0,0.08); }
-    .rtl .sidenav { border-right: none; border-left: 1px solid rgba(0,0,0,0.08); }
+    .loc-pin {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+      color: #0d8a8a;
+    }
+    .loc-name {
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .loc-caret, .lang-caret {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #888;
+    }
+    .lang-globe {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+      color: #0d8a8a;
+    }
+    .lang-code { font-weight: 700; letter-spacing: 0.3px; }
+
+    .user-btn { color: #1b3a4b !important; flex-shrink: 0; }
+
+    /* Header menus */
+    .hdr-menu .menu-head {
+      padding: 12px 16px 6px; font-size: 11px; color: #888;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid #f0f0f0; margin-bottom: 4px;
+    }
+    .menu-loc-item {
+      height: auto !important; line-height: 1.3 !important; padding: 10px 16px !important;
+    }
+    .menu-loc-text {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .menu-loc-text strong { font-size: 13px; color: #1b3a4b; }
+    .menu-loc-text span { font-size: 11px; color: #888; }
+    .menu-current { color: #0d8a8a !important; }
+    .invisible { visibility: hidden; }
+
+    /* Sidenav */
+    .sidenav-container { flex: 1; background: #f5f7fa; }
+    .sidenav {
+      width: 240px;
+      border-right: 1px solid #e3ecec;
+      background: white;
+    }
+    .rtl .sidenav { border-right: none; border-left: 1px solid #e3ecec; }
+    .sidenav mat-nav-list { padding: 12px 8px; }
+    .sidenav a[mat-list-item] {
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+    .sidenav a[mat-list-item]:hover { background: #f0f7f7; }
+    .sidenav mat-icon[matListItemIcon] { color: #888; }
+    .active-link {
+      background: rgba(13,138,138,0.10) !important;
+      color: #0d8a8a !important;
+      font-weight: 600;
+    }
+    .active-link mat-icon[matListItemIcon] { color: #0d8a8a !important; }
+
     .content { padding: 24px; background: #f5f7fa; min-height: 100%; overflow-y: auto; }
-    .active-link { background: rgba(63,81,181,0.08) !important; color: #3f51b5; }
     .guest-link { color: #00897b; }
 
     /* =============================================
@@ -1265,10 +1471,22 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .footer-links-inner a { font-size: 12px; }
       .accred-badges { flex-wrap: wrap; gap: 20px; }
 
-      .sidenav { width: 200px; }
+      .sidenav { width: 240px; }
       .content { padding: 16px; }
-      .geo-select { width: 100px; }
-      .location-chip { max-width: 150px; }
+
+      /* Toolbar on mobile: compact brand, hide tag + divider, smaller pills */
+      .toolbar { padding: 0 10px !important; }
+      .brand { gap: 6px; }
+      .brand-medinous { height: 18px; }
+      .brand-cross { font-size: 12px; margin: 0; }
+      .brand-bsh-img { height: 24px; }
+      .brand-divider, .brand-tag { display: none; }
+      .loc-pill, .lang-pill { height: 32px !important; padding: 0 8px !important; }
+      .loc-name { max-width: 70px; }
+      .loc-caret, .lang-caret, .lang-globe, .loc-pin {
+        font-size: 14px !important; width: 14px !important; height: 14px !important;
+      }
+      .lang-pill .lang-code { font-size: 12px; }
 
       /* Login top bar — collapse to two rows on mobile */
       .topbar-inner { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
@@ -1290,7 +1508,9 @@ export class ShellComponent {
   readonly geo = inject(GeographyService);
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
-  readonly sidenavOpen = signal(true);
+  readonly sidenavOpen = signal(false);
+  readonly isMobile = signal(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
+  readonly sidenavOpened = computed(() => !this.isMobile() || this.sidenavOpen());
   readonly showLocationPicker = signal(false);
   readonly showLogin = signal(false);
   readonly pendingLocationId = signal<string>('');
@@ -1298,6 +1518,72 @@ export class ShellComponent {
   readonly loginPassword = signal('');
   readonly showPassword = signal(false);
   readonly termsAccepted = signal(false);
+  readonly signInError = signal('');
+
+  // Failed-login lockout state
+  private readonly LOCK_DURATION_MS = 60 * 1000; // 1 minute
+  readonly failedAttempts = signal(0);
+  readonly lockedUntil = signal<number | null>(null);
+  readonly currentTime = signal(Date.now());
+
+  readonly isLocked = computed(() => {
+    const lock = this.lockedUntil();
+    return lock !== null && this.currentTime() < lock;
+  });
+
+  readonly lockCountdown = computed(() => {
+    const lock = this.lockedUntil();
+    if (!lock) return '';
+    const remaining = Math.max(0, lock - this.currentTime());
+    const totalSec = Math.ceil(remaining / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return m > 0
+      ? `${m}m ${s.toString().padStart(2, '0')}s`
+      : `${s}s`;
+  });
+
+  // Tick once per second so the countdown renders smoothly,
+  // and auto-clear the lock when it expires.
+  private readonly _lockTicker: ReturnType<typeof setInterval> | null =
+    typeof window !== 'undefined'
+      ? setInterval(() => {
+          this.currentTime.set(Date.now());
+          const lock = this.lockedUntil();
+          if (lock !== null && Date.now() >= lock) {
+            this.lockedUntil.set(null);
+            this.failedAttempts.set(0);
+            this.signInError.set('');
+            try {
+              localStorage.removeItem('login_lock_until');
+              localStorage.removeItem('login_attempts');
+            } catch { /* localStorage may be unavailable */ }
+          }
+        }, 1000)
+      : null;
+
+  // Restore lock state from localStorage so a refresh during a lock
+  // period doesn't bypass the wait time. Any stored lock longer than the
+  // current max duration is treated as stale (e.g. from a prior 30-min build)
+  // and cleared so users aren't trapped after a duration policy change.
+  private readonly _restoreLockState = (() => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const until = parseInt(localStorage.getItem('login_lock_until') || '0', 10);
+      const attempts = parseInt(localStorage.getItem('login_attempts') || '0', 10);
+      const remaining = until - Date.now();
+      if (remaining > 0 && remaining <= this.LOCK_DURATION_MS) {
+        this.lockedUntil.set(until);
+        this.failedAttempts.set(attempts);
+      } else if (until > 0) {
+        // Either expired or longer than the current allowed lock — clear it.
+        localStorage.removeItem('login_lock_until');
+        localStorage.removeItem('login_attempts');
+      } else if (attempts > 0 && attempts < 3) {
+        this.failedAttempts.set(attempts);
+      }
+    } catch { /* localStorage may be unavailable */ }
+  })();
 
   // Login screen mode: signin | create | forgot
   readonly loginMode = signal<'signin' | 'create' | 'forgot'>('signin');
@@ -1439,12 +1725,50 @@ export class ShellComponent {
   }
 
   signIn(): void {
+    if (this.isLocked()) return;
+
     const cpr = this.loginCpr().trim();
     const pwd = this.loginPassword().trim();
-    if ((cpr === '12345678' && pwd === '123') || (cpr && pwd)) {
+
+    if (cpr === '12345678' && pwd === '123') {
+      this.failedAttempts.set(0);
+      this.lockedUntil.set(null);
+      this.signInError.set('');
+      try {
+        localStorage.removeItem('login_lock_until');
+        localStorage.removeItem('login_attempts');
+      } catch { /* ignore */ }
       this.locationService.setLocation(this.pendingLocationId());
       this.router.navigate(['/dashboard']);
+      return;
     }
+
+    const newCount = this.failedAttempts() + 1;
+    this.failedAttempts.set(newCount);
+    try { localStorage.setItem('login_attempts', newCount.toString()); } catch { /* ignore */ }
+
+    if (newCount >= 3) {
+      const until = Date.now() + this.LOCK_DURATION_MS;
+      this.lockedUntil.set(until);
+      try { localStorage.setItem('login_lock_until', until.toString()); } catch { /* ignore */ }
+      this.signInError.set('');
+    } else {
+      const remaining = 3 - newCount;
+      this.signInError.set(
+        `Incorrect CPR/Patient ID or password. You have ${remaining} ` +
+        `attempt${remaining === 1 ? '' : 's'} remaining before temporary account lock.`
+      );
+    }
+  }
+
+  onLoginCprInput(value: string): void {
+    this.loginCpr.set(value);
+    if (this.signInError() && !this.isLocked()) this.signInError.set('');
+  }
+
+  onLoginPasswordInput(value: string): void {
+    this.loginPassword.set(value);
+    if (this.signInError() && !this.isLocked()) this.signInError.set('');
   }
 
   loginAsGuest(): void {
@@ -1454,6 +1778,23 @@ export class ShellComponent {
 
   toggleSidenav(): void {
     this.sidenavOpen.update(v => !v);
+  }
+
+  closeSidenavOnMobile(): void {
+    if (this.isMobile()) this.sidenavOpen.set(false);
+  }
+
+  shortLocationName(name: string): string {
+    return name.replace(/^Bahrain Specialist Hospital\s*-?\s*/i, '').replace(/^BSH\s+/i, '');
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    const mobile = window.innerWidth <= 768;
+    if (mobile !== this.isMobile()) {
+      this.isMobile.set(mobile);
+      if (!mobile) this.sidenavOpen.set(false);
+    }
   }
 
   toggleLanguage(): void {
@@ -1475,6 +1816,7 @@ export class ShellComponent {
 
   setMode(mode: 'signin' | 'create' | 'forgot'): void {
     this.loginMode.set(mode);
+    this.signInError.set('');
     if (mode === 'create') {
       this.signupStep.set(1);
       this.signupFirstName.set('');

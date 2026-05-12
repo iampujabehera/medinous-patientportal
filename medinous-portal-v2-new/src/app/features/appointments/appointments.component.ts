@@ -10,6 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatMenuModule } from '@angular/material/menu';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { GeographyService } from '../../core/services/geography.service';
@@ -34,7 +35,7 @@ interface DateOption {
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule,
     MatInputModule, MatProgressSpinnerModule, MatSnackBarModule,
-    MatDividerModule, MatChipsModule, SkeletonCardComponent
+    MatDividerModule, MatChipsModule, MatMenuModule, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -50,14 +51,37 @@ interface DateOption {
             <p class="subtitle">Pick a specialist to book your visit</p>
           </div>
 
-          <!-- Specialty filter chips -->
-          <div class="filter-chips">
-            <button class="filter-chip" [class.active]="selectedSpecialty() === 'all'"
-                    (click)="setSpecialty('all')">All</button>
-            @for (s of specialties(); track s) {
-              <button class="filter-chip" [class.active]="selectedSpecialty() === s"
-                      (click)="setSpecialty(s)">{{ s }}</button>
-            }
+          <!-- Search + specialty dropdown (same row) -->
+          <div class="filter-row">
+            <div class="search-wrap">
+              <mat-icon class="s-icon">search</mat-icon>
+              <input class="s-input"
+                     [ngModel]="searchQuery()"
+                     (ngModelChange)="searchQuery.set($event)"
+                     placeholder="Search doctor by name...">
+              @if (searchQuery()) {
+                <button mat-icon-button class="s-clear" (click)="searchQuery.set('')" aria-label="Clear search">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+            </div>
+            <button mat-stroked-button class="spec-btn" [matMenuTriggerFor]="specMenu">
+              <mat-icon class="spec-icon">{{ specialtyIcon(selectedSpecialty()) }}</mat-icon>
+              <span class="spec-label">{{ selectedSpecialty() === 'all' ? 'All Specialties' : selectedSpecialty() }}</span>
+              <mat-icon class="spec-caret">expand_more</mat-icon>
+            </button>
+            <mat-menu #specMenu="matMenu" class="spec-menu">
+              <button mat-menu-item (click)="setSpecialty('all')">
+                <mat-icon [class.spec-current]="selectedSpecialty() === 'all'">apps</mat-icon>
+                <span>All Specialties</span>
+              </button>
+              @for (s of specialties(); track s) {
+                <button mat-menu-item (click)="setSpecialty(s)">
+                  <mat-icon [class.spec-current]="selectedSpecialty() === s">{{ specialtyIcon(s) }}</mat-icon>
+                  <span>{{ s }}</span>
+                </button>
+              }
+            </mat-menu>
           </div>
 
           @if (loadingDoctors()) {
@@ -95,7 +119,10 @@ interface DateOption {
               @if (!filteredDoctors().length) {
                 <div class="empty-state">
                   <mat-icon>search_off</mat-icon>
-                  <p>No doctors found in this specialty.</p>
+                  <p>
+                    @if (searchQuery()) { No doctors match "{{ searchQuery() }}". }
+                    @else { No doctors found in this specialty. }
+                  </p>
                 </div>
               }
             </div>
@@ -334,25 +361,60 @@ interface DateOption {
     .full-width { width: 100%; }
 
     /* =============================================
-       FILTER CHIPS
+       FILTER ROW (search + specialty dropdown)
        ============================================= */
-    .filter-chips {
-      display: flex; gap: 8px; overflow-x: auto;
-      padding: 4px 0 14px;
-      scrollbar-width: none;
+    .filter-row {
+      display: flex; gap: 10px; align-items: center;
+      margin: 4px 0 16px;
     }
-    .filter-chips::-webkit-scrollbar { display: none; }
-    .filter-chip {
-      padding: 7px 14px; border-radius: 20px;
-      border: 1px solid #d8e3e3; background: white;
-      font-size: 13px; font-weight: 500; color: #555;
-      cursor: pointer; white-space: nowrap;
-      transition: all 0.18s;
+    .search-wrap {
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px; height: 42px; box-sizing: border-box;
+      background: white; border: 1px solid #e0e8e8; border-radius: 22px;
+      transition: border-color 0.18s, box-shadow 0.18s;
     }
-    .filter-chip:hover { border-color: #80cbc4; color: #0d8a8a; }
-    .filter-chip.active {
-      background: #0d8a8a; color: white; border-color: #0d8a8a;
-      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
+    .search-wrap:focus-within {
+      border-color: #0d8a8a;
+      box-shadow: 0 0 0 3px rgba(13,138,138,0.10);
+    }
+    .s-icon { color: #999; font-size: 20px; width: 20px; height: 20px; }
+    .s-input {
+      flex: 1; min-width: 0;
+      border: none; outline: none; background: transparent;
+      font-size: 14px; font-family: inherit; color: #333;
+    }
+    .s-input::placeholder { color: #aaa; }
+    .s-clear {
+      width: 28px !important; height: 28px !important;
+      line-height: 28px !important; color: #999;
+    }
+    .s-clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+    .spec-btn {
+      flex-shrink: 0; height: 42px !important;
+      border-radius: 22px !important;
+      border-color: #d8e3e3 !important; background: white !important;
+      color: #1b3a4b !important; font-weight: 500 !important;
+      font-size: 13px !important;
+      padding: 0 14px !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
+    }
+    .spec-btn .spec-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a;
+    }
+    .spec-btn .spec-caret {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #888;
+    }
+    .spec-label { white-space: nowrap; }
+    .spec-current { color: #0d8a8a !important; }
+
+    @media (max-width: 600px) {
+      .filter-row { flex-direction: column; gap: 8px; }
+      .search-wrap, .spec-btn { width: 100%; }
+      .spec-btn { justify-content: space-between !important; }
     }
 
     /* =============================================
@@ -641,6 +703,7 @@ export class AppointmentsComponent implements OnInit {
   readonly bookingPhase = signal<BookingPhase>('find');
   readonly specialties = signal<string[]>([]);
   readonly selectedSpecialty = signal<string>('all');
+  readonly searchQuery = signal<string>('');
   readonly doctors = signal<Doctor[]>([]);
   readonly loadingDoctors = signal(false);
   readonly selectedDoctor = signal<Doctor | null>(null);
@@ -684,9 +747,32 @@ export class AppointmentsComponent implements OnInit {
 
   readonly filteredDoctors = computed(() => {
     const spec = this.selectedSpecialty();
-    if (spec === 'all') return this.doctors();
-    return this.doctors().filter(d => d.specialty === spec);
+    const q = this.searchQuery().trim().toLowerCase();
+    let list = this.doctors();
+    if (spec !== 'all') list = list.filter(d => d.specialty === spec);
+    if (q) {
+      list = list.filter(d =>
+        d.name.toLowerCase().includes(q) ||
+        d.specialty.toLowerCase().includes(q)
+      );
+    }
+    return list;
   });
+
+  specialtyIcon(specialty: string): string {
+    const map: Record<string, string> = {
+      all: 'apps',
+      Cardiology: 'favorite',
+      Dermatology: 'face',
+      'General Medicine': 'medical_services',
+      Endocrinology: 'bloodtype',
+      Orthopedics: 'accessibility_new',
+      Pediatrics: 'child_care',
+      Neurology: 'psychology',
+      Radiology: 'image_search'
+    };
+    return map[specialty] ?? 'medical_services';
+  }
 
   // Slots regenerated whenever doctor or date changes.
   readonly currentSlots = computed<BookingSlot[]>(() => {

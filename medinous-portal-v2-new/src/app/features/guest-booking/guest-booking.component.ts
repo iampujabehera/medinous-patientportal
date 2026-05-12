@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -34,10 +34,14 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="guest-container" [class.rtl]="i18n.isRtl()">
+
+      <!-- Header — compact, left-aligned -->
       <div class="guest-header">
-        <mat-icon class="header-icon">person_add</mat-icon>
-        <h1>{{ 'guest.title' | translate }}</h1>
-        <p class="subtitle">{{ 'guest.subtitle' | translate }}</p>
+        <div class="head-icon"><mat-icon>flash_on</mat-icon></div>
+        <div class="head-text">
+          <h1>Quick Booking</h1>
+          <p class="subtitle">Book your appointment in a few simple steps — no account needed</p>
+        </div>
       </div>
 
       @if (!bookingResult()) {
@@ -57,20 +61,17 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                     <div class="loc-info">
                       <strong>{{ loc.name }}</strong>
                       <span class="loc-address">{{ loc.address }}, {{ loc.city }}</span>
-                      <span class="loc-hours">
-                        <mat-icon class="tiny-icon">schedule</mat-icon>
-                        {{ loc.operatingHours }}
-                      </span>
-                      <span class="loc-phone">
-                        <mat-icon class="tiny-icon">phone</mat-icon>
-                        {{ loc.phone }}
-                      </span>
+                      <div class="loc-meta">
+                        <span><mat-icon class="tiny-icon">schedule</mat-icon>{{ loc.operatingHours }}</span>
+                        <span class="meta-dot">·</span>
+                        <span><mat-icon class="tiny-icon">phone</mat-icon>{{ loc.phone }}</span>
+                      </div>
                       <div class="loc-specialties">
                         @for (spec of loc.specialties.slice(0, 3); track spec) {
-                          <mat-chip class="spec-chip">{{ spec }}</mat-chip>
+                          <span class="spec-chip">{{ spec }}</span>
                         }
                         @if (loc.specialties.length > 3) {
-                          <mat-chip class="spec-chip">+{{ loc.specialties.length - 3 }}</mat-chip>
+                          <span class="spec-chip more">+{{ loc.specialties.length - 3 }}</span>
                         }
                       </div>
                     </div>
@@ -82,10 +83,10 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
               </div>
               <div class="step-actions sticky-actions">
                 <span class="step-spacer"></span>
-                <button mat-flat-button color="primary"
+                <button mat-flat-button class="cta-primary"
                         [disabled]="!selectedLocation()"
                         (click)="goToStep(1)">
-                  {{ 'appt.continue' | translate }}
+                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
                 </button>
               </div>
             </div>
@@ -95,7 +96,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
           <mat-step [completed]="!!selectedSlot()">
             <ng-template matStepLabel>{{ 'appt.choose_doctor' | translate }}</ng-template>
             <div class="step-content">
-              <mat-form-field appearance="outline" class="full-width">
+              <mat-form-field appearance="outline" class="full-width compact-field">
                 <mat-label>{{ 'appt.select_specialty' | translate }}</mat-label>
                 <mat-select [value]="selectedSpecialty()" (selectionChange)="onSpecialtyChange($event.value)">
                   @for (spec of specialties(); track spec) {
@@ -109,34 +110,36 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                   <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
                 }
               } @else {
-                @for (doctor of doctors(); track doctor.id) {
-                  <mat-card class="doctor-card"
-                            [class.selected]="selectedDoctor()?.id === doctor.id"
-                            (click)="selectDoctor(doctor)">
-                    <div class="doctor-avatar"><mat-icon>person</mat-icon></div>
-                    <div class="doctor-info">
-                      <strong>{{ doctor.name }}</strong>
-                      <span class="doctor-specialty">{{ doctor.specialty }}</span>
-                    </div>
-                    @if (selectedDoctor()?.id === doctor.id) {
-                      <mat-icon class="check-icon">check_circle</mat-icon>
-                    }
-                  </mat-card>
-                }
+                <div class="doctors-list">
+                  @for (doctor of doctors(); track doctor.id) {
+                    <mat-card class="doctor-card"
+                              [class.selected]="selectedDoctor()?.id === doctor.id"
+                              (click)="selectDoctor(doctor)">
+                      <div class="doctor-avatar"><mat-icon>person</mat-icon></div>
+                      <div class="doctor-info">
+                        <strong>{{ doctor.name }}</strong>
+                        <span class="doctor-specialty">{{ doctor.specialty }}</span>
+                      </div>
+                      @if (selectedDoctor()?.id === doctor.id) {
+                        <mat-icon class="check-icon">check_circle</mat-icon>
+                      }
+                    </mat-card>
+                  }
+                </div>
               }
 
               @if (selectedDoctor()) {
-                <h3 style="margin-top: 20px">{{ 'appt.pick_time' | translate }}</h3>
+                <h3 class="time-head">{{ 'appt.pick_time' | translate }}</h3>
                 @if (loadingSlots()) {
                   <app-skeleton-card [lines]="2" />
                 } @else {
                   <div class="slots-grid">
                     @for (slot of availableSlots(); track slot.id) {
-                      <button mat-stroked-button class="slot-btn"
+                      <button class="slot-btn"
                               [class.selected]="selectedSlot()?.id === slot.id"
                               [disabled]="!slot.available"
                               (click)="selectedSlot.set(slot)">
-                        <mat-icon>schedule</mat-icon> {{ slot.time }}
+                        {{ slot.time }}
                       </button>
                     }
                   </div>
@@ -144,12 +147,14 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
               }
 
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button (click)="goToStep(0)">{{ 'appt.back' | translate }}</button>
+                <button mat-stroked-button class="cta-back" (click)="goToStep(0)">
+                  {{ 'appt.back' | translate }}
+                </button>
                 <span class="step-spacer"></span>
-                <button mat-flat-button color="primary"
+                <button mat-flat-button class="cta-primary"
                         [disabled]="!selectedSlot()"
                         (click)="goToStep(2)">
-                  {{ 'appt.continue' | translate }}
+                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
                 </button>
               </div>
             </div>
@@ -159,52 +164,84 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
           <mat-step [completed]="isGuestValid()">
             <ng-template matStepLabel>{{ 'guest.your_details' | translate }}</ng-template>
             <div class="step-content">
-              <mat-card class="form-card">
+              <div class="form-card">
                 <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.first_name' | translate }}</mat-label>
-                    <input matInput [ngModel]="guest().firstName" (ngModelChange)="updateGuest('firstName', $event)" required>
+                  <mat-form-field appearance="outline" class="half-width compact-field">
+                    <mat-label>{{ 'guest.first_name' | translate }} <span class="req-star">*</span></mat-label>
+                    <input matInput maxlength="60"
+                           [ngModel]="guest().firstName"
+                           (ngModelChange)="updateGuest('firstName', $event)">
+                    @if (firstNameError()) {
+                      <mat-error>{{ firstNameError() }}</mat-error>
+                    }
                   </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.last_name' | translate }}</mat-label>
-                    <input matInput [ngModel]="guest().lastName" (ngModelChange)="updateGuest('lastName', $event)" required>
+                  <mat-form-field appearance="outline" class="half-width compact-field">
+                    <mat-label>{{ 'guest.last_name' | translate }} <span class="req-star">*</span></mat-label>
+                    <input matInput maxlength="60"
+                           [ngModel]="guest().lastName"
+                           (ngModelChange)="updateGuest('lastName', $event)">
+                    @if (lastNameError()) {
+                      <mat-error>{{ lastNameError() }}</mat-error>
+                    }
                   </mat-form-field>
                 </div>
-                <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.phone' | translate }}</mat-label>
-                    <input matInput type="tel" [ngModel]="guest().phone" (ngModelChange)="updateGuest('phone', $event)" required>
+                <div class="form-row phone-row">
+                  <mat-form-field appearance="outline" class="compact-field gb-cc-field">
+                    <mat-label>Code <span class="req-star">*</span></mat-label>
+                    <mat-select [ngModel]="guestCountryCode()" (ngModelChange)="guestCountryCode.set($event)">
+                      @for (cc of countryCodes; track cc.code) {
+                        <mat-option [value]="cc.code">{{ cc.code }} · {{ cc.country }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="compact-field gb-phone-field">
+                    <mat-label>{{ 'guest.phone' | translate }} <span class="req-star">*</span></mat-label>
+                    <input matInput type="tel" inputmode="numeric" maxlength="10"
+                           [ngModel]="guest().phone"
+                           (ngModelChange)="onPhoneInput($event)">
                     <mat-icon matPrefix>phone</mat-icon>
-                    <mat-hint>SMS confirmations will be sent here</mat-hint>
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.email' | translate }}</mat-label>
-                    <input matInput type="email" [ngModel]="guest().email" (ngModelChange)="updateGuest('email', $event)" required>
-                    <mat-icon matPrefix>email</mat-icon>
+                    @if (phoneError()) {
+                      <mat-error>{{ phoneError() }}</mat-error>
+                    } @else {
+                      <mat-hint>SMS confirmations sent here</mat-hint>
+                    }
                   </mat-form-field>
                 </div>
                 <div class="form-row">
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.id_type' | translate }}</mat-label>
+                  <mat-form-field appearance="outline" class="full-width compact-field">
+                    <mat-label>{{ 'guest.email' | translate }} (optional)</mat-label>
+                    <input matInput type="email"
+                           [ngModel]="guest().email"
+                           (ngModelChange)="updateGuest('email', $event)">
+                    <mat-icon matPrefix>email</mat-icon>
+                    @if (emailError()) {
+                      <mat-error>{{ emailError() }}</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width compact-field">
+                    <mat-label>{{ 'guest.id_type' | translate }} (optional)</mat-label>
                     <mat-select [ngModel]="guest().idType" (ngModelChange)="updateGuest('idType', $event)">
                       <mat-option value="national_id">CPR / National ID</mat-option>
                       <mat-option value="passport">Passport</mat-option>
                       <mat-option value="driving_license">Driving License</mat-option>
                     </mat-select>
                   </mat-form-field>
-                  <mat-form-field appearance="outline" class="half-width">
-                    <mat-label>{{ 'guest.id_number' | translate }}</mat-label>
+                  <mat-form-field appearance="outline" class="half-width compact-field">
+                    <mat-label>{{ 'guest.id_number' | translate }} (optional)</mat-label>
                     <input matInput [ngModel]="guest().idNumber" (ngModelChange)="updateGuest('idNumber', $event)">
                   </mat-form-field>
                 </div>
-              </mat-card>
+              </div>
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button (click)="goToStep(1)">{{ 'appt.back' | translate }}</button>
+                <button mat-stroked-button class="cta-back" (click)="goToStep(1)">
+                  {{ 'appt.back' | translate }}
+                </button>
                 <span class="step-spacer"></span>
-                <button mat-flat-button color="primary"
-                        [disabled]="!isGuestValid()"
-                        (click)="goToStep(3)">
-                  {{ 'appt.continue' | translate }}
+                <button mat-flat-button class="cta-primary"
+                        (click)="onContinueDetails()">
+                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
                 </button>
               </div>
             </div>
@@ -214,49 +251,62 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
           <mat-step>
             <ng-template matStepLabel>{{ 'appt.confirm' | translate }}</ng-template>
             <div class="step-content">
-              <mat-card class="confirm-card">
-                <h3>{{ 'appt.summary' | translate }}</h3>
-                <mat-divider></mat-divider>
-                <div class="confirm-details">
+              <div class="confirm-card">
+                <h3 class="confirm-title">{{ 'appt.summary' | translate }}</h3>
+
+                <!-- Visit block -->
+                <div class="confirm-block">
+                  <span class="block-label">Visit</span>
                   <div class="confirm-row">
-                    <mat-icon>local_hospital</mat-icon>
+                    <mat-icon>medical_services</mat-icon>
+                    <span><strong>{{ selectedDoctor()?.name }}</strong> · {{ selectedDoctor()?.specialty }}</span>
+                  </div>
+                  <div class="confirm-row">
+                    <mat-icon>event</mat-icon>
+                    <span>{{ selectedSlot()?.date | date:'fullDate' }} · {{ selectedSlot()?.time }}</span>
+                  </div>
+                  <div class="confirm-row">
+                    <mat-icon>location_on</mat-icon>
                     <span>{{ selectedLocation()?.name }}</span>
                   </div>
+                </div>
+
+                <!-- Patient block -->
+                <div class="confirm-block">
+                  <span class="block-label">Patient</span>
                   <div class="confirm-row">
                     <mat-icon>person</mat-icon>
                     <span>{{ guest().firstName }} {{ guest().lastName }}</span>
                   </div>
                   <div class="confirm-row">
-                    <mat-icon>medical_services</mat-icon>
-                    <span>{{ selectedDoctor()?.name }} — {{ selectedDoctor()?.specialty }}</span>
-                  </div>
-                  <div class="confirm-row">
-                    <mat-icon>event</mat-icon>
-                    <span>{{ selectedSlot()?.date | date:'fullDate' }} at {{ selectedSlot()?.time }}</span>
+                    <mat-icon>phone</mat-icon>
+                    <span>{{ guest().phone }}</span>
                   </div>
                 </div>
 
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>{{ 'appt.reason' | translate }}</mat-label>
-                  <textarea matInput rows="3" [ngModel]="visitReason()" (ngModelChange)="visitReason.set($event)"></textarea>
+                <mat-form-field appearance="outline" class="full-width compact-field reason-field">
+                  <mat-label>{{ 'appt.reason' | translate }} (optional)</mat-label>
+                  <textarea matInput rows="2" [ngModel]="visitReason()" (ngModelChange)="visitReason.set($event)"></textarea>
                 </mat-form-field>
 
                 <div class="sms-notice">
                   <mat-icon>sms</mat-icon>
-                  <span>Booking confirmation and reminders will be sent via SMS to <strong>{{ guest().phone }}</strong></span>
+                  <span>SMS confirmation will be sent to <strong>{{ guest().phone }}</strong></span>
                 </div>
-              </mat-card>
+              </div>
 
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button (click)="goToStep(2)">{{ 'appt.back' | translate }}</button>
+                <button mat-stroked-button class="cta-back" (click)="goToStep(2)">
+                  {{ 'appt.back' | translate }}
+                </button>
                 <span class="step-spacer"></span>
-                <button mat-flat-button color="primary"
+                <button mat-flat-button class="cta-primary"
                         [disabled]="booking()"
                         (click)="confirmBooking()">
                   @if (booking()) {
-                    <mat-spinner diameter="20"></mat-spinner>
+                    <mat-spinner diameter="18"></mat-spinner>
                   } @else {
-                    {{ 'appt.confirm_booking' | translate }}
+                    {{ 'appt.confirm_booking' | translate }} <mat-icon>check</mat-icon>
                   }
                 </button>
               </div>
@@ -264,159 +314,364 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
           </mat-step>
         </mat-stepper>
       } @else {
-        <!-- Success -->
-        <mat-card class="success-card">
-          <mat-icon class="success-icon">check_circle</mat-icon>
-          <h2>{{ 'appt.booked' | translate }}</h2>
-          <div class="confirm-details">
-            <div class="confirm-row">
-              <mat-icon>person</mat-icon>
-              <span>{{ bookingResult()!.appointment.doctorName }}</span>
+        <!-- Success — polished, balanced -->
+        <div class="success-shell">
+          <div class="success-icon-wrap">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+          <h2>You're all set!</h2>
+          <p class="success-sub">{{ 'appt.booked' | translate }} — we look forward to seeing you.</p>
+
+          <div class="success-summary">
+            <div class="summary-row">
+              <mat-icon>medical_services</mat-icon>
+              <div>
+                <strong>{{ bookingResult()!.appointment.doctorName }}</strong>
+                <span>{{ selectedDoctor()?.specialty }}</span>
+              </div>
             </div>
-            <div class="confirm-row">
+            <div class="summary-row">
               <mat-icon>event</mat-icon>
-              <span>{{ bookingResult()!.appointment.date | date:'fullDate' }} at {{ bookingResult()!.appointment.time }}</span>
+              <div>
+                <strong>{{ bookingResult()!.appointment.date | date:'fullDate' }}</strong>
+                <span>{{ bookingResult()!.appointment.time }}</span>
+              </div>
             </div>
-            <div class="confirm-row">
+            <div class="summary-row">
               <mat-icon>location_on</mat-icon>
-              <span>{{ selectedLocation()?.name }}</span>
+              <div>
+                <strong>{{ selectedLocation()?.name }}</strong>
+                <span>{{ selectedLocation()?.address }}</span>
+              </div>
             </div>
           </div>
 
-          <mat-divider></mat-divider>
-
-          <div class="register-prompt">
-            <mat-icon>how_to_reg</mat-icon>
-            <p>{{ 'guest.register_prompt' | translate }}</p>
-            <div class="register-actions">
-              <button mat-flat-button color="primary" (click)="goToCreateAccount()">
+          <div class="success-cta">
+            <p>Want to track this and more from one place?</p>
+            <div class="success-actions">
+              <button mat-flat-button class="cta-primary" (click)="goToCreateAccount()">
                 <mat-icon>person_add</mat-icon>
                 {{ 'guest.register' | translate }}
               </button>
-              <button mat-stroked-button (click)="resetBooking()">
+              <button mat-stroked-button class="cta-back" (click)="resetBooking()">
                 {{ 'appt.book_another' | translate }}
               </button>
             </div>
           </div>
-        </mat-card>
+        </div>
       }
     </div>
   `,
   styles: [`
-    .guest-container { max-width: 800px; margin: 0 auto; }
+    .guest-container { max-width: 760px; margin: 0 auto; padding-bottom: 8px; }
     .guest-container.rtl { direction: rtl; text-align: right; }
 
-    .guest-header { text-align: center; margin-bottom: 32px; }
-    .header-icon { font-size: 48px; width: 48px; height: 48px; color: #3f51b5; margin-bottom: 12px; }
-    h1 { font-size: 28px; font-weight: 600; color: #1a237e; margin: 0; }
-    .subtitle { color: #666; margin: 4px 0 0; }
+    /* ===== HEADER (compact, horizontal) ===== */
+    .guest-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; padding: 4px 2px;
+    }
+    .head-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, #0d8a8a 0%, #4db6ac 100%);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.20);
+    }
+    .head-icon mat-icon {
+      color: white; font-size: 22px; width: 22px; height: 22px;
+    }
+    .head-text { display: flex; flex-direction: column; min-width: 0; }
+    h1 {
+      font-size: 22px; font-weight: 700; color: #1b3a4b; margin: 0;
+      line-height: 1.2;
+    }
+    .subtitle {
+      color: #6b7884; font-size: 13px; margin: 2px 0 0;
+    }
 
-    .step-content { padding: 20px 0; }
+    .step-content { padding: 14px 0 84px; }
     .full-width { width: 100%; }
 
-    /* Locations */
-    .locations-grid { display: flex; flex-direction: column; gap: 12px; }
-    .location-card {
-      padding: 16px; display: flex; align-items: flex-start; gap: 16px;
-      cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
-    }
-    .location-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .location-card.selected { border-color: #3f51b5; background: #f5f5ff; }
+    /* Required-field asterisk inside mat-label */
+    .req-star { color: #d32f2f; font-weight: 600; margin-left: 2px; }
 
+    /* ===== Compact form-field density ===== */
+    ::ng-deep .compact-field .mat-mdc-form-field-subscript-wrapper {
+      padding: 0 14px !important;
+    }
+    ::ng-deep .compact-field .mat-mdc-text-field-wrapper {
+      padding-top: 0 !important; padding-bottom: 0 !important;
+    }
+
+    /* ===== LOCATIONS ===== */
+    .locations-grid { display: flex; flex-direction: column; gap: 10px; }
+    .location-card {
+      padding: 12px 14px; display: flex; align-items: flex-start; gap: 12px;
+      cursor: pointer; border: 1.5px solid transparent !important;
+      border-radius: 12px !important;
+      transition: all 0.18s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+    }
+    .location-card:hover {
+      border-color: #b2dfdb !important;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.08) !important;
+    }
+    .location-card.selected {
+      border-color: #0d8a8a !important;
+      background: #f0f7f7;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.12) !important;
+    }
     .loc-icon {
-      width: 48px; height: 48px; border-radius: 12px; background: #e8eaf6;
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .loc-icon mat-icon { color: #3f51b5; }
-    .loc-info { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .loc-address, .loc-hours, .loc-phone { font-size: 13px; color: #666; display: flex; align-items: center; gap: 4px; }
-    .tiny-icon { font-size: 14px; width: 14px; height: 14px; }
+    .loc-icon mat-icon {
+      color: #0d8a8a; font-size: 22px; width: 22px; height: 22px;
+    }
+    .loc-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .loc-info strong {
+      font-size: 14px; color: #1b3a4b; font-weight: 700;
+    }
+    .loc-address {
+      font-size: 12px; color: #6b7884;
+    }
+    .loc-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: #98a2ab;
+      margin-top: 2px;
+    }
+    .loc-meta span { display: inline-flex; align-items: center; gap: 3px; }
+    .meta-dot { color: #c8d0d8; }
+    .tiny-icon { font-size: 12px !important; width: 12px !important; height: 12px !important; }
     .loc-specialties { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-    .spec-chip { font-size: 11px !important; min-height: 22px !important; background: #e8eaf6 !important; color: #3f51b5 !important; }
-    .check-icon { color: #3f51b5; flex-shrink: 0; }
+    .spec-chip {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 6px;
+      background: #eef5f5; color: #0d8a8a;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .spec-chip.more { background: #f0f4f8; color: #98a2ab; }
+    .check-icon {
+      color: #0d8a8a !important; flex-shrink: 0;
+      font-size: 22px !important; width: 22px !important; height: 22px !important;
+    }
 
-    /* Form */
-    .form-card { padding: 24px; }
-    .form-row { display: flex; gap: 16px; }
-    .half-width { flex: 1; }
-
-    /* Doctors */
+    /* ===== DOCTORS ===== */
+    .doctors-list { display: flex; flex-direction: column; gap: 8px; }
     .doctor-card {
-      padding: 16px; display: flex; align-items: center; gap: 14px;
-      cursor: pointer; border: 2px solid transparent; transition: all 0.2s; margin-bottom: 8px;
+      padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+      cursor: pointer; border: 1.5px solid transparent !important;
+      border-radius: 12px !important;
+      transition: all 0.18s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
     }
-    .doctor-card.selected { border-color: #3f51b5; background: #f5f5ff; }
+    .doctor-card:hover { border-color: #b2dfdb !important; box-shadow: 0 4px 10px rgba(13,138,138,0.08) !important; }
+    .doctor-card.selected {
+      border-color: #0d8a8a !important; background: #f0f7f7;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.12) !important;
+    }
     .doctor-avatar {
-      width: 44px; height: 44px; border-radius: 50%; background: #e8eaf6;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
       display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
     }
-    .doctor-avatar mat-icon { color: #3f51b5; }
+    .doctor-avatar mat-icon { color: #0d8a8a; }
     .doctor-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .doctor-specialty { font-size: 13px; color: #666; }
-    .doctor-rating { font-size: 13px; display: flex; align-items: center; gap: 2px; }
-    .star-icon { font-size: 16px; width: 16px; height: 16px; color: #ffc107; }
+    .doctor-info strong { font-size: 14px; color: #1b3a4b; font-weight: 700; }
+    .doctor-specialty { font-size: 12px; color: #0d8a8a; font-weight: 500; }
 
-    /* Slots */
+    /* ===== SLOTS ===== */
+    .time-head {
+      margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: #1b3a4b;
+    }
     .slots-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 8px; margin-bottom: 16px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 6px; margin-bottom: 8px;
     }
-    .slot-btn { padding: 10px; display: flex; align-items: center; gap: 6px; justify-content: center; }
-    .slot-btn.selected { background: #3f51b5 !important; color: white !important; }
-
-    /* Confirm */
-    .confirm-card { padding: 24px; }
-    .confirm-card h3 { margin: 0 0 16px; }
-    .confirm-details { padding: 16px 0; display: flex; flex-direction: column; gap: 12px; }
-    .confirm-row { display: flex; align-items: center; gap: 12px; font-size: 15px; }
-    .confirm-row mat-icon { color: #3f51b5; }
-
-    /* Success */
-    .success-card { padding: 40px; text-align: center; }
-    .success-icon { font-size: 64px; width: 64px; height: 64px; color: #4caf50; margin-bottom: 16px; }
-    .success-card h2 { color: #2e7d32; margin: 0 0 8px; }
-    .success-card .confirm-details { display: inline-flex; text-align: left; }
-
-    .register-prompt { margin-top: 24px; padding-top: 24px; }
-    .register-prompt mat-icon { font-size: 32px; width: 32px; height: 32px; color: #3f51b5; }
-    .register-prompt p { color: #666; margin: 8px 0 16px; }
-    .register-actions { display: flex; gap: 12px; justify-content: center; }
-
-    .step-actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; }
-    .step-spacer { flex: 1; }
-
-    /* Sticky Continue/Back footer — pinned to bottom of scroll viewport */
-    .sticky-actions {
-      position: sticky; bottom: 0; z-index: 10;
-      background: #f5f7fa;
-      padding: 14px 16px;
-      margin: 24px -24px 0;
-      border-top: 1px solid #e0e0e0;
-      box-shadow: 0 -4px 12px rgba(0,0,0,0.04);
+    .slot-btn {
+      padding: 9px 8px; border-radius: 8px;
+      border: 1px solid #e0e8e8; background: white;
+      font-size: 13px; font-weight: 500; color: #1b3a4b;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
     }
-    @media (max-width: 600px) {
-      .sticky-actions { margin: 24px -16px 0; padding: 12px; }
+    .slot-btn:hover:not(:disabled) {
+      border-color: #80cbc4; background: #f5fafa;
+    }
+    .slot-btn.selected {
+      background: #0d8a8a; color: white; border-color: #0d8a8a;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.30);
+    }
+    .slot-btn:disabled {
+      color: #c0c0c0; background: #fafafa; cursor: not-allowed;
     }
 
-    /* SMS notification banner */
+    /* ===== FORM CARD ===== */
+    .form-card {
+      padding: 16px 18px;
+      background: white; border: 1px solid #e8eded;
+      border-radius: 12px;
+    }
+    .form-row { display: flex; gap: 12px; }
+    .half-width { flex: 1; min-width: 0; }
+    .phone-row { gap: 8px; }
+    .gb-cc-field { width: 110px; flex-shrink: 0; }
+    .gb-phone-field { flex: 1; min-width: 0; }
+    @media (max-width: 420px) {
+      .phone-row { flex-direction: column; gap: 0; }
+      .gb-cc-field { width: 100%; }
+    }
+
+    /* ===== CONFIRM CARD ===== */
+    .confirm-card {
+      padding: 16px 18px;
+      background: white; border: 1px solid #e8eded;
+      border-radius: 12px;
+    }
+    .confirm-title {
+      margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #1b3a4b;
+    }
+    .confirm-block {
+      padding: 10px 0; border-top: 1px solid #f0f4f4;
+    }
+    .confirm-block:first-of-type { border-top: none; padding-top: 0; }
+    .block-label {
+      display: block; margin-bottom: 6px;
+      font-size: 10px; color: #98a2ab; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .confirm-details { display: flex; flex-direction: column; gap: 8px; }
+    .confirm-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: #1b3a4b; padding: 4px 0;
+    }
+    .confirm-row mat-icon {
+      color: #0d8a8a; font-size: 18px !important; width: 18px !important; height: 18px !important;
+      flex-shrink: 0;
+    }
+    .confirm-row strong { color: #1b3a4b; font-weight: 700; }
+    .reason-field { margin-top: 12px; }
+
+    /* SMS notice — softer than before */
     .sms-notice {
-      display: flex; align-items: flex-start; gap: 10px;
-      padding: 12px 14px; margin-top: 16px;
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 12px; margin-top: 8px;
       background: #e0f2f1; border-left: 3px solid #0d8a8a;
       border-radius: 6px;
-      font-size: 13px; color: #1b3a4b; line-height: 1.5;
+      font-size: 12px; color: #1b3a4b; line-height: 1.5;
     }
     .sms-notice mat-icon {
-      color: #0d8a8a; font-size: 20px; width: 20px; height: 20px;
+      color: #0d8a8a; font-size: 16px !important; width: 16px !important; height: 16px !important;
       flex-shrink: 0; margin-top: 1px;
     }
     .sms-notice strong { color: #0d8a8a; font-weight: 700; }
-    .success-sms {
-      max-width: 420px; margin: 16px auto 0; text-align: left;
+
+    /* ===== STICKY CTA BAR ===== */
+    .step-actions {
+      display: flex; gap: 10px; align-items: center;
+    }
+    .step-spacer { flex: 1; }
+    .sticky-actions {
+      position: sticky; bottom: 0; z-index: 10;
+      background: linear-gradient(to bottom, rgba(245,247,250,0) 0%, rgba(245,247,250,0.95) 25%, #f5f7fa 100%);
+      padding: 12px 0;
+      margin: 16px -24px 0; padding-left: 24px; padding-right: 24px;
+      border-top: 1px solid #e3ecec;
+    }
+    .cta-primary {
+      padding: 0 18px !important; height: 40px !important;
+      background: #0d8a8a !important; color: white !important;
+      font-weight: 600 !important; font-size: 14px !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.25) !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
+    }
+    .cta-primary:disabled {
+      background: #b2dfdb !important; box-shadow: none !important;
+    }
+    .cta-primary mat-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+    }
+    .cta-back {
+      padding: 0 16px !important; height: 40px !important;
+      border-color: #d8e3e3 !important; color: #6b7884 !important;
+      font-weight: 600 !important; font-size: 13px !important;
+      border-radius: 8px !important;
     }
 
+    /* ===== SUCCESS SHELL ===== */
+    .success-shell {
+      max-width: 440px; margin: 16px auto 0;
+      padding: 28px 24px;
+      background: white; border: 1px solid #e8eded; border-radius: 14px;
+      text-align: center;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+    }
+    .success-icon-wrap {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+      box-shadow: 0 4px 14px rgba(76,175,80,0.30);
+    }
+    .success-icon-wrap mat-icon {
+      color: white; font-size: 32px !important; width: 32px !important; height: 32px !important;
+    }
+    .success-shell h2 {
+      margin: 0 0 4px; color: #1b3a4b; font-size: 20px; font-weight: 700;
+    }
+    .success-sub {
+      margin: 0 0 18px; color: #6b7884; font-size: 13px;
+    }
+    .success-summary {
+      text-align: left;
+      padding: 14px;
+      background: #f8fafa; border-radius: 10px;
+      display: flex; flex-direction: column; gap: 10px;
+      margin-bottom: 18px;
+    }
+    .summary-row {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .summary-row mat-icon {
+      color: #0d8a8a; font-size: 18px !important; width: 18px !important; height: 18px !important;
+      margin-top: 2px; flex-shrink: 0;
+    }
+    .summary-row div { display: flex; flex-direction: column; min-width: 0; }
+    .summary-row strong { font-size: 13px; color: #1b3a4b; font-weight: 700; }
+    .summary-row span { font-size: 12px; color: #6b7884; }
+
+    .success-cta p {
+      margin: 0 0 12px; font-size: 13px; color: #6b7884;
+    }
+    .success-actions {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    }
+
+    /* ===== STEPPER OVERRIDES (compact, teal) ===== */
+    ::ng-deep .mat-stepper-horizontal { background: transparent; }
+    ::ng-deep .mat-step-header { padding: 10px 16px !important; }
+    ::ng-deep .mat-step-header .mat-step-icon-selected,
+    ::ng-deep .mat-step-header .mat-step-icon-state-edit {
+      background-color: #0d8a8a !important;
+    }
+    ::ng-deep .mat-step-label.mat-step-label-active { color: #0d8a8a; }
+
+    /* ===== RESPONSIVE ===== */
     @media (max-width: 600px) {
-      .form-row { flex-direction: column; }
+      .form-row { flex-direction: column; gap: 0; }
+      .slots-grid { grid-template-columns: repeat(3, 1fr); }
+      .sticky-actions { margin: 16px -16px 0; padding: 12px 16px; }
+      h1 { font-size: 19px; }
+      .subtitle { font-size: 12px; }
+      .step-content { padding: 10px 0 80px; }
+      .success-shell { padding: 24px 18px; }
+    }
+    @media (max-width: 380px) {
       .slots-grid { grid-template-columns: repeat(2, 1fr); }
     }
   `]
@@ -434,6 +689,62 @@ export class GuestBookingComponent implements OnInit {
   readonly guest = signal<GuestPatient>({
     firstName: '', lastName: '', phone: '', email: ''
   });
+  readonly guestCountryCode = signal('+973');
+  readonly formAttempted = signal(false);
+
+  readonly countryCodes = [
+    { code: '+973', country: 'Bahrain' },
+    { code: '+91',  country: 'India' },
+    { code: '+1',   country: 'USA' },
+    { code: '+44',  country: 'UK' },
+    { code: '+971', country: 'UAE' },
+    { code: '+966', country: 'Saudi Arabia' },
+    { code: '+965', country: 'Kuwait' },
+    { code: '+974', country: 'Qatar' },
+    { code: '+968', country: 'Oman' }
+  ];
+
+  // Field-level errors (only after Continue is pressed)
+  readonly firstNameError = computed(() => {
+    if (!this.formAttempted()) return '';
+    const v = (this.guest().firstName || '').trim();
+    if (v.length === 0) return 'First name is required';
+    if (v.length > 60) return 'Maximum 60 characters';
+    return '';
+  });
+  readonly lastNameError = computed(() => {
+    if (!this.formAttempted()) return '';
+    const v = (this.guest().lastName || '').trim();
+    if (v.length === 0) return 'Last name is required';
+    if (v.length > 60) return 'Maximum 60 characters';
+    return '';
+  });
+  readonly phoneError = computed(() => {
+    if (!this.formAttempted()) return '';
+    const v = (this.guest().phone || '').replace(/\D/g, '');
+    if (v.length === 0) return 'Mobile number is required';
+    if (v.length !== 10) return 'Mobile number must be exactly 10 digits';
+    return '';
+  });
+  readonly emailError = computed(() => {
+    if (!this.formAttempted()) return '';
+    const v = (this.guest().email || '').trim();
+    if (v.length === 0) return ''; // email is optional
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return 'Enter a valid email address';
+    return '';
+  });
+
+  readonly isGuestValid = computed(() => {
+    const g = this.guest();
+    const fn = (g.firstName || '').trim();
+    const ln = (g.lastName || '').trim();
+    const ph = (g.phone || '').replace(/\D/g, '');
+    const em = (g.email || '').trim();
+    return fn.length > 0 && fn.length <= 60 &&
+           ln.length > 0 && ln.length <= 60 &&
+           ph.length === 10 &&
+           (em.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em));
+  });
   readonly specialties = signal<string[]>([]);
   readonly selectedSpecialty = signal('');
   readonly doctors = signal<Doctor[]>([]);
@@ -448,6 +759,10 @@ export class GuestBookingComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.getSpecialties().subscribe(specs => this.specialties.set(specs));
+    const currentLoc = this.locationService.selectedLocation();
+    if (currentLoc) {
+      this.selectedLocation.set(currentLoc);
+    }
   }
 
   selectLocation(loc: ClinicLocation): void {
@@ -458,9 +773,16 @@ export class GuestBookingComponent implements OnInit {
     this.guest.update(g => ({ ...g, [field]: value }));
   }
 
-  isGuestValid(): boolean {
-    const g = this.guest();
-    return !!(g.firstName && g.lastName && g.phone && g.email);
+  onPhoneInput(value: string): void {
+    const digits = (value || '').replace(/\D/g, '').slice(0, 10);
+    this.updateGuest('phone', digits);
+  }
+
+  onContinueDetails(): void {
+    this.formAttempted.set(true);
+    if (this.isGuestValid()) {
+      this.goToStep(3);
+    }
   }
 
   onSpecialtyChange(specialty: string): void {
@@ -516,14 +838,14 @@ export class GuestBookingComponent implements OnInit {
 
   goToCreateAccount(): void {
     const g = this.guest();
+    const phoneDigits = (g.phone || '').replace(/\D/g, '');
     this.signupHandoff.setPrefill({
       firstName: g.firstName,
       lastName: g.lastName,
       cpr: g.idType === 'national_id' ? (g.idNumber || '') : '',
-      phone: g.phone,
+      phone: phoneDigits ? `${this.guestCountryCode()}${phoneDigits}` : '',
       email: g.email
     });
-    // Drop the guest "session" so the shell renders the login flow again.
     this.locationService.setLocation(null);
     this.router.navigate(['/']);
   }
