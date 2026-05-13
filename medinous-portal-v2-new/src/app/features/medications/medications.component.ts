@@ -13,6 +13,17 @@ import { OfflineStorageService } from '../../core/services/offline-storage.servi
 import { Medication } from '../../core/models/patient.model';
 import { firstValueFrom } from 'rxjs';
 
+type RoutinePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+type MedFilter = 'all' | 'recent' | RoutinePeriod | 'active' | 'completed';
+
+interface RoutineSlot {
+  period: RoutinePeriod;
+  icon: string;
+  label: string;
+  active: boolean;
+  dose: string;
+}
+
 interface PrescriptionGroup {
   id: string;
   doctor: string;
@@ -61,7 +72,7 @@ interface PrescriptionGroup {
         <button mat-stroked-button class="doc-btn" [matMenuTriggerFor]="docMenu">
           <mat-icon class="doc-icon">medical_services</mat-icon>
           <span class="doc-label">{{ selectedDoctor() === 'all' ? 'All doctors' : selectedDoctor() }}</span>
-          <mat-icon class="doc-caret">expand_more</mat-icon>
+          <mat-icon class="doc-caret" iconPositionEnd>expand_more</mat-icon>
         </button>
         <mat-menu #docMenu="matMenu">
           <button mat-menu-item (click)="selectedDoctor.set('all')">
@@ -75,6 +86,34 @@ interface PrescriptionGroup {
             </button>
           }
         </mat-menu>
+      </div>
+
+      <!-- Filter chips -->
+      <div class="med-filters">
+        <button class="filter-chip" [class.active]="activeFilter() === 'all'" (click)="activeFilter.set('all')">
+          All
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'recent'" (click)="activeFilter.set('recent')">
+          <mat-icon>schedule</mat-icon> Recent
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'morning'" (click)="activeFilter.set('morning')">
+          <mat-icon class="ic-morning">wb_sunny</mat-icon> Morning
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'afternoon'" (click)="activeFilter.set('afternoon')">
+          <mat-icon class="ic-afternoon">wb_twilight</mat-icon> Afternoon
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'evening'" (click)="activeFilter.set('evening')">
+          <mat-icon class="ic-evening">brightness_3</mat-icon> Evening
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'night'" (click)="activeFilter.set('night')">
+          <mat-icon class="ic-night">dark_mode</mat-icon> Night
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'active'" (click)="activeFilter.set('active')">
+          <span class="dot active-dot"></span> Active
+        </button>
+        <button class="filter-chip" [class.active]="activeFilter() === 'completed'" (click)="activeFilter.set('completed')">
+          <span class="dot done-dot"></span> Completed
+        </button>
       </div>
 
       @if (!loading()) {
@@ -99,7 +138,7 @@ interface PrescriptionGroup {
           <mat-icon>medication</mat-icon>
           <h3>No medications found</h3>
           <p>
-            @if (searchQuery() || selectedDoctor() !== 'all') {
+            @if (searchQuery() || selectedDoctor() !== 'all' || activeFilter() !== 'all') {
               Try clearing the search or filter
             } @else {
               Your active prescriptions will appear here
@@ -133,23 +172,28 @@ interface PrescriptionGroup {
                     <strong class="med-name">{{ med.name }}</strong>
                     <span class="med-dose">{{ med.dosage }}</span>
                   </div>
-                  <span class="status-chip">Active</span>
+                  <span class="status-chip"
+                        [class.completed]="!isActive(med)">
+                    {{ isActive(med) ? 'Active' : 'Completed' }}
+                  </span>
                 </div>
 
-                <div class="med-summary">
-                  {{ formatTiming(med) }} · {{ getIntakeInstruction(med) }}
+                <div class="routine-grid">
+                  @for (slot of getRoutineSlots(med); track slot.period) {
+                    <div class="routine-slot"
+                         [class.active]="slot.active"
+                         [class]="'rs-' + slot.period + (slot.active ? ' active' : '')">
+                      <mat-icon class="rs-icon">{{ slot.icon }}</mat-icon>
+                      <span class="rs-label">{{ slot.label }}</span>
+                      <span class="rs-value">{{ slot.active ? slot.dose : '-' }}</span>
+                    </div>
+                  }
                 </div>
 
-                <dl class="med-grid">
-                  <div class="med-grid-row">
-                    <dt>Frequency</dt>
-                    <dd>{{ med.frequency }}</dd>
-                  </div>
-                  <div class="med-grid-row">
-                    <dt>Refills</dt>
-                    <dd>{{ med.refillsRemaining }} remaining</dd>
-                  </div>
-                </dl>
+                <div class="routine-info">
+                  <mat-icon>info_outline</mat-icon>
+                  <span>{{ getScheduleLine(med) }}</span>
+                </div>
 
                 @if (med.instructions) {
                   <div class="med-note">
@@ -184,7 +228,7 @@ interface PrescriptionGroup {
     }
     .offline-pill mat-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; }
 
-    /* ===== FILTER ROW ===== */
+    /* ===== FILTER ROW (search + doctor) ===== */
     .filter-row {
       display: flex; gap: 10px; align-items: center;
       margin-bottom: 10px;
@@ -234,6 +278,46 @@ interface PrescriptionGroup {
       max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .invisible { visibility: hidden; }
+
+    /* ===== FILTER CHIPS ===== */
+    .med-filters {
+      display: flex; gap: 6px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      margin-bottom: 8px;
+      scrollbar-width: thin;
+    }
+    .med-filters::-webkit-scrollbar { height: 4px; }
+    .med-filters::-webkit-scrollbar-thumb { background: #d8e3e3; border-radius: 2px; }
+    .filter-chip {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 12px; height: 32px;
+      border-radius: 18px;
+      border: 1px solid #e0e8e8; background: white;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit; font-size: 12.5px; font-weight: 600;
+      color: #6b7884; white-space: nowrap;
+    }
+    .filter-chip mat-icon {
+      font-size: 15px !important; width: 15px !important; height: 15px !important;
+    }
+    .filter-chip:hover { border-color: #80cbc4; color: #0d8a8a; }
+    .filter-chip.active {
+      background: #0d8a8a; border-color: #0d8a8a; color: white;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.22);
+    }
+    .filter-chip.active mat-icon { color: white; }
+    .filter-chip .ic-morning { color: #f6a821; }
+    .filter-chip .ic-afternoon { color: #ef6c00; }
+    .filter-chip .ic-evening { color: #5e35b1; }
+    .filter-chip .ic-night { color: #3949ab; }
+    .filter-chip .dot {
+      width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+    }
+    .filter-chip .active-dot { background: #4caf50; }
+    .filter-chip .done-dot { background: #c0c8d0; }
+    .filter-chip.active .dot { background: white; }
 
     .result-count {
       font-size: 12px; color: #98a2ab; margin: 0 4px 14px;
@@ -286,7 +370,7 @@ interface PrescriptionGroup {
       margin-top: 2px;
     }
 
-    /* ===== MED CARD INSIDE GROUP ===== */
+    /* ===== MED CARD ===== */
     .med-card {
       padding: 16px 18px;
       border-bottom: 1px solid #f0f4f4;
@@ -295,7 +379,7 @@ interface PrescriptionGroup {
 
     .med-head {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; margin-bottom: 6px;
+      gap: 10px; margin-bottom: 10px;
     }
     .med-title-block {
       display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
@@ -305,8 +389,9 @@ interface PrescriptionGroup {
       font-size: 16px; color: #1b3a4b; font-weight: 700;
     }
     .med-dose {
-      font-size: 13px; color: #6b7884; font-weight: 600;
-      padding: 2px 8px; border-radius: 6px; background: #f0f4f8;
+      font-size: 12px; color: #0d8a8a; font-weight: 700;
+      padding: 2px 8px; border-radius: 6px; background: #e8f5f3;
+      letter-spacing: 0.2px;
     }
     .status-chip {
       display: inline-flex; align-items: center;
@@ -315,37 +400,76 @@ interface PrescriptionGroup {
       font-size: 11px; font-weight: 700;
       flex-shrink: 0;
     }
+    .status-chip.completed { background: #eceff1; color: #607d8b; }
 
-    .med-summary {
-      font-size: 14px; color: #0d8a8a; font-weight: 600;
-      margin-bottom: 12px;
+    /* 4-column routine grid (Morning · Afternoon · Evening · Night) */
+    .routine-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      background: white;
+      border: 1px solid #e8eded;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 4px 0 10px;
+    }
+    .routine-slot {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px; padding: 10px 6px;
+      background: white;
+      border-right: 1px solid #f0f4f4;
+      text-align: center;
+    }
+    .routine-slot:last-child { border-right: none; }
+    .routine-slot .rs-icon {
+      font-size: 22px !important; width: 22px !important; height: 22px !important;
+      color: #c0c8d0;
+    }
+    .routine-slot .rs-label {
+      font-size: 12px; color: #98a2ab; font-weight: 600;
+    }
+    .routine-slot .rs-value {
+      font-size: 13px; color: #c0c8d0; font-weight: 700;
+      margin-top: 2px;
+    }
+    .routine-slot.active .rs-label { color: #1b3a4b; }
+    .routine-slot.active .rs-value { color: #1b3a4b; }
+
+    /* Period-specific active tints */
+    .routine-slot.rs-morning.active { background: #ffe9d6; }
+    .routine-slot.rs-morning.active .rs-icon { color: #ef6c00; }
+    .routine-slot.rs-afternoon.active { background: #fff7d6; }
+    .routine-slot.rs-afternoon.active .rs-icon { color: #f9a825; }
+    .routine-slot.rs-evening.active { background: #ede7f6; }
+    .routine-slot.rs-evening.active .rs-icon { color: #5e35b1; }
+    .routine-slot.rs-night.active { background: #e8eaf6; }
+    .routine-slot.rs-night.active .rs-icon { color: #3949ab; }
+
+    /* Schedule info line below the grid */
+    .routine-info {
+      display: flex; align-items: flex-start; gap: 6px;
+      padding: 8px 12px;
+      background: #f3f5f7;
+      border-radius: 8px;
+      font-size: 12px; color: #6b7884;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .routine-info mat-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+      color: #98a2ab;
+      margin-top: 1px;
+      flex-shrink: 0;
     }
 
-    /* Two-column key/value grid */
-    .med-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 8px 24px; margin: 0 0 10px;
-    }
-    .med-grid-row {
-      display: flex; flex-direction: column; gap: 2px;
-    }
-    .med-grid-row dt {
-      font-size: 11px; color: #98a2ab; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.4px;
-    }
-    .med-grid-row dd {
-      font-size: 13px; color: #1b3a4b; font-weight: 500;
-      margin: 0;
-    }
-
+    /* Insight / instruction note */
     .med-note {
       display: flex; align-items: flex-start; gap: 8px;
       padding: 10px 12px;
       background: #fffaf0; border: 1px solid #f0e3c4; border-radius: 8px;
-      font-size: 13px; color: #6d4d00; line-height: 1.4;
+      font-size: 12.5px; color: #6d4d00; line-height: 1.45;
     }
     .med-note mat-icon {
-      color: #c79100; font-size: 16px; width: 16px; height: 16px;
+      color: #c79100;
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
       flex-shrink: 0; margin-top: 1px;
     }
 
@@ -367,10 +491,17 @@ interface PrescriptionGroup {
       .filter-row { flex-direction: column; gap: 8px; }
       .search-wrap, .doc-btn { width: 100%; }
       .doc-btn { justify-content: space-between !important; }
-      .med-grid { grid-template-columns: 1fr; gap: 8px; }
       .rx-head { padding: 12px 14px; }
       .med-card { padding: 14px; }
       .med-name { font-size: 15px; }
+      .routine-slot { padding: 8px 4px; }
+      .routine-slot .rs-icon {
+        font-size: 20px !important; width: 20px !important; height: 20px !important;
+      }
+      .routine-slot .rs-label { font-size: 11px; }
+      .routine-slot .rs-value { font-size: 12px; }
+      .routine-info { font-size: 11.5px; padding: 7px 10px; }
+      .filter-chip { font-size: 12px; padding: 5px 10px; height: 30px; }
     }
   `]
 })
@@ -382,6 +513,7 @@ export class MedicationsComponent implements OnInit {
   readonly medications = signal<Medication[]>([]);
   readonly searchQuery = signal('');
   readonly selectedDoctor = signal<string>('all');
+  readonly activeFilter = signal<MedFilter>('all');
   readonly isOffline = signal(typeof navigator !== 'undefined' ? !navigator.onLine : false);
 
   // Map doctor name → specialty (for the prescription group header).
@@ -425,14 +557,29 @@ export class MedicationsComponent implements OnInit {
   readonly filteredGroups = computed<PrescriptionGroup[]>(() => {
     const q = this.searchQuery().trim().toLowerCase();
     const doc = this.selectedDoctor();
-    const all = this.prescriptionGroups();
+    const filter = this.activeFilter();
 
-    return all
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    return this.prescriptionGroups()
+      .filter(g => {
+        if (filter === 'recent') {
+          return new Date(g.date) >= thirtyDaysAgo;
+        }
+        return true;
+      })
       .map(g => {
         const meds = g.medications.filter(m => {
           if (doc !== 'all' && g.doctor !== doc) return false;
           if (q && !m.name.toLowerCase().includes(q) &&
               !m.dosage.toLowerCase().includes(q)) return false;
+          if (filter === 'morning' || filter === 'afternoon' ||
+              filter === 'evening' || filter === 'night') {
+            if (!this.getTimeBlocksFor(m).includes(filter)) return false;
+          }
+          if (filter === 'active' && !this.isActive(m)) return false;
+          if (filter === 'completed' && this.isActive(m)) return false;
           return true;
         });
         return { ...g, medications: meds };
@@ -470,13 +617,10 @@ export class MedicationsComponent implements OnInit {
   }
 
   // -------- Display helpers --------
-  formatTiming(med: Medication): string {
-    const blocks = this.getTimeBlocksFor(med);
-    const labels: Record<string, string> = {
-      morning: 'Morning', afternoon: 'Afternoon',
-      evening: 'Evening', night: 'Night'
-    };
-    return blocks.map(b => labels[b]).join(', ');
+
+  isActive(med: Medication): boolean {
+    if (!med.endDate) return true;
+    return new Date(med.endDate) >= new Date();
   }
 
   getIntakeInstruction(med: Medication): string {
@@ -495,7 +639,50 @@ export class MedicationsComponent implements OnInit {
     });
   }
 
-  private getTimeBlocksFor(med: Medication): string[] {
+  getRoutineSlots(med: Medication): RoutineSlot[] {
+    const active = new Set(this.getTimeBlocksFor(med));
+    const dose = this.getDoseDescriptor(med);
+    const all: RoutinePeriod[] = ['morning', 'afternoon', 'evening', 'night'];
+    return all.map(p => ({
+      period: p,
+      icon: this.periodIcon(p),
+      label: this.capitalize(p),
+      active: active.has(p),
+      dose
+    }));
+  }
+
+  getScheduleLine(med: Medication): string {
+    const active = new Set(this.getTimeBlocksFor(med));
+    const pattern = (['morning', 'afternoon', 'evening', 'night'] as RoutinePeriod[])
+      .map(p => active.has(p) ? '1' : '0')
+      .join(' - ');
+    const form = this.detectMedForm(med);
+    const intake = this.getIntakeInstruction(med);
+    const intakeSuffix = intake === 'Anytime' ? '' : ` · ${intake}`;
+    return `${med.frequency} ( ${pattern} ) · ${form} orally${intakeSuffix}`;
+  }
+
+  private getDoseDescriptor(med: Medication): string {
+    const form = this.detectMedForm(med);
+    if (form === 'Tablet') return '1 Tab';
+    if (form === 'Capsule') return '1 Cap';
+    if (form === 'Syrup') return '1 Dose';
+    if (form === 'Drops') return '2 Drops';
+    return '1 Dose';
+  }
+
+  private detectMedForm(med: Medication): string {
+    const name = (med.name || '').toLowerCase();
+    const dose = (med.dosage || '').toLowerCase();
+    if (name.includes('capsule') || dose.includes('capsule') || dose.includes('cap')) return 'Capsule';
+    if (name.includes('syrup') || dose.includes('ml')) return 'Syrup';
+    if (name.includes('drop')) return 'Drops';
+    if (name.includes('cream') || name.includes('ointment')) return 'Cream';
+    return 'Tablet';
+  }
+
+  private getTimeBlocksFor(med: Medication): RoutinePeriod[] {
     const freq = (med.frequency || '').toLowerCase();
     const inst = (med.instructions || '').toLowerCase();
     if (freq.includes('four') || freq.includes('4 times')) {
@@ -513,5 +700,19 @@ export class MedicationsComponent implements OnInit {
     if (inst.includes('morning')) return ['morning'];
     if (inst.includes('with meal')) return ['morning', 'afternoon', 'evening'];
     return ['morning'];
+  }
+
+  private periodIcon(p: RoutinePeriod): string {
+    const map: Record<RoutinePeriod, string> = {
+      morning: 'wb_sunny',
+      afternoon: 'wb_twilight',
+      evening: 'brightness_3',
+      night: 'dark_mode'
+    };
+    return map[p];
+  }
+
+  private capitalize(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 }

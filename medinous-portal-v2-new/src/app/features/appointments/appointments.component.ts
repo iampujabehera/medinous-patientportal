@@ -12,15 +12,17 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { GeographyService } from '../../core/services/geography.service';
 import { Doctor, BookingSlot, Appointment } from '../../core/models/patient.model';
 
-type BookingPhase = 'find' | 'detail' | 'success';
+type BookingPhase = 'find' | 'detail' | 'success' | 'manage' | 'cancelled';
 type PaymentMethod = 'pay_at_hospital' | 'pay_now';
 type SlotPeriod = 'morning' | 'afternoon' | 'evening';
 type ConsultationMode = 'in_person' | 'video';
+type PayChannel = 'card' | 'apple_pay' | 'google_pay' | 'wallet';
 
 interface CalendarCell {
   date: string;       // ISO yyyy-mm-dd
@@ -44,7 +46,7 @@ interface DateOption {
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule,
     MatInputModule, MatProgressSpinnerModule, MatSnackBarModule,
-    MatDividerModule, MatChipsModule, MatMenuModule, MatDialogModule, SkeletonCardComponent
+    MatDividerModule, MatChipsModule, MatMenuModule, MatDialogModule, MatTooltipModule, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -153,9 +155,22 @@ interface DateOption {
       <!-- ============================================ -->
       @else if (bookingPhase() === 'detail') {
         <div class="booking-content detail-content">
-          <a class="back-link" (click)="goBackToFind()">
-            <mat-icon>arrow_back</mat-icon> Back to doctors
-          </a>
+          @if (rescheduling()) {
+            <a class="back-link" (click)="cancelRescheduleFlow()">
+              <mat-icon>arrow_back</mat-icon> Back to manage
+            </a>
+            <div class="reschedule-banner reschedule-mode" role="status">
+              <mat-icon>event_repeat</mat-icon>
+              <div class="rb-text">
+                <strong>Rescheduling appointment</strong>
+                <span>Pick a new date and time. Your doctor and consultation mode stay the same.</span>
+              </div>
+            </div>
+          } @else {
+            <a class="back-link" (click)="goBackToFind()">
+              <mat-icon>arrow_back</mat-icon> Back to doctors
+            </a>
+          }
 
           <!-- Doctor summary header -->
           @if (selectedDoctor(); as doc) {
@@ -270,50 +285,52 @@ interface DateOption {
             }
           </section>
 
-          <!-- Payment Method (compact) -->
-          <section class="section">
-            <div class="section-head">
-              <span class="head-left">
-                <mat-icon>credit_card</mat-icon>
-                <h3>Payment Method</h3>
-              </span>
-            </div>
+          @if (!rescheduling()) {
+            <!-- Payment Method (compact) -->
+            <section class="section">
+              <div class="section-head">
+                <span class="head-left">
+                  <mat-icon>credit_card</mat-icon>
+                  <h3>Payment Method</h3>
+                </span>
+              </div>
 
-            <div class="pay-row">
-              <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_at_hospital'">
-                <input type="radio" name="pm" value="pay_at_hospital"
-                       [checked]="paymentMethod() === 'pay_at_hospital'"
-                       (change)="paymentMethod.set('pay_at_hospital')">
-                <mat-icon class="pay-icon">local_hospital</mat-icon>
-                <div class="pay-text">
-                  <strong>Pay at Hospital</strong>
-                  <span>Pay during your visit</span>
-                </div>
-              </label>
+              <div class="pay-row">
+                <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_at_hospital'">
+                  <input type="radio" name="pm" value="pay_at_hospital"
+                         [checked]="paymentMethod() === 'pay_at_hospital'"
+                         (change)="paymentMethod.set('pay_at_hospital')">
+                  <mat-icon class="pay-icon">local_hospital</mat-icon>
+                  <div class="pay-text">
+                    <strong>Pay at Hospital</strong>
+                    <span>Pay during your visit</span>
+                  </div>
+                </label>
 
-              <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_now'">
-                <input type="radio" name="pm" value="pay_now"
-                       [checked]="paymentMethod() === 'pay_now'"
-                       (change)="paymentMethod.set('pay_now')">
-                <mat-icon class="pay-icon">payment</mat-icon>
-                <div class="pay-text">
-                  <strong>Pay Now</strong>
-                  <span>Pay securely online</span>
-                </div>
-              </label>
-            </div>
-          </section>
+                <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_now'">
+                  <input type="radio" name="pm" value="pay_now"
+                         [checked]="paymentMethod() === 'pay_now'"
+                         (change)="paymentMethod.set('pay_now')">
+                  <mat-icon class="pay-icon">payment</mat-icon>
+                  <div class="pay-text">
+                    <strong>Pay Now</strong>
+                    <span>Pay securely online</span>
+                  </div>
+                </label>
+              </div>
+            </section>
 
-          <!-- Reason (optional) -->
-          <section class="section reason-section">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Reason for visit (optional)</mat-label>
-              <textarea matInput rows="2"
-                        [ngModel]="visitReason()"
-                        (ngModelChange)="visitReason.set($event)"
-                        placeholder="Briefly describe your symptoms"></textarea>
-            </mat-form-field>
-          </section>
+            <!-- Reason (optional) -->
+            <section class="section reason-section">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Reason for visit (optional)</mat-label>
+                <textarea matInput rows="2"
+                          [ngModel]="visitReason()"
+                          (ngModelChange)="visitReason.set($event)"
+                          placeholder="Briefly describe your symptoms"></textarea>
+              </mat-form-field>
+            </section>
+          }
         </div>
 
         <!-- Fixed bottom booking bar -->
@@ -334,6 +351,8 @@ interface DateOption {
                     (click)="openConfirmModal()">
               @if (booking()) {
                 <mat-spinner diameter="18" class="cta-spin"></mat-spinner>
+              } @else if (rescheduling()) {
+                Confirm New Slot <mat-icon iconPositionEnd>check</mat-icon>
               } @else {
                 Confirm Appointment <mat-icon iconPositionEnd>arrow_forward</mat-icon>
               }
@@ -424,7 +443,152 @@ interface DateOption {
           </div>
 
           <div class="success-actions">
-            <button mat-stroked-button (click)="resetBooking()">Book Another</button>
+            <button mat-flat-button class="success-primary"
+                    (click)="goToManageBooking()">
+              <mat-icon>tune</mat-icon>
+              Manage Booking
+            </button>
+            <button mat-stroked-button class="success-secondary" (click)="resetBooking()">
+              Book Another
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- ============================================ -->
+      <!--  PHASE 4: MANAGE BOOKING                      -->
+      <!-- ============================================ -->
+      @else if (bookingPhase() === 'manage') {
+        <div class="manage-shell">
+          <a class="back-link" (click)="backToSuccess()">
+            <mat-icon>arrow_back</mat-icon> Back
+          </a>
+
+          <div class="manage-head">
+            <h1>Manage Booking</h1>
+            <p class="subtitle">Reschedule, pay, or cancel your appointment</p>
+          </div>
+
+          @if (rescheduleResult(); as rr) {
+            <div class="reschedule-banner" role="status">
+              <mat-icon>swap_horiz</mat-icon>
+              <div class="rb-text">
+                <strong>Your appointment has been rescheduled.</strong>
+                <span><b>From</b> {{ rr.from }} &nbsp;·&nbsp; <b>To</b> {{ rr.to }}</span>
+              </div>
+            </div>
+          }
+
+          @if (selectedDoctor(); as doc) {
+            <div class="manage-card">
+              <div class="mc-head">
+                <div class="doc-avatar"><mat-icon>person</mat-icon></div>
+                <div class="mc-doc-text">
+                  <strong>{{ doc.name }}</strong>
+                  <span class="sdh-meta">
+                    <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
+                    {{ doctorDesignation(doc) }} <span class="sdh-sep">|</span> {{ doc.specialty }}
+                  </span>
+                </div>
+                @if (bookingId()) {
+                  <span class="booking-id">{{ bookingId() }}</span>
+                }
+              </div>
+
+              <div class="mc-grid">
+                <div class="mc-row">
+                  <mat-icon>{{ consultationMode() === 'video' ? 'videocam' : 'local_hospital' }}</mat-icon>
+                  <div class="mc-text">
+                    <span class="mc-label">Consultation</span>
+                    <strong>{{ consultationMode() === 'video' ? 'Video Consultation' : 'Hospital Visit' }}</strong>
+                  </div>
+                </div>
+
+                <div class="mc-row">
+                  <mat-icon>event</mat-icon>
+                  <div class="mc-text">
+                    <span class="mc-label">Date &amp; Time</span>
+                    <strong>{{ bookedAppointment()!.date | date:'mediumDate' }} · {{ bookedAppointment()!.time }}</strong>
+                  </div>
+                </div>
+
+                <div class="mc-row">
+                  <mat-icon>location_on</mat-icon>
+                  <div class="mc-text">
+                    <span class="mc-label">Location</span>
+                    <strong>{{ doc.location }}</strong>
+                  </div>
+                </div>
+
+                <div class="mc-row">
+                  <mat-icon>credit_card</mat-icon>
+                  <div class="mc-text">
+                    <span class="mc-label">Fee</span>
+                    <strong>{{ formatCurrency(currentFee()) }}</strong>
+                  </div>
+                  <span class="pay-chip"
+                        [class.paid]="paymentMethod() === 'pay_now'"
+                        [class.pending]="paymentMethod() === 'pay_at_hospital'">
+                    <mat-icon>{{ paymentMethod() === 'pay_now' ? 'check_circle' : 'schedule' }}</mat-icon>
+                    {{ paymentMethod() === 'pay_now' ? 'Paid online' : 'Pay at hospital' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="manage-actions">
+              <button mat-flat-button class="action-primary"
+                      (click)="startReschedule()">
+                <mat-icon>event_repeat</mat-icon>
+                Reschedule Appointment
+              </button>
+
+              @if (paymentMethod() === 'pay_at_hospital') {
+                <button mat-flat-button class="action-pay"
+                        (click)="openPaymentDialog()">
+                  <mat-icon>payment</mat-icon>
+                  Pay Now
+                </button>
+              }
+
+              <button mat-stroked-button class="action-cancel"
+                      [disabled]="!canCancel()"
+                      [matTooltip]="!canCancel() ? 'Cancellation is only available up to 12 hours before the appointment.' : ''"
+                      (click)="openCancelDialog()">
+                <mat-icon>cancel</mat-icon>
+                Cancel Appointment
+              </button>
+
+              @if (!canCancel()) {
+                <p class="cancel-hint">
+                  Cancellation is only available up to 12 hours before the appointment.
+                </p>
+              }
+            </div>
+
+            <div class="manage-help">
+              <span>Need help?</span>
+              <button class="link-btn" (click)="contactHospital()">Contact Hospital</button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ============================================ -->
+      <!--  PHASE 5: CANCELLED                           -->
+      <!-- ============================================ -->
+      @else if (bookingPhase() === 'cancelled') {
+        <div class="success-card cancelled-card">
+          <mat-icon class="success-icon cancelled-icon">cancel</mat-icon>
+          <h2>Appointment Cancelled</h2>
+          <p class="success-subtitle">
+            Your appointment has been cancelled successfully. The slot has been released.
+          </p>
+          <div class="success-actions">
+            <button mat-flat-button class="success-primary" (click)="resetBooking()">
+              <mat-icon>add_circle_outline</mat-icon>
+              Book Another Appointment
+            </button>
           </div>
         </div>
       }
@@ -564,6 +728,63 @@ interface DateOption {
             </div>
           </div>
         }
+      </ng-template>
+
+      <!-- Cancel appointment confirmation dialog -->
+      <ng-template #cancelDialog>
+        <div class="confirm-modal-content cancel-dialog-content">
+          <button mat-icon-button class="confirm-close" (click)="closeCancelDialog()" aria-label="Close">
+            <mat-icon>close</mat-icon>
+          </button>
+          <div class="cancel-icon-wrap"><mat-icon>error_outline</mat-icon></div>
+          <h3 class="confirm-title">Cancel appointment?</h3>
+          <p class="confirm-sub">
+            This slot will be released and your appointment will be cancelled. This action cannot be undone.
+          </p>
+          <div class="confirm-actions">
+            <button mat-stroked-button class="cs-cancel" (click)="closeCancelDialog()">
+              Keep Booking
+            </button>
+            <button mat-flat-button class="cs-destructive" (click)="confirmCancel()">
+              Yes, Cancel
+            </button>
+          </div>
+        </div>
+      </ng-template>
+
+      <!-- Pay Now payment-methods dialog -->
+      <ng-template #payDialog>
+        <div class="confirm-modal-content pay-dialog-content">
+          <button mat-icon-button class="confirm-close" (click)="closePaymentDialog()" aria-label="Close">
+            <mat-icon>close</mat-icon>
+          </button>
+          <h3 class="confirm-title">Choose payment method</h3>
+          <p class="confirm-sub">
+            Pay <strong>{{ formatCurrency(currentFee()) }}</strong> securely. You can complete payment at the hospital instead.
+          </p>
+          <div class="pay-channels">
+            <button class="pay-channel" (click)="payWith('card')">
+              <mat-icon>credit_card</mat-icon>
+              <span>Card</span>
+              <mat-icon class="pc-arrow">chevron_right</mat-icon>
+            </button>
+            <button class="pay-channel" (click)="payWith('apple_pay')">
+              <mat-icon>phone_iphone</mat-icon>
+              <span>Apple Pay</span>
+              <mat-icon class="pc-arrow">chevron_right</mat-icon>
+            </button>
+            <button class="pay-channel" (click)="payWith('google_pay')">
+              <mat-icon>account_balance_wallet</mat-icon>
+              <span>Google Pay</span>
+              <mat-icon class="pc-arrow">chevron_right</mat-icon>
+            </button>
+            <button class="pay-channel" (click)="payWith('wallet')">
+              <mat-icon>wallet</mat-icon>
+              <span>Hospital Wallet</span>
+              <mat-icon class="pc-arrow">chevron_right</mat-icon>
+            </button>
+          </div>
+        </div>
       </ng-template>
     </div>
   `,
@@ -1299,7 +1520,204 @@ interface DateOption {
     .summary-fee { color: #2e7d32 !important; font-weight: 700; }
     .paid { color: #2e7d32; }
     .pending { color: #f57c00; }
-    .success-actions { display: flex; justify-content: center; gap: 10px; }
+    .success-actions {
+      display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+    }
+    .success-primary {
+      height: 44px !important; padding: 0 22px !important;
+      background: #0d8a8a !important; color: white !important;
+      font-weight: 700 !important; font-size: 14px !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.28) !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
+    }
+    .success-primary mat-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+    }
+    .success-secondary {
+      height: 44px !important; padding: 0 22px !important;
+      border-color: #d8e3e3 !important; color: #6b7884 !important;
+      font-weight: 600 !important; font-size: 13.5px !important;
+      border-radius: 10px !important;
+    }
+
+    .cancelled-card h2 { color: #c62828 !important; }
+    .cancelled-icon { color: #ef5350 !important; }
+
+    /* =============================================
+       MANAGE BOOKING
+       ============================================= */
+    .manage-shell {
+      max-width: 720px; margin: 0 auto;
+      padding-bottom: 24px;
+    }
+    .manage-head { margin: 4px 0 14px; }
+    .manage-head h1 {
+      margin: 0; font-size: 22px; font-weight: 700; color: #1b3a4b;
+    }
+    .manage-head .subtitle {
+      margin: 4px 0 0; font-size: 13px; color: #6b7884;
+    }
+
+    .reschedule-banner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px;
+      background: #e8f5f3;
+      border: 1px solid #b2dfdb;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+    .reschedule-banner mat-icon {
+      color: #0d8a8a; flex-shrink: 0;
+      font-size: 22px !important; width: 22px !important; height: 22px !important;
+    }
+    .reschedule-banner.reschedule-mode {
+      background: #fff8e1; border-color: #ffe082;
+      margin-top: 10px;
+    }
+    .reschedule-banner.reschedule-mode mat-icon { color: #ef6c00; }
+    .rb-text {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: 13px; color: #1b3a4b;
+    }
+    .rb-text strong { font-weight: 700; }
+    .rb-text span { color: #5a6671; font-size: 12.5px; }
+    .rb-text b { font-weight: 700; color: #1b3a4b; }
+
+    .manage-card {
+      background: white; border: 1px solid #eef2f5;
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      margin-bottom: 14px;
+    }
+    .mc-head {
+      display: flex; align-items: center; gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f0f4f4;
+    }
+    .mc-head .doc-avatar {
+      width: 44px; height: 44px;
+    }
+    .mc-head .doc-avatar mat-icon {
+      font-size: 26px; width: 26px; height: 26px;
+    }
+    .mc-doc-text {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .mc-doc-text strong {
+      font-size: 14.5px; color: #1b3a4b; font-weight: 700; line-height: 1.2;
+    }
+    .booking-id {
+      font-size: 10.5px; font-weight: 700; color: #6b7884;
+      padding: 4px 8px; border-radius: 6px;
+      background: #f3f5f7;
+      letter-spacing: 0.3px;
+      flex-shrink: 0;
+    }
+
+    .mc-grid {
+      display: flex; flex-direction: column; gap: 10px;
+      padding-top: 12px;
+    }
+    .mc-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .mc-row mat-icon {
+      color: #0d8a8a; flex-shrink: 0;
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
+    }
+    .mc-text {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .mc-label {
+      font-size: 10.5px; color: #98a2ab; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .mc-text strong {
+      font-size: 13.5px; color: #1b3a4b; font-weight: 700;
+    }
+
+    .pay-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 14px;
+      font-size: 11.5px; font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .pay-chip mat-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+    }
+    .pay-chip.paid {
+      background: #e8f5e9 !important; color: #2e7d32 !important;
+    }
+    .pay-chip.paid mat-icon { color: #2e7d32 !important; }
+    .pay-chip.pending {
+      background: #fff3e0 !important; color: #ef6c00 !important;
+    }
+    .pay-chip.pending mat-icon { color: #ef6c00 !important; }
+
+    .manage-actions {
+      display: flex; flex-direction: column; gap: 10px;
+      margin-bottom: 16px;
+    }
+    .action-primary {
+      height: 48px !important;
+      background: #0d8a8a !important; color: white !important;
+      font-weight: 700 !important; font-size: 14px !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.25) !important;
+      display: inline-flex !important; align-items: center; justify-content: center; gap: 8px;
+    }
+    .action-primary mat-icon {
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
+    }
+    .action-pay {
+      height: 48px !important;
+      background: #1565c0 !important; color: white !important;
+      font-weight: 700 !important; font-size: 14px !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 14px rgba(21,101,192,0.20) !important;
+      display: inline-flex !important; align-items: center; justify-content: center; gap: 8px;
+    }
+    .action-pay mat-icon {
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
+    }
+    .action-cancel {
+      height: 48px !important;
+      border: 1.5px solid #ffcdd2 !important;
+      color: #c62828 !important;
+      font-weight: 700 !important; font-size: 14px !important;
+      border-radius: 12px !important;
+      background: white !important;
+      display: inline-flex !important; align-items: center; justify-content: center; gap: 8px;
+    }
+    .action-cancel mat-icon {
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
+      color: #c62828;
+    }
+    .action-cancel[disabled] {
+      border-color: #e8eaec !important; color: #c0c8d0 !important;
+      cursor: not-allowed;
+    }
+    .action-cancel[disabled] mat-icon { color: #c0c8d0; }
+    .cancel-hint {
+      margin: 0; font-size: 11.5px; color: #98a2ab; text-align: center;
+    }
+
+    .manage-help {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px;
+      font-size: 12.5px; color: #6b7884;
+    }
+    .manage-help .link-btn {
+      background: none; border: none; padding: 0;
+      font-family: inherit; font-size: 12.5px; font-weight: 700;
+      color: #0d8a8a; cursor: pointer;
+    }
+    .manage-help .link-btn:hover { text-decoration: underline; }
 
     /* =============================================
        RESPONSIVE
@@ -1377,8 +1795,43 @@ export class AppointmentsComponent implements OnInit {
 
   // Booking confirmation dialog (MatDialog handles body-level rendering)
   @ViewChild('confirmDialog') confirmDialogTmpl!: TemplateRef<unknown>;
+  @ViewChild('cancelDialog') cancelDialogTmpl!: TemplateRef<unknown>;
+  @ViewChild('payDialog') payDialogTmpl!: TemplateRef<unknown>;
   private readonly dialog = inject(MatDialog);
   private confirmDialogRef?: MatDialogRef<unknown>;
+  private cancelDialogRef?: MatDialogRef<unknown>;
+  private payDialogRef?: MatDialogRef<unknown>;
+
+  // Manage booking flow
+  readonly rescheduling = signal(false);
+  readonly rescheduleResult = signal<{ from: string; to: string } | null>(null);
+  readonly bookingId = signal<string>('');
+
+  readonly canCancel = computed(() => {
+    const appt = this.bookedAppointment();
+    if (!appt) return false;
+    if (this.bookingPhase() === 'cancelled') return false;
+    const apptMs = this.parseSlotDateTime(appt.date, appt.time);
+    const hoursDiff = (apptMs - Date.now()) / 3_600_000;
+    return hoursDiff > 12;
+  });
+
+  private parseSlotDateTime(dateIso: string, time: string): number {
+    const [hourStr, rest] = time.split(':');
+    const [minStr, ampm] = rest.split(' ');
+    let h = parseInt(hourStr, 10);
+    const m = parseInt(minStr, 10);
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    const [y, mo, d] = dateIso.split('-').map(Number);
+    return new Date(y, mo - 1, d, h, m).getTime();
+  }
+
+  private formatBookingSummaryDate(dateIso: string, time: string): string {
+    const [y, mo, d] = dateIso.split('-').map(Number);
+    const date = new Date(y, mo - 1, d);
+    return `${date.getDate()} ${date.toLocaleDateString('en-US', { month: 'short' })} • ${time}`;
+  }
 
   readonly currentFee = computed(() => {
     const doc = this.selectedDoctor();
@@ -1600,7 +2053,98 @@ export class AppointmentsComponent implements OnInit {
 
   confirmAndBook(): void {
     this.confirmDialogRef?.close();
-    this.bookAppointment();
+    if (this.rescheduling()) {
+      this.applyReschedule();
+    } else {
+      this.bookAppointment();
+    }
+  }
+
+  // -------- Manage Booking flow --------
+
+  goToManageBooking(): void {
+    this.rescheduleResult.set(null);
+    this.bookingPhase.set('manage');
+  }
+
+  backToSuccess(): void {
+    this.bookingPhase.set('success');
+  }
+
+  startReschedule(): void {
+    const appt = this.bookedAppointment();
+    if (!appt) return;
+    this.rescheduling.set(true);
+    this.rescheduleResult.set(null);
+    this.selectedDate.set(appt.date);
+    this.selectedSlot.set(null);
+    this.bookingPhase.set('detail');
+  }
+
+  cancelRescheduleFlow(): void {
+    this.rescheduling.set(false);
+    this.selectedSlot.set(null);
+    this.bookingPhase.set('manage');
+  }
+
+  private applyReschedule(): void {
+    const slot = this.selectedSlot();
+    const appt = this.bookedAppointment();
+    if (!slot || !appt) return;
+    const fromLabel = this.formatBookingSummaryDate(appt.date, appt.time);
+    const updated: Appointment = { ...appt, date: slot.date, time: slot.time };
+    this.bookedAppointment.set(updated);
+    const toLabel = this.formatBookingSummaryDate(updated.date, updated.time);
+    this.rescheduleResult.set({ from: fromLabel, to: toLabel });
+    this.rescheduling.set(false);
+    this.selectedSlot.set(null);
+    this.bookingPhase.set('manage');
+    this.snackBar.open('Appointment rescheduled successfully', 'Close', { duration: 4000 });
+  }
+
+  openCancelDialog(): void {
+    if (!this.canCancel()) return;
+    this.cancelDialogRef = this.dialog.open(this.cancelDialogTmpl, {
+      width: '400px',
+      maxWidth: '95vw',
+      panelClass: 'confirm-dialog-panel',
+      backdropClass: 'confirm-dialog-backdrop',
+      autoFocus: false
+    });
+  }
+
+  closeCancelDialog(): void {
+    this.cancelDialogRef?.close();
+  }
+
+  confirmCancel(): void {
+    this.cancelDialogRef?.close();
+    this.bookingPhase.set('cancelled');
+    this.snackBar.open('Appointment cancelled', 'Close', { duration: 4000 });
+  }
+
+  openPaymentDialog(): void {
+    this.payDialogRef = this.dialog.open(this.payDialogTmpl, {
+      width: '420px',
+      maxWidth: '95vw',
+      panelClass: 'confirm-dialog-panel',
+      backdropClass: 'confirm-dialog-backdrop',
+      autoFocus: false
+    });
+  }
+
+  closePaymentDialog(): void {
+    this.payDialogRef?.close();
+  }
+
+  payWith(_channel: PayChannel): void {
+    this.payDialogRef?.close();
+    this.paymentMethod.set('pay_now');
+    this.snackBar.open('Payment completed successfully', 'Close', { duration: 4000 });
+  }
+
+  contactHospital(): void {
+    this.snackBar.open('Hospital reception: +973 1234 5678', 'Close', { duration: 5000 });
   }
 
   bookAppointment(): void {
@@ -1609,6 +2153,7 @@ export class AppointmentsComponent implements OnInit {
     this.booking.set(true);
     this.api.bookAppointment(slot, this.visitReason()).subscribe(appt => {
       this.bookedAppointment.set(appt);
+      this.bookingId.set('BOOK-' + appt.id.replace(/\D/g, '').slice(-5).padStart(5, '0'));
       this.booking.set(false);
       this.bookingPhase.set('success');
       const msg = this.paymentMethod() === 'pay_now'
@@ -1625,6 +2170,9 @@ export class AppointmentsComponent implements OnInit {
     this.selectedDate.set('');
     this.visitReason.set('');
     this.bookedAppointment.set(null);
+    this.bookingId.set('');
+    this.rescheduling.set(false);
+    this.rescheduleResult.set(null);
     this.paymentMethod.set('pay_at_hospital');
   }
 

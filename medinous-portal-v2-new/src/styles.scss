@@ -241,3 +241,67 @@ html[dir="rtl"] {
     }
   }
 }
+
+// =============================================
+// CANCEL APPOINTMENT DIALOG
+// =============================================
+.confirm-modal-content.cancel-dialog-content {
+  text-align: center;
+
+  .cancel-icon-wrap {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: #ffebee;
+    display: flex; align-items: center; justify-content: center;
+    margin: 4px auto 12px;
+  }
+  .cancel-icon-wrap mat-icon {
+    color: #c62828;
+    font-size: 28px !important; width: 28px !important; height: 28px !important;
+  }
+  .confirm-title { font-size: 17px; margin-bottom: 6px; }
+  .confirm-sub { margin-bottom: 18px; }
+
+  .cs-destructive {
+    flex: 1.5;
+    height: 42px !important;
+    background: #c62828 !important; color: white !important;
+    font-weight: 700 !important; font-size: 13.5px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 12px rgba(198,40,40,0.22) !important;
+  }
+}
+
+// =============================================
+// PAY-NOW DIALOG (payment methods)
+// =============================================
+.confirm-modal-content.pay-dialog-content {
+  .pay-channels {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 4px;
+  }
+  .pay-channel {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #eef2f5; background: white;
+    cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+    font-size: 13.5px; font-weight: 600; color: #1b3a4b;
+    text-align: left;
+  }
+  .pay-channel:hover {
+    border-color: #0d8a8a;
+    background: #f5fafa;
+    box-shadow: 0 2px 8px rgba(13,138,138,0.10);
+  }
+  .pay-channel > mat-icon:first-of-type {
+    color: #0d8a8a;
+    font-size: 22px !important; width: 22px !important; height: 22px !important;
+  }
+  .pay-channel > span { flex: 1; }
+  .pay-channel .pc-arrow {
+    color: #c0c8d0;
+    font-size: 20px !important; width: 20px !important; height: 20px !important;
+  }
+}
