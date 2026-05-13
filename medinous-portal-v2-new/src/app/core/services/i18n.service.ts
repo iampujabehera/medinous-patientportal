@@ -126,8 +126,8 @@ const TRANSLATIONS: Record<SupportedLang, Record<string, string>> = {
     'doc.download': 'Download',
 
     // Guest Booking
-    'guest.title': 'Book as Guest',
-    'guest.subtitle': 'No account needed - book your appointment instantly',
+    'guest.title': 'Quick Booking',
+    'guest.subtitle': 'A quick, easy way to book your appointment',
     'guest.your_details': 'Your Details',
     'guest.first_name': 'First Name',
     'guest.last_name': 'Last Name',
@@ -139,7 +139,7 @@ const TRANSLATIONS: Record<SupportedLang, Record<string, string>> = {
     'guest.id_number': 'ID Number',
     'guest.register_prompt': 'Create an account to access all features',
     'guest.register': 'Create Account',
-    'guest.continue_guest': 'Continue as Guest',
+    'guest.continue_guest': 'Quick Booking',
 
     // Location
     'location.select': 'Select Location',
@@ -281,8 +281,8 @@ const TRANSLATIONS: Record<SupportedLang, Record<string, string>> = {
     'doc.download': '\u062a\u062d\u0645\u064a\u0644',
 
     // Guest Booking
-    'guest.title': '\u062d\u062c\u0632 \u0643\u0632\u0627\u0626\u0631',
-    'guest.subtitle': '\u0644\u0627 \u062d\u0627\u062c\u0629 \u0644\u062d\u0633\u0627\u0628 - \u0627\u062d\u062c\u0632 \u0645\u0648\u0639\u062f\u0643 \u0641\u0648\u0631\u0627\u064b',
+    'guest.title': '\u062d\u062c\u0632 \u0633\u0631\u064a\u0639',
+    'guest.subtitle': '\u0637\u0631\u064a\u0642\u0629 \u0633\u0631\u064a\u0639\u0629 \u0648\u0633\u0647\u0644\u0629 \u0644\u062d\u062c\u0632 \u0645\u0648\u0639\u062f\u0643',
     'guest.your_details': '\u0628\u064a\u0627\u0646\u0627\u062a\u0643',
     'guest.first_name': '\u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0623\u0648\u0644',
     'guest.last_name': '\u0627\u0633\u0645 \u0627\u0644\u0639\u0627\u0626\u0644\u0629',
@@ -294,7 +294,7 @@ const TRANSLATIONS: Record<SupportedLang, Record<string, string>> = {
     'guest.id_number': '\u0631\u0642\u0645 \u0627\u0644\u0647\u0648\u064a\u0629',
     'guest.register_prompt': '\u0623\u0646\u0634\u0626 \u062d\u0633\u0627\u0628\u0627\u064b \u0644\u0644\u0648\u0635\u0648\u0644 \u0644\u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u064a\u0632\u0627\u062a',
     'guest.register': '\u0625\u0646\u0634\u0627\u0621 \u062d\u0633\u0627\u0628',
-    'guest.continue_guest': '\u0645\u062a\u0627\u0628\u0639\u0629 \u0643\u0632\u0627\u0626\u0631',
+    'guest.continue_guest': '\u062d\u062c\u0632 \u0633\u0631\u064a\u0639',
 
     // Location
     'location.select': '\u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0645\u0648\u0642\u0639',

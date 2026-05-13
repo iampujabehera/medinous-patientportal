@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { GeographyService } from '../../core/services/geography.service';
@@ -19,6 +20,14 @@ import { Doctor, BookingSlot, Appointment } from '../../core/models/patient.mode
 type BookingPhase = 'find' | 'detail' | 'success';
 type PaymentMethod = 'pay_at_hospital' | 'pay_now';
 type SlotPeriod = 'morning' | 'afternoon' | 'evening';
+type ConsultationMode = 'in_person' | 'video';
+
+interface CalendarCell {
+  date: string;       // ISO yyyy-mm-dd
+  day: number;
+  inMonth: boolean;
+  isPast: boolean;
+}
 
 interface DateOption {
   date: string;       // ISO yyyy-mm-dd
@@ -35,7 +44,7 @@ interface DateOption {
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule,
     MatInputModule, MatProgressSpinnerModule, MatSnackBarModule,
-    MatDividerModule, MatChipsModule, MatMenuModule, SkeletonCardComponent
+    MatDividerModule, MatChipsModule, MatMenuModule, MatDialogModule, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -51,7 +60,7 @@ interface DateOption {
             <p class="subtitle">Pick a specialist to book your visit</p>
           </div>
 
-          <!-- Search + specialty dropdown (same row) -->
+          <!-- Search bar -->
           <div class="filter-row">
             <div class="search-wrap">
               <mat-icon class="s-icon">search</mat-icon>
@@ -65,23 +74,24 @@ interface DateOption {
                 </button>
               }
             </div>
-            <button mat-stroked-button class="spec-btn" [matMenuTriggerFor]="specMenu">
-              <mat-icon class="spec-icon">{{ specialtyIcon(selectedSpecialty()) }}</mat-icon>
-              <span class="spec-label">{{ selectedSpecialty() === 'all' ? 'All Specialties' : selectedSpecialty() }}</span>
-              <mat-icon class="spec-caret">expand_more</mat-icon>
+          </div>
+
+          <!-- Specialty tabs (horizontal scrollable) -->
+          <div class="specialty-tabs">
+            <button class="spec-tab"
+                    [class.active]="selectedSpecialty() === 'all'"
+                    (click)="setSpecialty('all')">
+              <mat-icon>apps</mat-icon>
+              All
             </button>
-            <mat-menu #specMenu="matMenu" class="spec-menu">
-              <button mat-menu-item (click)="setSpecialty('all')">
-                <mat-icon [class.spec-current]="selectedSpecialty() === 'all'">apps</mat-icon>
-                <span>All Specialties</span>
+            @for (s of specialties(); track s) {
+              <button class="spec-tab"
+                      [class.active]="selectedSpecialty() === s"
+                      (click)="setSpecialty(s)">
+                <mat-icon>{{ specialtyIcon(s) }}</mat-icon>
+                {{ s }}
               </button>
-              @for (s of specialties(); track s) {
-                <button mat-menu-item (click)="setSpecialty(s)">
-                  <mat-icon [class.spec-current]="selectedSpecialty() === s">{{ specialtyIcon(s) }}</mat-icon>
-                  <span>{{ s }}</span>
-                </button>
-              }
-            </mat-menu>
+            }
           </div>
 
           @if (loadingDoctors()) {
@@ -92,37 +102,45 @@ interface DateOption {
             <div class="doctors-list">
               @for (doc of filteredDoctors(); track doc.id) {
                 <div class="doc-row" (click)="selectDoctor(doc)">
-                  <div class="doc-avatar"><mat-icon>person</mat-icon></div>
+                  <div class="doc-left">
+                    <div class="doc-avatar"><mat-icon>person</mat-icon></div>
+                    <button class="view-profile-cta" (click)="openProfile(doc, $event)">
+                      View Profile <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+                    </button>
+                  </div>
+
                   <div class="doc-body">
                     <strong class="doc-name">{{ doc.name }}</strong>
-                    <span class="doc-specialty">{{ doc.specialty }}</span>
-                    <div class="doc-meta">
-                      <span class="rating">
-                        <mat-icon class="star-icon">star</mat-icon>
-                        <strong>{{ doc.rating.toFixed(1) }}</strong>
-                        <span class="reviews">({{ reviewCount(doc) }} reviews)</span>
-                      </span>
-                      <span class="dot-sep">·</span>
-                      <span class="avail-pill" [class.today]="nextAvailableLabel(doc).startsWith('Available today')">
-                        <mat-icon class="avail-icon">event_available</mat-icon>
-                        {{ nextAvailableLabel(doc) }}
-                      </span>
+                    <span class="doc-specialty">
+                      <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
+                      {{ doc.specialty }}
+                    </span>
+
+                    <div class="next-avail-wrap">
+                      <span class="next-avail-label">Next available at</span>
+                      <div class="avail-chips">
+                        <span class="avail-chip in-person">
+                          <mat-icon>local_hospital</mat-icon>
+                          {{ nextInPersonSlot(doc) }}
+                        </span>
+                        <span class="avail-chip video">
+                          <mat-icon>videocam</mat-icon>
+                          {{ nextVideoSlot(doc) }}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div class="doc-fee-col">
-                    <strong>{{ formatCurrency(doc.consultationFee) }}</strong>
-                    <span>Consultation</span>
+
+                  <div class="doc-right">
+                    <strong class="fee-onwards">{{ formatCurrency(videoConsultFee(doc)) }} onwards</strong>
+                    <mat-icon class="row-chevron">chevron_right</mat-icon>
                   </div>
-                  <mat-icon class="row-chevron">chevron_right</mat-icon>
                 </div>
               }
               @if (!filteredDoctors().length) {
                 <div class="empty-state">
                   <mat-icon>search_off</mat-icon>
-                  <p>
-                    @if (searchQuery()) { No doctors match "{{ searchQuery() }}". }
-                    @else { No doctors found in this specialty. }
-                  </p>
+                  <p>No records</p>
                 </div>
               }
             </div>
@@ -134,53 +152,70 @@ interface DateOption {
       <!--  PHASE 2: BOOKING DETAIL (date + time + pay)  -->
       <!-- ============================================ -->
       @else if (bookingPhase() === 'detail') {
-        <div class="booking-content">
+        <div class="booking-content detail-content">
           <a class="back-link" (click)="goBackToFind()">
             <mat-icon>arrow_back</mat-icon> Back to doctors
           </a>
 
-          <!-- Selected doctor compact card -->
+          <!-- Doctor summary header -->
           @if (selectedDoctor(); as doc) {
-            <div class="selected-doc-card">
+            <div class="sticky-doc-header">
               <div class="doc-avatar"><mat-icon>person</mat-icon></div>
-              <div class="doc-body">
+              <div class="sdh-body">
                 <strong class="doc-name">{{ doc.name }}</strong>
-                <span class="doc-specialty">{{ doc.specialty }}</span>
-                <span class="rating">
-                  <mat-icon class="star-icon">star</mat-icon>
-                  <strong>{{ doc.rating.toFixed(1) }}</strong>
-                  <span class="reviews">({{ reviewCount(doc) }} reviews)</span>
+                <span class="sdh-meta">
+                  <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
+                  {{ doctorDesignation(doc) }} <span class="sdh-sep">|</span> {{ doc.specialty }}
                 </span>
               </div>
-              <div class="doc-fee-col">
-                <strong>{{ formatCurrency(doc.consultationFee) }}</strong>
-                <span>Consultation</span>
+              <div class="sdh-fee">
+                <strong>{{ formatCurrency(currentFee()) }}</strong>
+                <span>{{ consultationMode() === 'video' ? 'Video' : 'In-person' }}</span>
               </div>
             </div>
           }
 
-          <!-- Date strip -->
+          <!-- Consultation mode tabs -->
+          <div class="mode-tabs">
+            <button class="mode-tab"
+                    [class.active]="consultationMode() === 'in_person'"
+                    (click)="setConsultationMode('in_person')">
+              <mat-icon>local_hospital</mat-icon>
+              Hospital Visit
+            </button>
+            <button class="mode-tab video"
+                    [class.active]="consultationMode() === 'video'"
+                    (click)="setConsultationMode('video')">
+              <mat-icon>videocam</mat-icon>
+              Video Consult
+            </button>
+          </div>
+
+          <!-- Date selector -->
           <section class="section">
             <div class="section-head">
               <span class="head-left">
                 <mat-icon>event</mat-icon>
                 <h3>Select Date</h3>
               </span>
-              <span class="month-label">{{ currentMonthLabel() }}</span>
+              <button class="calendar-btn" (click)="openCalendar()">
+                <mat-icon>calendar_month</mat-icon>
+                Pick Date
+              </button>
             </div>
-            <div class="date-strip">
+            <div class="date-strip compact">
               @for (d of dateOptions(); track d.date) {
-                <button class="date-pill"
+                <button class="date-pill compact"
                         [class.active]="selectedDate() === d.date"
                         (click)="selectDate(d.date)">
-                  <span class="date-pill-label">{{ d.dayLabel }}</span>
                   <span class="date-pill-num">{{ d.dayNum }}</span>
+                  <span class="date-pill-label">{{ d.dayLabel.substring(0, 3) }}</span>
                 </button>
               }
             </div>
           </section>
 
-          <!-- Time slots grouped by period -->
+          <!-- Time slots -->
           <section class="section">
             <div class="section-head">
               <span class="head-left">
@@ -190,8 +225,11 @@ interface DateOption {
             </div>
 
             @if (morningSlots().length) {
-              <h4 class="period-label">Morning</h4>
-              <div class="slots-grid">
+              <h4 class="period-label">
+                <mat-icon class="period-icon morning">wb_sunny</mat-icon>
+                Morning
+              </h4>
+              <div class="slots-grid tight">
                 @for (slot of morningSlots(); track slot.id) {
                   <button class="slot-pill"
                           [class.selected]="selectedSlot()?.id === slot.id"
@@ -202,8 +240,11 @@ interface DateOption {
             }
 
             @if (afternoonSlots().length) {
-              <h4 class="period-label">Afternoon</h4>
-              <div class="slots-grid">
+              <h4 class="period-label">
+                <mat-icon class="period-icon afternoon">wb_twilight</mat-icon>
+                Afternoon
+              </h4>
+              <div class="slots-grid tight">
                 @for (slot of afternoonSlots(); track slot.id) {
                   <button class="slot-pill"
                           [class.selected]="selectedSlot()?.id === slot.id"
@@ -214,8 +255,11 @@ interface DateOption {
             }
 
             @if (eveningSlots().length) {
-              <h4 class="period-label">Evening</h4>
-              <div class="slots-grid">
+              <h4 class="period-label">
+                <mat-icon class="period-icon evening">dark_mode</mat-icon>
+                Evening
+              </h4>
+              <div class="slots-grid tight">
                 @for (slot of eveningSlots(); track slot.id) {
                   <button class="slot-pill"
                           [class.selected]="selectedSlot()?.id === slot.id"
@@ -226,7 +270,7 @@ interface DateOption {
             }
           </section>
 
-          <!-- Payment Method -->
+          <!-- Payment Method (compact) -->
           <section class="section">
             <div class="section-head">
               <span class="head-left">
@@ -235,27 +279,29 @@ interface DateOption {
               </span>
             </div>
 
-            <label class="pay-card" [class.selected]="paymentMethod() === 'pay_at_hospital'">
-              <input type="radio" name="pm" value="pay_at_hospital"
-                     [checked]="paymentMethod() === 'pay_at_hospital'"
-                     (change)="paymentMethod.set('pay_at_hospital')">
-              <mat-icon class="pay-icon">local_hospital</mat-icon>
-              <div class="pay-text">
-                <strong>Pay at Hospital</strong>
-                <span>Book now and pay during your visit at the clinic. No upfront payment required.</span>
-              </div>
-            </label>
+            <div class="pay-row">
+              <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_at_hospital'">
+                <input type="radio" name="pm" value="pay_at_hospital"
+                       [checked]="paymentMethod() === 'pay_at_hospital'"
+                       (change)="paymentMethod.set('pay_at_hospital')">
+                <mat-icon class="pay-icon">local_hospital</mat-icon>
+                <div class="pay-text">
+                  <strong>Pay at Hospital</strong>
+                  <span>Pay during your visit</span>
+                </div>
+              </label>
 
-            <label class="pay-card" [class.selected]="paymentMethod() === 'pay_now'">
-              <input type="radio" name="pm" value="pay_now"
-                     [checked]="paymentMethod() === 'pay_now'"
-                     (change)="paymentMethod.set('pay_now')">
-              <mat-icon class="pay-icon">payment</mat-icon>
-              <div class="pay-text">
-                <strong>Pay Now</strong>
-                <span>Pay securely online now and save time at the clinic.</span>
-              </div>
-            </label>
+              <label class="pay-card compact" [class.selected]="paymentMethod() === 'pay_now'">
+                <input type="radio" name="pm" value="pay_now"
+                       [checked]="paymentMethod() === 'pay_now'"
+                       (change)="paymentMethod.set('pay_now')">
+                <mat-icon class="pay-icon">payment</mat-icon>
+                <div class="pay-text">
+                  <strong>Pay Now</strong>
+                  <span>Pay securely online</span>
+                </div>
+              </label>
+            </div>
           </section>
 
           <!-- Reason (optional) -->
@@ -270,24 +316,64 @@ interface DateOption {
           </section>
         </div>
 
-        <!-- Sticky bottom CTA bar -->
-        <div class="sticky-cta">
-          <button mat-stroked-button class="cta-back" (click)="goBackToFind()">
-            Back
-          </button>
-          <button mat-flat-button color="primary" class="cta-primary"
-                  [disabled]="!selectedSlot() || booking()"
-                  (click)="bookAppointment()">
-            @if (booking()) {
-              <mat-spinner diameter="20" class="cta-spin"></mat-spinner>
-              Booking...
-            } @else if (paymentMethod() === 'pay_now') {
-              Pay {{ formatCurrency(selectedDoctor()?.consultationFee ?? 0) }} & Book
-            } @else {
-              Book Appointment
-            }
-          </button>
+        <!-- Fixed bottom booking bar -->
+        <div class="booking-bar">
+          <div class="booking-bar-inner">
+            <div class="bar-info">
+              <strong class="bar-fee">{{ formatCurrency(currentFee()) }}</strong>
+              @if (selectedSlot() && selectedDate()) {
+                <span class="bar-meta">
+                  {{ selectedDate() | date:'d MMM' }} · {{ selectedSlot()?.time }}
+                </span>
+              } @else {
+                <span class="bar-meta hint">Select a time slot</span>
+              }
+            </div>
+            <button mat-flat-button class="confirm-btn"
+                    [disabled]="!selectedSlot() || booking()"
+                    (click)="openConfirmModal()">
+              @if (booking()) {
+                <mat-spinner diameter="18" class="cta-spin"></mat-spinner>
+              } @else {
+                Confirm Appointment <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+              }
+            </button>
+          </div>
         </div>
+
+        <!-- Calendar picker modal/bottom-sheet -->
+        @if (calendarOpen()) {
+          <div class="cal-backdrop" (click)="closeCalendar()"></div>
+          <div class="cal-sheet" role="dialog" aria-modal="true">
+            <div class="cal-grabber" aria-hidden="true"></div>
+            <div class="cal-head">
+              <button mat-icon-button class="cal-nav" (click)="calendarPrev()" aria-label="Previous month">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <strong class="cal-month">{{ calendarMonthLabel() }}</strong>
+              <button mat-icon-button class="cal-nav" (click)="calendarNext()" aria-label="Next month">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+            <div class="cal-weekdays">
+              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+            <div class="cal-grid">
+              @for (cell of calendarDays(); track cell.date) {
+                <button class="cal-day"
+                        [class.in-month]="cell.inMonth"
+                        [class.past]="cell.isPast"
+                        [class.selected]="cell.date === selectedDate() && cell.inMonth"
+                        [disabled]="cell.isPast"
+                        (click)="selectFromCalendar(cell)">
+                  {{ cell.day }}
+                </button>
+              }
+            </div>
+            <button mat-stroked-button class="cal-close" (click)="closeCalendar()">Close</button>
+          </div>
+        }
+
       }
 
       <!-- ============================================ -->
@@ -342,6 +428,143 @@ interface DateOption {
           </div>
         </div>
       }
+
+      <!-- ============================================ -->
+      <!--  DOCTOR PROFILE SHEET (slide-in / bottom)     -->
+      <!-- ============================================ -->
+      @if (profileOpen()) {
+        <div class="profile-backdrop" (click)="closeProfile()"></div>
+        <aside class="profile-sheet" role="dialog" aria-modal="true">
+          <div class="sheet-grabber" aria-hidden="true"></div>
+          <button mat-icon-button class="sheet-close" (click)="closeProfile()" aria-label="Close">
+            <mat-icon>close</mat-icon>
+          </button>
+
+          @if (profileDoctor(); as doc) {
+            <div class="profile-scroll">
+              <div class="profile-hero">
+                <div class="profile-avatar"><mat-icon>person</mat-icon></div>
+                <h2 class="profile-name">{{ doc.name }}</h2>
+                <span class="profile-designation">{{ doctorDesignation(doc) }}</span>
+                <span class="profile-specialty">
+                  <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
+                  {{ doc.specialty }}
+                </span>
+              </div>
+
+              <section class="profile-section">
+                <h3>About</h3>
+                <p class="profile-about" [class.collapsed]="!profileAboutExpanded()">
+                  {{ doctorAbout(doc) }}
+                </p>
+                <button class="link-btn" (click)="toggleProfileAbout()">
+                  {{ profileAboutExpanded() ? 'Read less' : 'Read more' }}
+                </button>
+              </section>
+
+              <section class="profile-section">
+                <h3>Qualifications</h3>
+                <p class="profile-quals">{{ doctorEducation(doc) }}</p>
+              </section>
+
+              <section class="profile-section">
+                <h3>Next available at</h3>
+                <div class="avail-chips stacked">
+                  <span class="avail-chip in-person">
+                    <mat-icon>local_hospital</mat-icon>
+                    {{ nextInPersonSlot(doc) }}
+                  </span>
+                  <span class="avail-chip video">
+                    <mat-icon>videocam</mat-icon>
+                    {{ nextVideoSlot(doc) }}
+                  </span>
+                </div>
+              </section>
+            </div>
+
+            <div class="profile-cta-bar">
+              <button mat-flat-button class="cta-primary book-from-profile"
+                      (click)="bookFromProfile()">
+                Book Appointment <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+              </button>
+            </div>
+          }
+        </aside>
+      }
+
+      <!-- Booking confirmation dialog (rendered into CDK overlay at <body>) -->
+      <ng-template #confirmDialog>
+        @if (selectedDoctor(); as doc) {
+          <div class="confirm-modal-content">
+            <button mat-icon-button class="confirm-close" (click)="closeConfirmModal()" aria-label="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+
+            <h3 class="confirm-title">Review your booking</h3>
+            <p class="confirm-sub">Please confirm the details below before booking.</p>
+
+            <div class="confirm-summary">
+              <div class="cs-row">
+                <mat-icon>person</mat-icon>
+                <div class="cs-text">
+                  <strong>{{ doc.name }}</strong>
+                  <span>{{ doc.specialty }} · {{ doctorDesignation(doc) }}</span>
+                </div>
+              </div>
+
+              <div class="cs-row">
+                <mat-icon>{{ consultationMode() === 'video' ? 'videocam' : 'local_hospital' }}</mat-icon>
+                <div class="cs-text">
+                  <strong>{{ consultationMode() === 'video' ? 'Video Consultation' : 'Hospital Visit' }}</strong>
+                  <span>{{ doc.location }}</span>
+                </div>
+              </div>
+
+              <div class="cs-row">
+                <mat-icon>event</mat-icon>
+                <div class="cs-text">
+                  <strong>{{ selectedDate() | date:'fullDate' }}</strong>
+                  <span>{{ selectedSlot()?.time }}</span>
+                </div>
+              </div>
+
+              <div class="cs-row">
+                <mat-icon>credit_card</mat-icon>
+                <div class="cs-text">
+                  <strong>{{ paymentMethod() === 'pay_now' ? 'Pay now (online)' : 'Pay at hospital' }}</strong>
+                  <span>Consultation fee</span>
+                </div>
+                <strong class="cs-fee">{{ formatCurrency(currentFee()) }}</strong>
+              </div>
+
+              @if (visitReason().trim()) {
+                <div class="cs-row">
+                  <mat-icon>notes</mat-icon>
+                  <div class="cs-text">
+                    <strong>Reason</strong>
+                    <span class="cs-reason">{{ visitReason() }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="confirm-actions">
+              <button mat-stroked-button class="cs-cancel" (click)="closeConfirmModal()">
+                Cancel
+              </button>
+              <button mat-flat-button class="cs-confirm"
+                      [disabled]="booking()"
+                      (click)="confirmAndBook()">
+                @if (booking()) {
+                  <mat-spinner diameter="18" class="cta-spin"></mat-spinner>
+                } @else {
+                  Confirm &amp; Book <mat-icon iconPositionEnd>check</mat-icon>
+                }
+              </button>
+            </div>
+          </div>
+        }
+      </ng-template>
     </div>
   `,
   styles: [`
@@ -391,109 +614,305 @@ interface DateOption {
     }
     .s-clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
-    .spec-btn {
-      flex-shrink: 0; height: 42px !important;
-      border-radius: 22px !important;
-      border-color: #d8e3e3 !important; background: white !important;
-      color: #1b3a4b !important; font-weight: 500 !important;
-      font-size: 13px !important;
-      padding: 0 14px !important;
-      display: inline-flex !important; align-items: center; gap: 6px;
+    /* Specialty tabs (horizontal scrollable) */
+    .specialty-tabs {
+      display: flex; gap: 8px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      margin-bottom: 12px;
+      scrollbar-width: thin;
     }
-    .spec-btn .spec-icon {
-      font-size: 18px !important; width: 18px !important; height: 18px !important;
+    .specialty-tabs::-webkit-scrollbar { height: 4px; }
+    .specialty-tabs::-webkit-scrollbar-thumb { background: #d8e3e3; border-radius: 2px; }
+    .spec-tab {
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px; height: 40px;
+      border-radius: 22px;
+      border: 1.5px solid #e0e8e8; background: white;
+      cursor: pointer; transition: all 0.18s;
+      font-family: inherit;
+      font-size: 13px; font-weight: 700; color: #6b7884;
+      white-space: nowrap;
+    }
+    .spec-tab mat-icon {
+      font-size: 19px !important; width: 19px !important; height: 19px !important;
       color: #0d8a8a;
     }
-    .spec-btn .spec-caret {
-      font-size: 18px !important; width: 18px !important; height: 18px !important;
-      color: #888;
+    .spec-tab:hover {
+      border-color: #80cbc4; color: #0d8a8a;
+      background: #f5fafa;
     }
-    .spec-label { white-space: nowrap; }
-    .spec-current { color: #0d8a8a !important; }
+    .spec-tab.active {
+      background: #0d8a8a;
+      border-color: #0d8a8a;
+      color: white;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.30);
+    }
+    .spec-tab.active mat-icon { color: white; }
 
     @media (max-width: 600px) {
-      .filter-row { flex-direction: column; gap: 8px; }
-      .search-wrap, .spec-btn { width: 100%; }
-      .spec-btn { justify-content: space-between !important; }
+      .filter-row { width: 100%; }
+      .search-wrap { width: 100%; }
+      .specialty-tabs { gap: 6px; padding: 4px 0 8px; }
+      .spec-tab { padding: 8px 14px; height: 36px; font-size: 12.5px; }
+      .spec-tab mat-icon {
+        font-size: 17px !important; width: 17px !important; height: 17px !important;
+      }
     }
 
     /* =============================================
-       DOCTOR ROW (find phase)
+       DOCTOR ROW (find phase) — restructured
        ============================================= */
     .doctors-list { display: flex; flex-direction: column; gap: 10px; }
     .doc-row {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: flex-start; gap: 14px;
       padding: 14px; border-radius: 12px;
-      background: white; border: 1px solid #e8eded;
+      background: white; border: 1px solid #eef2f5;
       cursor: pointer; transition: all 0.18s;
     }
     .doc-row:hover {
       border-color: #80cbc4;
-      box-shadow: 0 4px 14px rgba(13,138,138,0.10);
+      box-shadow: 0 4px 14px rgba(13,138,138,0.08);
       transform: translateY(-1px);
     }
-    .doc-avatar {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-      display: flex; align-items: center; justify-content: center;
+
+    /* Left column: avatar + view-profile CTA */
+    .doc-left {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
       flex-shrink: 0;
     }
-    .doc-avatar mat-icon {
-      color: #0d8a8a; font-size: 28px; width: 28px; height: 28px;
+    .doc-avatar {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+      display: flex; align-items: center; justify-content: center;
     }
+    .doc-avatar mat-icon {
+      color: #0d8a8a; font-size: 32px; width: 32px; height: 32px;
+    }
+    .view-profile-cta {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 4px 8px; border-radius: 14px;
+      border: none; background: #eaf4ff; color: #1565c0;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .view-profile-cta:hover { background: #d4e7fb; }
+    .view-profile-cta mat-icon {
+      font-size: 13px !important; width: 13px !important; height: 13px !important;
+    }
+
+    /* Body */
     .doc-body {
       flex: 1; min-width: 0;
-      display: flex; flex-direction: column; gap: 2px;
+      display: flex; flex-direction: column; gap: 4px;
     }
     .doc-name {
       font-size: 15px; color: #1b3a4b; font-weight: 700;
+      line-height: 1.25;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .doc-specialty { font-size: 13px; color: #0d8a8a; font-weight: 600; }
-    .doc-clinic { font-size: 12px; color: #888; }
-    .doc-meta {
-      display: flex; align-items: center; flex-wrap: wrap;
-      gap: 6px; margin-top: 4px; font-size: 12px;
+    .doc-specialty {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12.5px; color: #5a8585; font-weight: 600;
     }
-    .rating {
-      display: inline-flex; align-items: center; gap: 3px;
-      color: #555;
-    }
-    .rating strong { color: #1b3a4b; }
-    .reviews { color: #999; }
-    .star-icon {
+    .spec-inline-icon {
       font-size: 16px !important; width: 16px !important; height: 16px !important;
-      color: #ffb300;
+      color: #5a8585;
     }
-    .dot-sep { color: #ccc; }
-    .avail-pill {
-      display: inline-flex; align-items: center; gap: 3px;
-      padding: 2px 8px; border-radius: 10px;
-      background: #f0f7f7; color: #0d8a8a; font-weight: 600; font-size: 11px;
+
+    /* Next available section */
+    .next-avail-wrap {
+      margin-top: 6px;
     }
-    .avail-pill.today {
-      background: #e8f5e9; color: #2e7d32;
+    .next-avail-label {
+      display: block; font-size: 10.5px; color: #98a2ab;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      font-weight: 700; margin-bottom: 5px;
     }
-    .avail-icon {
-      font-size: 14px !important; width: 14px !important; height: 14px !important;
+    .avail-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
     }
-    .doc-fee-col {
-      display: flex; flex-direction: column; align-items: flex-end;
+    .avail-chips.stacked { flex-direction: column; align-items: flex-start; }
+    .avail-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 14px;
+      font-size: 11.5px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .avail-chip mat-icon {
+      font-size: 13px !important; width: 13px !important; height: 13px !important;
+    }
+    .avail-chip.in-person {
+      background: #e8f5f3; color: #0d8a8a;
+    }
+    .avail-chip.video {
+      background: #ede7f6; color: #5e35b1;
+    }
+
+    /* Right column: starting price + chevron */
+    .doc-right {
+      display: flex; align-items: center; gap: 6px;
       flex-shrink: 0;
     }
-    .doc-fee-col strong {
-      font-size: 16px; color: #2e7d32; font-weight: 700;
+    .fee-onwards {
+      font-size: 14px; font-weight: 700; color: #1b3a4b;
+      white-space: nowrap;
     }
-    .doc-fee-col span {
-      font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.3px;
+
+    .row-chevron {
+      color: #c8d0d8; flex-shrink: 0;
+      font-size: 22px !important; width: 22px !important; height: 22px !important;
     }
-    .row-chevron { color: #c0c0c0; flex-shrink: 0; }
     .doc-row:hover .row-chevron { color: #0d8a8a; }
 
     .empty-state {
       text-align: center; padding: 40px; color: #999;
     }
     .empty-state mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; }
+
+    /* =============================================
+       DOCTOR PROFILE SHEET (slide-in / bottom)
+       ============================================= */
+    .profile-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 30, 40, 0.45);
+      z-index: 100;
+      animation: fadeIn 0.18s ease-out;
+    }
+    .profile-sheet {
+      position: fixed; top: 0; right: 0;
+      width: 38vw; min-width: 380px; max-width: 480px;
+      height: 100vh; background: white;
+      z-index: 101;
+      box-shadow: -8px 0 24px rgba(0,0,0,0.10);
+      display: flex; flex-direction: column;
+      animation: slideInRight 0.25s ease-out;
+    }
+    .sheet-grabber { display: none; }
+    .sheet-close {
+      position: absolute; top: 10px; right: 10px;
+      width: 36px !important; height: 36px !important;
+      color: #6b7884;
+      z-index: 1;
+    }
+    .profile-scroll {
+      flex: 1; overflow-y: auto;
+      padding: 28px 22px 16px;
+    }
+
+    /* Profile hero */
+    .profile-hero {
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; gap: 4px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f0f4f4;
+    }
+    .profile-avatar {
+      width: 84px; height: 84px; border-radius: 50%;
+      background: linear-gradient(135deg, #e0f2f1 0%, #80cbc4 100%);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 8px;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.18);
+    }
+    .profile-avatar mat-icon {
+      color: #0d8a8a; font-size: 44px; width: 44px; height: 44px;
+    }
+    .profile-name {
+      margin: 0; font-size: 18px; font-weight: 700; color: #1b3a4b;
+    }
+    .profile-designation {
+      font-size: 12.5px; color: #6b7884; font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .profile-specialty {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12.5px; color: #0d8a8a; font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Profile sections */
+    .profile-section {
+      padding: 16px 0;
+      border-bottom: 1px solid #f0f4f4;
+    }
+    .profile-section:last-of-type { border-bottom: none; }
+    .profile-section h3 {
+      margin: 0 0 8px;
+      font-size: 11px; color: #98a2ab; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .profile-about, .profile-quals {
+      margin: 0;
+      font-size: 13px; color: #3a4a55; line-height: 1.55;
+    }
+    .profile-about.collapsed {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .link-btn {
+      background: none; border: none; padding: 6px 0 0;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      color: #0d8a8a; cursor: pointer;
+    }
+    .link-btn:hover { text-decoration: underline; }
+
+    /* Profile bottom CTA */
+    .profile-cta-bar {
+      padding: 12px 18px;
+      border-top: 1px solid #e3ecec;
+      background: white;
+    }
+    .book-from-profile {
+      width: 100%;
+      height: 44px !important;
+      padding: 0 18px !important;
+      font-weight: 700 !important;
+      font-size: 14px !important;
+      border-radius: 10px !important;
+      background: #0d8a8a !important; color: white !important;
+      box-shadow: 0 4px 14px rgba(13,138,138,0.28) !important;
+      display: inline-flex !important; align-items: center; justify-content: center; gap: 6px;
+    }
+    .book-from-profile mat-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    @keyframes slideInUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    /* Mobile bottom sheet variant */
+    @media (max-width: 768px) {
+      .profile-sheet {
+        top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; min-width: 0; max-width: none;
+        height: 88vh;
+        border-radius: 18px 18px 0 0;
+        animation: slideInUp 0.25s ease-out;
+        box-shadow: 0 -8px 24px rgba(0,0,0,0.10);
+      }
+      .sheet-grabber {
+        display: block;
+        width: 40px; height: 4px; border-radius: 2px;
+        background: #d8e0e6;
+        margin: 8px auto 4px;
+      }
+      .profile-scroll { padding: 12px 18px 16px; }
+    }
 
     /* =============================================
        DETAIL PHASE
@@ -508,139 +927,342 @@ interface DateOption {
       font-size: 16px !important; width: 16px !important; height: 16px !important;
     }
 
-    .selected-doc-card {
+    /* =============================================
+       STICKY DOCTOR HEADER (detail phase)
+       ============================================= */
+    .detail-content { padding-bottom: 96px; }
+    .sticky-doc-header {
       display: flex; align-items: center; gap: 12px;
-      padding: 14px; border-radius: 12px;
-      background: linear-gradient(135deg, #f8fafa 0%, #eef5f5 100%);
-      border: 1px solid #d8e8e8; margin-bottom: 18px;
+      padding: 12px 14px;
+      background: white;
+      border: 1px solid #eef2f5;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
     }
-    .selected-doc-card .doc-name { font-size: 15px; }
-    .selected-doc-card .doc-clinic { margin-bottom: 3px; }
+    .sticky-doc-header .doc-avatar {
+      width: 42px; height: 42px;
+    }
+    .sticky-doc-header .doc-avatar mat-icon {
+      font-size: 24px; width: 24px; height: 24px;
+    }
+    .sdh-body {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .sdh-body .doc-name { font-size: 14px; line-height: 1.2; }
+    .sdh-meta {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #5a8585; font-weight: 600;
+    }
+    .sdh-sep { color: #c8d0d8; margin: 0 2px; font-weight: 400; }
+    .sdh-fee {
+      display: flex; flex-direction: column; align-items: flex-end;
+      flex-shrink: 0;
+    }
+    .sdh-fee strong {
+      font-size: 16px; color: #1b3a4b; font-weight: 700;
+    }
+    .sdh-fee span {
+      font-size: 10px; color: #98a2ab; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
 
-    .section { margin-bottom: 22px; }
+    .doc-designation {
+      font-size: 11.5px; color: #6b7884; font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    /* =============================================
+       CONSULTATION MODE TABS
+       ============================================= */
+    .mode-tabs {
+      display: flex; gap: 4px;
+      padding: 4px;
+      background: #f3f5f7;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+    .mode-tab {
+      flex: 1;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 12px;
+      border: none; background: transparent;
+      border-radius: 7px;
+      cursor: pointer; transition: all 0.18s;
+      font-family: inherit;
+      font-size: 13px; font-weight: 600; color: #6b7884;
+    }
+    .mode-tab mat-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+    }
+    .mode-tab.active {
+      background: white; color: #0d8a8a;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .mode-tab.video.active { color: #5e35b1; }
+
+    /* =============================================
+       SECTION + DATE
+       ============================================= */
+    .section { margin-bottom: 18px; }
     .section-head {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
     .head-left {
       display: flex; align-items: center; gap: 8px;
     }
-    .head-left mat-icon { color: #0d8a8a; font-size: 20px; width: 20px; height: 20px; }
+    .head-left mat-icon { color: #0d8a8a; font-size: 18px; width: 18px; height: 18px; }
     .head-left h3 {
-      margin: 0; font-size: 15px; font-weight: 700; color: #1b3a4b;
-    }
-    .month-label {
-      font-size: 12px; color: #888; font-weight: 500;
+      margin: 0; font-size: 14px; font-weight: 700; color: #1b3a4b;
     }
 
-    /* Date strip */
+    .calendar-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 10px; border-radius: 14px;
+      border: 1px solid #d8e3e3; background: white;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit; font-size: 11.5px; font-weight: 600; color: #0d8a8a;
+    }
+    .calendar-btn:hover { border-color: #0d8a8a; background: #f0f7f7; }
+    .calendar-btn mat-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+      color: #0d8a8a;
+    }
+
+    /* Compact date strip */
     .date-strip {
-      display: flex; gap: 8px; overflow-x: auto;
-      padding: 2px 2px 6px;
+      display: flex; gap: 6px; overflow-x: auto;
+      padding: 2px 2px 4px;
       scrollbar-width: thin;
     }
     .date-strip::-webkit-scrollbar { height: 4px; }
     .date-strip::-webkit-scrollbar-thumb { background: #d8e3e3; border-radius: 2px; }
     .date-pill {
-      flex-shrink: 0; min-width: 56px;
-      padding: 8px 6px; border-radius: 10px;
-      border: 1px solid #e0e8e8; background: white;
-      cursor: pointer; transition: all 0.18s;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      flex-shrink: 0; min-width: 46px;
+      padding: 6px 4px; border-radius: 9px;
+      border: 1px solid #e8eded; background: white;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; flex-direction: column; align-items: center; gap: 0;
     }
     .date-pill:hover { border-color: #80cbc4; }
     .date-pill.active {
       background: #0d8a8a; border-color: #0d8a8a;
-      box-shadow: 0 4px 12px rgba(13,138,138,0.30);
+      box-shadow: 0 3px 10px rgba(13,138,138,0.25);
     }
+    .date-pill-num {
+      font-size: 16px; font-weight: 700; color: #1b3a4b; line-height: 1.15;
+    }
+    .date-pill.active .date-pill-num { color: white; }
     .date-pill-label {
-      font-size: 10px; color: #888; font-weight: 600;
+      font-size: 9.5px; color: #98a2ab; font-weight: 600;
       text-transform: uppercase; letter-spacing: 0.3px;
     }
     .date-pill.active .date-pill-label { color: rgba(255,255,255,0.85); }
-    .date-pill-num {
-      font-size: 18px; font-weight: 700; color: #1b3a4b;
-    }
-    .date-pill.active .date-pill-num { color: white; }
 
-    /* Time slots */
+    /* =============================================
+       TIME SLOTS
+       ============================================= */
     .period-label {
-      font-size: 13px; color: #666; font-weight: 600;
-      margin: 14px 0 8px; text-transform: capitalize;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #6b7884; font-weight: 700;
+      margin: 12px 0 6px;
+      text-transform: capitalize;
     }
+    .period-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+    }
+    .period-icon.morning { color: #f6a821; }
+    .period-icon.afternoon { color: #ef6c00; }
+    .period-icon.evening { color: #5c6bc0; }
+
     .slots-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-      gap: 8px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+      gap: 6px;
     }
     .slot-pill {
-      padding: 10px; border-radius: 8px;
+      padding: 7px 6px; border-radius: 7px;
       border: 1px solid #e0e8e8; background: white;
-      font-size: 13px; font-weight: 500; color: #1b3a4b;
-      cursor: pointer; transition: all 0.18s;
+      font-size: 12.5px; font-weight: 600; color: #1b3a4b;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+      min-height: 34px;
     }
     .slot-pill:hover:not(:disabled) {
       border-color: #80cbc4; background: #f5fafa;
     }
     .slot-pill.selected {
       background: #0d8a8a; color: white; border-color: #0d8a8a;
-      box-shadow: 0 2px 8px rgba(13,138,138,0.30);
+      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
     }
     .slot-pill:disabled {
-      color: #c0c0c0; background: #fafafa; cursor: not-allowed;
-      border-color: #f0f0f0;
+      color: #c8d0d8; background: #fafafa; cursor: not-allowed;
+      border-color: #f0f0f0; opacity: 0.55;
     }
 
-    /* Payment cards */
+    /* =============================================
+       PAYMENT CARDS (compact side-by-side)
+       ============================================= */
+    .pay-row { display: flex; gap: 8px; }
     .pay-card {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px; border-radius: 12px;
-      border: 2px solid #e0e8e8; background: white;
-      margin-bottom: 10px; cursor: pointer; transition: all 0.18s;
+      flex: 1;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      border: 1.5px solid #e8eded; background: white;
+      cursor: pointer; transition: all 0.15s;
     }
     .pay-card:hover { border-color: #80cbc4; }
     .pay-card.selected {
-      border-color: #0d8a8a; background: #f0f7f7;
-      box-shadow: 0 2px 8px rgba(13,138,138,0.12);
+      border-color: #0d8a8a; background: #f5fafa;
+      box-shadow: 0 1px 4px rgba(13,138,138,0.10);
     }
     .pay-card input[type="radio"] {
-      accent-color: #0d8a8a; width: 18px; height: 18px; margin: 0; flex-shrink: 0;
+      accent-color: #0d8a8a; width: 16px; height: 16px; margin: 0; flex-shrink: 0;
     }
     .pay-icon {
-      color: #0d8a8a; font-size: 22px; width: 22px; height: 22px; flex-shrink: 0;
+      color: #0d8a8a; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0;
     }
-    .pay-text { display: flex; flex-direction: column; gap: 2px; }
-    .pay-text strong { font-size: 14px; color: #1b3a4b; font-weight: 700; }
-    .pay-text span { font-size: 12px; color: #666; line-height: 1.4; }
+    .pay-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .pay-text strong { font-size: 12.5px; color: #1b3a4b; font-weight: 700; }
+    .pay-text span { font-size: 11px; color: #98a2ab; line-height: 1.3; }
 
     .reason-section { margin-bottom: 8px; }
 
-    /* Sticky bottom CTA */
-    .sticky-cta {
-      position: sticky; bottom: 0; z-index: 20;
-      display: flex; gap: 10px;
-      padding: 12px 0;
-      background: linear-gradient(to bottom, rgba(245,247,250,0) 0%, rgba(245,247,250,0.9) 30%, #f5f7fa 100%);
-      margin: 0 -24px; padding-left: 24px; padding-right: 24px;
-      border-top: 1px solid #e0e0e0;
+    /* =============================================
+       STICKY BOOKING BAR (bottom)
+       ============================================= */
+    .booking-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 40;
+      background: white;
+      border-top: 1px solid #e3ecec;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+      padding: 12px 24px;
     }
-    .cta-back {
-      flex-shrink: 0;
-      padding: 10px 22px !important;
-      border-color: #ccc !important; color: #555 !important;
-      font-weight: 600 !important;
+    .booking-bar-inner {
+      max-width: 800px; margin: 0 auto;
+      display: flex; align-items: center; gap: 12px;
     }
-    .cta-primary {
-      flex: 1;
-      padding: 12px !important;
-      font-size: 15px !important; font-weight: 600 !important;
+    /* Offset for desktop sidenav (240px wide @ ≥769px from shell.component.ts) */
+    @media (min-width: 769px) {
+      .booking-bar { left: 240px; }
+    }
+    .bar-info {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 1px;
+    }
+    .bar-fee {
+      font-size: 17px; color: #1b3a4b; font-weight: 700; line-height: 1.15;
+    }
+    .bar-meta {
+      font-size: 11.5px; color: #6b7884; font-weight: 600;
+    }
+    .bar-meta.hint { color: #98a2ab; font-weight: 500; }
+    .confirm-btn {
+      height: 44px !important;
+      padding: 0 18px !important;
+      font-size: 13.5px !important; font-weight: 700 !important;
       background: #0d8a8a !important; color: white !important;
-      border-radius: 8px !important;
-      box-shadow: 0 4px 12px rgba(13,138,138,0.30) !important;
+      border-radius: 10px !important;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.25) !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
     }
-    .cta-primary:disabled {
+    .confirm-btn:disabled {
       background: #b2dfdb !important; box-shadow: none !important;
     }
-    .cta-spin { display: inline-block; vertical-align: middle; margin-right: 6px; }
+    .confirm-btn mat-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+    }
+    .cta-spin { display: inline-block; }
+
+    /* =============================================
+       CALENDAR PICKER (modal / bottom-sheet)
+       ============================================= */
+    .cal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 30, 40, 0.45);
+      z-index: 110;
+      animation: fadeIn 0.18s ease-out;
+    }
+    .cal-sheet {
+      position: fixed;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 320px; max-width: calc(100vw - 24px);
+      background: white;
+      border-radius: 16px;
+      z-index: 111;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+      padding: 14px 14px 12px;
+      animation: fadeIn 0.18s ease-out;
+    }
+    .cal-grabber { display: none; }
+    .cal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 8px;
+    }
+    .cal-month {
+      flex: 1; text-align: center;
+      font-size: 14px; font-weight: 700; color: #1b3a4b;
+    }
+    .cal-nav {
+      width: 32px !important; height: 32px !important;
+      color: #6b7884 !important;
+    }
+    .cal-weekdays {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+      font-size: 10.5px; font-weight: 700; color: #98a2ab;
+      text-align: center; margin-bottom: 4px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+    }
+    .cal-day {
+      aspect-ratio: 1;
+      border: none; background: transparent;
+      border-radius: 8px;
+      cursor: pointer; transition: all 0.15s;
+      font-family: inherit;
+      font-size: 13px; font-weight: 600; color: #1b3a4b;
+    }
+    .cal-day:hover:not(:disabled):not(.selected) {
+      background: #f0f7f7; color: #0d8a8a;
+    }
+    .cal-day.selected {
+      background: #0d8a8a; color: white;
+      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
+    }
+    .cal-day:not(.in-month) { color: #d8e0e6; }
+    .cal-day.past { color: #d8e0e6; cursor: not-allowed; }
+    .cal-day.past:hover { background: transparent; }
+    .cal-close {
+      width: 100%; margin-top: 10px;
+      height: 36px !important;
+      border-color: #d8e3e3 !important; color: #6b7884 !important;
+      font-size: 12.5px !important;
+      border-radius: 8px !important;
+    }
+
+    @media (max-width: 600px) {
+      .cal-sheet {
+        top: auto; bottom: 0; left: 0; right: 0;
+        transform: none;
+        width: 100%; max-width: none;
+        border-radius: 16px 16px 0 0;
+        padding: 12px 14px 14px;
+        animation: slideInUp 0.22s ease-out;
+      }
+      .cal-grabber {
+        display: block;
+        width: 40px; height: 4px; border-radius: 2px;
+        background: #d8e0e6; margin: 0 auto 10px;
+      }
+    }
+
+    /* Booking confirmation dialog styles live in global styles.scss
+       because MatDialog renders into the CDK overlay at <body> level. */
 
     /* =============================================
        SUCCESS PHASE
@@ -684,14 +1306,42 @@ interface DateOption {
        ============================================= */
     @media (max-width: 600px) {
       h1 { font-size: 22px; }
-      .doc-row { padding: 12px; gap: 10px; }
-      .doc-fee-col strong { font-size: 14px; }
+      .doc-row { padding: 10px; gap: 10px; }
+      .doc-left { gap: 6px; }
+      .doc-avatar { width: 48px; height: 48px; }
+      .doc-avatar mat-icon { font-size: 28px; width: 28px; height: 28px; }
+      .view-profile-cta { font-size: 10px; padding: 3px 6px; }
+      .avail-chip { font-size: 11px; padding: 3px 8px; }
+      .fee-onwards { font-size: 12.5px; }
+      .row-chevron { display: none; }
       .slots-grid { grid-template-columns: repeat(3, 1fr); }
-      .sticky-cta { margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
-      .selected-doc-card { padding: 12px; }
+      .sticky-doc-header { padding: 8px 10px; }
+      .sticky-doc-header .doc-avatar { width: 36px; height: 36px; }
+      .sticky-doc-header .doc-avatar mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      .sdh-fee strong { font-size: 14px; }
+      .mode-tab { font-size: 12px; padding: 7px 8px; }
+      .booking-bar { padding: 9px 14px; }
+      .bar-fee { font-size: 15.5px; }
+      .confirm-btn { height: 40px !important; padding: 0 14px !important; font-size: 12.5px !important; }
+      .pay-row { flex-direction: column; gap: 8px; }
+    }
+    @media (max-width: 480px) {
+      .doc-row {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        grid-template-areas:
+          "left body"
+          "left right";
+        align-items: start;
+        gap: 8px 10px;
+      }
+      .doc-left { grid-area: left; }
+      .doc-body { grid-area: body; min-width: 0; }
+      .doc-right { grid-area: right; justify-content: flex-end; align-items: center; }
     }
     @media (max-width: 380px) {
       .slots-grid { grid-template-columns: repeat(2, 1fr); }
+      .slot-pill { font-size: 12px; padding: 7px 4px; }
     }
   `]
 })
@@ -715,6 +1365,82 @@ export class AppointmentsComponent implements OnInit {
   readonly booking = signal(false);
   readonly bookedAppointment = signal<Appointment | null>(null);
 
+  // Doctor profile slide-in sheet
+  readonly profileOpen = signal(false);
+  readonly profileDoctor = signal<Doctor | null>(null);
+  readonly profileAboutExpanded = signal(false);
+
+  // Consultation mode + calendar picker
+  readonly consultationMode = signal<ConsultationMode>('in_person');
+  readonly calendarOpen = signal(false);
+  readonly calendarMonth = signal<Date>(new Date());
+
+  // Booking confirmation dialog (MatDialog handles body-level rendering)
+  @ViewChild('confirmDialog') confirmDialogTmpl!: TemplateRef<unknown>;
+  private readonly dialog = inject(MatDialog);
+  private confirmDialogRef?: MatDialogRef<unknown>;
+
+  readonly currentFee = computed(() => {
+    const doc = this.selectedDoctor();
+    if (!doc) return 0;
+    return this.consultationMode() === 'video'
+      ? this.videoConsultFee(doc)
+      : doc.consultationFee;
+  });
+
+  readonly calendarMonthLabel = computed(() =>
+    this.calendarMonth().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  );
+
+  readonly calendarDays = computed<CalendarCell[]>(() => {
+    const m = this.calendarMonth();
+    const year = m.getFullYear();
+    const month = m.getMonth();
+    const first = new Date(year, month, 1);
+    const firstDay = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const cells: CalendarCell[] = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const d = new Date(year, month, -i);
+      cells.push({
+        date: this.toIso(d),
+        day: d.getDate(),
+        inMonth: false,
+        isPast: d.getTime() < today.getTime()
+      });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month, i);
+      cells.push({
+        date: this.toIso(d),
+        day: i,
+        inMonth: true,
+        isPast: d.getTime() < today.getTime()
+      });
+    }
+    while (cells.length < 42) {
+      const last = new Date(cells[cells.length - 1].date);
+      last.setDate(last.getDate() + 1);
+      cells.push({
+        date: this.toIso(last),
+        day: last.getDate(),
+        inMonth: false,
+        isPast: false
+      });
+    }
+    return cells;
+  });
+
+  private toIso(d: Date): string {
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   // Next 14 days from today.
   readonly dateOptions = computed<DateOption[]>(() => {
     const opts: DateOption[] = [];
@@ -737,12 +1463,6 @@ export class AppointmentsComponent implements OnInit {
       });
     }
     return opts;
-  });
-
-  readonly currentMonthLabel = computed(() => {
-    const sel = this.dateOptions().find(d => d.date === this.selectedDate());
-    if (!sel) return '';
-    return `${sel.monthName} ${sel.year}`;
   });
 
   readonly filteredDoctors = computed(() => {
@@ -829,6 +1549,60 @@ export class AppointmentsComponent implements OnInit {
     this.selectedSlot.set(slot);
   }
 
+  setConsultationMode(mode: ConsultationMode): void {
+    this.consultationMode.set(mode);
+    this.selectedSlot.set(null);
+  }
+
+  openCalendar(): void {
+    const sel = this.selectedDate();
+    if (sel) this.calendarMonth.set(new Date(sel));
+    this.calendarOpen.set(true);
+  }
+
+  closeCalendar(): void {
+    this.calendarOpen.set(false);
+  }
+
+  calendarPrev(): void {
+    const m = new Date(this.calendarMonth());
+    m.setMonth(m.getMonth() - 1);
+    this.calendarMonth.set(m);
+  }
+
+  calendarNext(): void {
+    const m = new Date(this.calendarMonth());
+    m.setMonth(m.getMonth() + 1);
+    this.calendarMonth.set(m);
+  }
+
+  selectFromCalendar(cell: CalendarCell): void {
+    if (cell.isPast) return;
+    this.selectedDate.set(cell.date);
+    this.selectedSlot.set(null);
+    this.calendarOpen.set(false);
+  }
+
+  openConfirmModal(): void {
+    if (!this.selectedSlot()) return;
+    this.confirmDialogRef = this.dialog.open(this.confirmDialogTmpl, {
+      width: '460px',
+      maxWidth: '95vw',
+      panelClass: 'confirm-dialog-panel',
+      backdropClass: 'confirm-dialog-backdrop',
+      autoFocus: false
+    });
+  }
+
+  closeConfirmModal(): void {
+    this.confirmDialogRef?.close();
+  }
+
+  confirmAndBook(): void {
+    this.confirmDialogRef?.close();
+    this.bookAppointment();
+  }
+
   bookAppointment(): void {
     const slot = this.selectedSlot();
     if (!slot) return;
@@ -861,21 +1635,88 @@ export class AppointmentsComponent implements OnInit {
     }).format(amount);
   }
 
-  reviewCount(doctor: Doctor): number {
-    // Stable per-doctor review count (80–280).
-    const numericPart = parseInt(doctor.id.replace(/\D/g, ''), 10) || 1;
-    return 80 + (numericPart * 41) % 200;
+  // -------- Doctor profile sheet --------
+
+  openProfile(doctor: Doctor, event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileDoctor.set(doctor);
+    this.profileAboutExpanded.set(false);
+    this.profileOpen.set(true);
   }
 
-  nextAvailableLabel(doctor: Doctor): string {
-    // Stable per-doctor offset 0–3 days from today.
-    const numericPart = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
-    const offset = numericPart % 4;
-    if (offset === 0) return 'Available today';
-    if (offset === 1) return 'Available tomorrow';
+  closeProfile(): void {
+    this.profileOpen.set(false);
+  }
+
+  bookFromProfile(): void {
+    const doc = this.profileDoctor();
+    if (!doc) return;
+    this.profileOpen.set(false);
+    this.selectDoctor(doc);
+  }
+
+  toggleProfileAbout(): void {
+    this.profileAboutExpanded.update(v => !v);
+  }
+
+  // -------- Synthesized doctor data (deterministic from id) --------
+
+  videoConsultFee(doctor: Doctor): number {
+    // ~60% of in-person fee, rounded to nearest 5
+    return Math.max(5, Math.round((doctor.consultationFee * 0.6) / 5) * 5);
+  }
+
+  nextInPersonSlot(doctor: Doctor): string {
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    const offset = n % 4;                  // 0-3 days
+    const hour = 9 + (n % 8);              // 9-16
+    const minute = (n % 2) * 30;
+    return this.formatSlotLabel(offset, hour, minute);
+  }
+
+  nextVideoSlot(doctor: Doctor): string {
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    const offset = (n + 1) % 4;
+    const hour = 13 + (n % 6);             // 13-18
+    const minute = ((n + 1) % 2) * 30;
+    return this.formatSlotLabel(offset, hour, minute);
+  }
+
+  doctorDesignation(doctor: Doctor | null): string {
+    if (!doctor) return '';
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    const labels = ['Consultant', 'Senior Consultant', 'Specialist', 'Surgeon'];
+    return labels[n % labels.length];
+  }
+
+  doctorAbout(doctor: Doctor | null): string {
+    if (!doctor) return '';
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    const years = 5 + (n % 20);
+    const lastName = doctor.name.split(' ').slice(-1)[0];
+    return `Dr. ${lastName} is a ${this.doctorDesignation(doctor).toLowerCase()} in ${doctor.specialty} with ${years} years of clinical experience. Known for a patient-centric approach and ongoing involvement in research and continuing medical education.`;
+  }
+
+  doctorEducation(doctor: Doctor | null): string {
+    if (!doctor) return '';
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    const programs = [
+      'MBBS, MD (Internal Medicine) — King Saud University',
+      'MBBS, MS (Surgery) — Arabian Gulf University',
+      'MBBS, MD — Royal College of Physicians, UK',
+      'MBBS, MD (Cardiology), FRCP — Edinburgh',
+      'MBBS, MD — Cairo University · Fellowship — Mayo Clinic'
+    ];
+    return programs[n % programs.length];
+  }
+
+  private formatSlotLabel(daysFromToday: number, h: number, m: number): string {
     const d = new Date();
-    d.setDate(d.getDate() + offset);
-    return `Available ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    d.setDate(d.getDate() + daysFromToday);
+    const time = this.formatTime(h, m);
+    if (daysFromToday === 0) return `Today, ${time}`;
+    if (daysFromToday === 1) return `Tomorrow, ${time}`;
+    return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}, ${time}`;
   }
 
   // ---- Helpers ----

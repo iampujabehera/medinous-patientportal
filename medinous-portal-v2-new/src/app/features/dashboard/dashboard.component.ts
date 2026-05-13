@@ -408,6 +408,21 @@ import { DashboardSummary, VitalSign, Appointment, Medication } from '../../core
       .v-value { font-size: 18px; }
       .csat-row { flex-wrap: wrap; }
     }
+    @media (max-width: 480px) {
+      .dash { padding: 0 4px 60px; }
+      .skeleton-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .context-banner { padding: 12px 14px; border-radius: 12px !important; }
+      .ctx-row { gap: 10px; flex-wrap: wrap; }
+      .ctx-icon-wrap { width: 38px; height: 38px; border-radius: 10px; }
+      .ctx-action { font-size: 12px !important; padding: 0 10px !important; }
+      .today-card, .csat-card { padding: 14px 12px !important; border-radius: 12px !important; }
+      .vital-card { min-width: 100px; padding: 10px; border-radius: 10px !important; }
+      .v-value { font-size: 17px; }
+    }
+    @media (max-width: 360px) {
+      .skeleton-grid { grid-template-columns: 1fr; }
+      .vital-card { min-width: 96px; }
+    }
   `]
 })
 export class DashboardComponent implements OnInit {

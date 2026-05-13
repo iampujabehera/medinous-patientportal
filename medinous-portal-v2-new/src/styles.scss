@@ -87,3 +87,157 @@ html[dir="rtl"] {
 [lang="ar"] {
   font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
 }
+
+// =============================================
+// BOOKING CONFIRMATION DIALOG
+// (rendered into CDK overlay so its styles must be global)
+// =============================================
+.confirm-dialog-backdrop {
+  background: rgba(15, 30, 40, 0.55) !important;
+}
+
+.cdk-overlay-pane.confirm-dialog-panel {
+  .mat-mdc-dialog-container {
+    --mdc-dialog-container-shape: 16px;
+    padding: 0;
+  }
+  .mat-mdc-dialog-surface {
+    padding: 20px 22px 18px;
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  }
+}
+
+.confirm-modal-content {
+  position: relative;
+  display: block;
+
+  .confirm-close {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 34px !important;
+    height: 34px !important;
+    color: #6b7884;
+  }
+
+  .confirm-title {
+    margin: 0 0 4px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #1b3a4b;
+  }
+
+  .confirm-sub {
+    margin: 0 0 14px;
+    font-size: 12.5px;
+    color: #6b7884;
+  }
+
+  .confirm-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: #f8fafa;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .cs-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .cs-row mat-icon {
+    color: #0d8a8a;
+    flex-shrink: 0;
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    margin-top: 2px;
+  }
+  .cs-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cs-text strong {
+    font-size: 13.5px;
+    color: #1b3a4b;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .cs-text span {
+    font-size: 12px;
+    color: #6b7884;
+  }
+  .cs-reason {
+    white-space: pre-line;
+  }
+  .cs-fee {
+    font-size: 15px;
+    color: #1b3a4b;
+    font-weight: 700;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .cs-cancel {
+    flex: 1;
+    height: 42px !important;
+    border-color: #d8e3e3 !important;
+    color: #6b7884 !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
+  }
+  .cs-confirm {
+    flex: 1.5;
+    height: 42px !important;
+    padding: 0 16px !important;
+    background: #0d8a8a !important;
+    color: white !important;
+    font-weight: 700 !important;
+    font-size: 13.5px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 12px rgba(13, 138, 138, 0.25) !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .cs-confirm:disabled {
+    background: #b2dfdb !important;
+    box-shadow: none !important;
+  }
+  .cs-confirm mat-icon {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
+
+// Mobile: bottom-sheet style
+@media (max-width: 600px) {
+  .cdk-overlay-pane.confirm-dialog-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    position: fixed !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    .mat-mdc-dialog-surface {
+      border-radius: 16px 16px 0 0;
+      padding: 14px 16px 16px;
+    }
+  }
+}

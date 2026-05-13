@@ -301,15 +301,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   }
 
                   <mat-form-field appearance="outline" class="login-field">
-                    <mat-label>CPR No / Patient ID</mat-label>
+                    <mat-label>National ID / Patient ID</mat-label>
                     <mat-icon matPrefix>person</mat-icon>
                     <input matInput
                            [ngModel]="loginCpr()"
                            (ngModelChange)="onLoginCprInput($event)"
                            [readonly]="isLocked()"
-                           placeholder="Enter CPR or Patient ID">
+                           placeholder="Enter National ID or Patient ID">
                     <mat-icon matSuffix class="info-icon"
-                              matTooltip="CPR is your Bahrain national ID (8 digits). Patient ID is provided by the hospital at registration."
+                              matTooltip="Your 8-digit National ID, or the Patient ID provided by the hospital at registration."
                               matTooltipPosition="above">info_outline</mat-icon>
                   </mat-form-field>
 
@@ -351,8 +351,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   </div>
 
                   <a class="guest-login-link" (click)="loginAsGuest()">
-                    <mat-icon>person_outline</mat-icon>
-                    Continue as Guest
+                    <mat-icon>bolt</mat-icon>
+                    Quick Booking
                   </a>
                 </div>
               }
@@ -392,7 +392,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                         <input matInput maxlength="60"
                                [ngModel]="signupFirstName()"
                                (ngModelChange)="signupFirstName.set($event)"
-                               placeholder="As per CPR">
+                               placeholder="As per National ID">
                         @if (fnInvalid()) {
                           <mat-error>{{ signupFirstName().trim().length === 0 ? 'First name is required' : 'Maximum 60 characters' }}</mat-error>
                         }
@@ -545,9 +545,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   @if (forgotStep() === 1) {
                     <p class="step-desc">Enter your National ID or Patient ID. We'll send a 6-digit OTP to the mobile number registered with your account.</p>
                     <mat-form-field appearance="outline" class="login-field">
-                      <mat-label>CPR No / Patient ID</mat-label>
+                      <mat-label>National ID / Patient ID</mat-label>
                       <mat-icon matPrefix>person</mat-icon>
-                      <input matInput [ngModel]="forgotCpr()" (ngModelChange)="forgotCpr.set($event)" placeholder="Enter CPR or Patient ID">
+                      <input matInput [ngModel]="forgotCpr()" (ngModelChange)="forgotCpr.set($event)" placeholder="Enter National ID or Patient ID">
                     </mat-form-field>
                     <button mat-flat-button class="login-btn"
                             [disabled]="!forgotCpr()" (click)="sendForgotOtp()">
@@ -1497,8 +1497,92 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
 
     @media (max-width: 480px) {
-      .specialties-grid { grid-template-columns: 1fr 1fr; }
-      .doctors-preview-grid { grid-template-columns: repeat(2, 1fr); }
+      /* ---------- Landing page ---------- */
+      .top-bar-inner { padding: 6px 12px; gap: 8px; }
+      .hero { padding: 40px 16px 48px; }
+      .hero h1 { font-size: 22px; line-height: 1.25; }
+      .hero p { font-size: 13px; }
+      .stats-bar { padding: 14px 12px; }
+      .stats-inner {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px;
+        justify-content: stretch;
+      }
+      .stat-item { justify-content: center; gap: 8px; }
+      .stat-item mat-icon { font-size: 22px; width: 22px; height: 22px; }
+      .stat-item strong { font-size: 16px; }
+      .stat-item span { font-size: 11px; }
+      .section { padding: 32px 16px; }
+      .section h2 { font-size: 20px; margin-bottom: 16px; }
+      .specialties-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .doctors-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .footer-links-bar { padding: 10px 12px; }
+      .footer-links-inner { gap: 4px 8px; font-size: 11px; }
+      .footer-links-inner a { font-size: 11px; }
+      .flink-sep { font-size: 11px; }
+      .accreditations { padding: 24px 12px; }
+      .accred-badges { gap: 14px; flex-wrap: wrap; }
+      .accred-badge mat-icon { font-size: 30px; width: 30px; height: 30px; }
+      .accred-badge span { font-size: 10px; }
+
+      /* ---------- Login topbar (pre-auth banner) ---------- */
+      .topbar-inner { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
+      .hospital-brand { gap: 8px; }
+      .hospital-brand-icon { width: 32px; height: 32px; border-radius: 8px; }
+      .hospital-brand-icon mat-icon { font-size: 18px; width: 18px; height: 18px; }
+      .hospital-brand-text strong { font-size: 12px; }
+      .hospital-brand-ar { font-size: 9px; }
+      .topbar-loc-btn {
+        font-size: 11px !important; height: 28px !important; padding: 0 8px !important;
+      }
+      .topbar-loc-name { max-width: 90px; font-size: 11px; }
+      .topbar-loc-btn .loc-pin,
+      .topbar-loc-btn .loc-change-arrow {
+        font-size: 14px !important; width: 14px !important; height: 14px !important;
+      }
+
+      /* ---------- Login / Sign-up / Forgot card ---------- */
+      .login-card-wrapper { padding: 16px 10px 28px; }
+      .login-medinous-strip { padding: 12px 16px; gap: 8px; }
+      .medinous-logo { height: 22px; }
+      .medinous-tag { font-size: 10px; padding-left: 8px; }
+      .login-body { padding: 18px 16px 22px; }
+      .login-title { font-size: 16px; margin-bottom: 14px; }
+
+      /* Signup / Forgot stepper */
+      .stepper { gap: 4px; }
+      .step-num { width: 26px !important; height: 26px !important; font-size: 12px !important; }
+      .step-label { font-size: 10px; }
+      .step-desc { font-size: 12px; line-height: 1.4; }
+
+      /* Stack two-column signup row on phones */
+      .signup-row { flex-direction: column; gap: 0; }
+      .signup-half { width: 100%; }
+      .signup-cc { width: 100%; }
+      .signup-phone { width: 100%; }
+
+      /* ---------- App shell toolbar (post-auth) ---------- */
+      .toolbar { padding: 0 8px !important; }
+      .brand { gap: 4px; }
+      .brand-medinous { height: 16px; }
+      .brand-bsh-img { height: 20px; }
+      .brand-cross { font-size: 11px; }
+      .loc-pill, .lang-pill {
+        height: 28px !important; padding: 0 6px !important;
+        font-size: 11px !important;
+      }
+      .loc-name { max-width: 60px; font-size: 11px; }
+      .lang-pill .lang-code { font-size: 11px; }
+      .content { padding: 12px; }
+    }
+
+    @media (max-width: 360px) {
+      .stats-inner { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 20px; }
+      .topbar-back { display: none; }
+      .topbar-loc-name { max-width: 60px; }
+      .brand-bsh-img { height: 18px; }
+      .loc-name { max-width: 40px; }
+      .lang-pill { display: none !important; }
     }
   `]
 })
@@ -1755,7 +1839,7 @@ export class ShellComponent {
     } else {
       const remaining = 3 - newCount;
       this.signInError.set(
-        `Incorrect CPR/Patient ID or password. You have ${remaining} ` +
+        `Incorrect National ID/Patient ID or password. You have ${remaining} ` +
         `attempt${remaining === 1 ? '' : 's'} remaining before temporary account lock.`
       );
     }

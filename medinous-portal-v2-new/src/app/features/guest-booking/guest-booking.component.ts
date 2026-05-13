@@ -37,10 +37,10 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
 
       <!-- Header — compact, left-aligned -->
       <div class="guest-header">
-        <div class="head-icon"><mat-icon>flash_on</mat-icon></div>
+        <div class="head-icon"><mat-icon>bolt</mat-icon></div>
         <div class="head-text">
           <h1>Quick Booking</h1>
-          <p class="subtitle">Book your appointment in a few simple steps — no account needed</p>
+          <p class="subtitle">A quick, easy way to book your appointment</p>
         </div>
       </div>
 
@@ -82,12 +82,14 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                 }
               </div>
               <div class="step-actions sticky-actions">
-                <span class="step-spacer"></span>
-                <button mat-flat-button class="cta-primary"
-                        [disabled]="!selectedLocation()"
-                        (click)="goToStep(1)">
-                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
-                </button>
+                <div class="sticky-actions-inner">
+                  <span class="step-spacer"></span>
+                  <button mat-flat-button class="cta-primary"
+                          [disabled]="!selectedLocation()"
+                          (click)="goToStep(1)">
+                    {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </mat-step>
@@ -147,15 +149,17 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
               }
 
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button class="cta-back" (click)="goToStep(0)">
-                  {{ 'appt.back' | translate }}
-                </button>
-                <span class="step-spacer"></span>
-                <button mat-flat-button class="cta-primary"
-                        [disabled]="!selectedSlot()"
-                        (click)="goToStep(2)">
-                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
-                </button>
+                <div class="sticky-actions-inner">
+                  <button mat-stroked-button class="cta-back" (click)="goToStep(0)">
+                    {{ 'appt.back' | translate }}
+                  </button>
+                  <span class="step-spacer"></span>
+                  <button mat-flat-button class="cta-primary"
+                          [disabled]="!selectedSlot()"
+                          (click)="goToStep(2)">
+                    {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </mat-step>
@@ -223,7 +227,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                   <mat-form-field appearance="outline" class="half-width compact-field">
                     <mat-label>{{ 'guest.id_type' | translate }} (optional)</mat-label>
                     <mat-select [ngModel]="guest().idType" (ngModelChange)="updateGuest('idType', $event)">
-                      <mat-option value="national_id">CPR / National ID</mat-option>
+                      <mat-option value="national_id">National ID / Patient ID</mat-option>
                       <mat-option value="passport">Passport</mat-option>
                       <mat-option value="driving_license">Driving License</mat-option>
                     </mat-select>
@@ -235,14 +239,16 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                 </div>
               </div>
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button class="cta-back" (click)="goToStep(1)">
-                  {{ 'appt.back' | translate }}
-                </button>
-                <span class="step-spacer"></span>
-                <button mat-flat-button class="cta-primary"
-                        (click)="onContinueDetails()">
-                  {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
-                </button>
+                <div class="sticky-actions-inner">
+                  <button mat-stroked-button class="cta-back" (click)="goToStep(1)">
+                    {{ 'appt.back' | translate }}
+                  </button>
+                  <span class="step-spacer"></span>
+                  <button mat-flat-button class="cta-primary"
+                          (click)="onContinueDetails()">
+                    {{ 'appt.continue' | translate }} <mat-icon>arrow_forward</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </mat-step>
@@ -296,19 +302,21 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
               </div>
 
               <div class="step-actions sticky-actions">
-                <button mat-stroked-button class="cta-back" (click)="goToStep(2)">
-                  {{ 'appt.back' | translate }}
-                </button>
-                <span class="step-spacer"></span>
-                <button mat-flat-button class="cta-primary"
-                        [disabled]="booking()"
-                        (click)="confirmBooking()">
-                  @if (booking()) {
-                    <mat-spinner diameter="18"></mat-spinner>
-                  } @else {
-                    {{ 'appt.confirm_booking' | translate }} <mat-icon>check</mat-icon>
-                  }
-                </button>
+                <div class="sticky-actions-inner">
+                  <button mat-stroked-button class="cta-back" (click)="goToStep(2)">
+                    {{ 'appt.back' | translate }}
+                  </button>
+                  <span class="step-spacer"></span>
+                  <button mat-flat-button class="cta-primary"
+                          [disabled]="booking()"
+                          (click)="confirmBooking()">
+                    @if (booking()) {
+                      <mat-spinner diameter="18"></mat-spinner>
+                    } @else {
+                      {{ 'appt.confirm_booking' | translate }} <mat-icon>check</mat-icon>
+                    }
+                  </button>
+                </div>
               </div>
             </div>
           </mat-step>
@@ -363,34 +371,34 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
     </div>
   `,
   styles: [`
-    .guest-container { max-width: 760px; margin: 0 auto; padding-bottom: 8px; }
+    .guest-container { max-width: 760px; margin: 0 auto; padding: 0 0 96px; }
     .guest-container.rtl { direction: rtl; text-align: right; }
 
-    /* ===== HEADER (compact, horizontal) ===== */
+    /* ===== HEADER ===== */
     .guest-header {
-      display: flex; align-items: center; gap: 12px;
-      margin-bottom: 16px; padding: 4px 2px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px; padding: 2px;
     }
     .head-icon {
-      width: 38px; height: 38px; border-radius: 10px;
+      width: 34px; height: 34px; border-radius: 9px;
       background: linear-gradient(135deg, #0d8a8a 0%, #4db6ac 100%);
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       box-shadow: 0 2px 6px rgba(13,138,138,0.20);
     }
     .head-icon mat-icon {
-      color: white; font-size: 22px; width: 22px; height: 22px;
+      color: white; font-size: 20px; width: 20px; height: 20px;
     }
     .head-text { display: flex; flex-direction: column; min-width: 0; }
     h1 {
-      font-size: 22px; font-weight: 700; color: #1b3a4b; margin: 0;
+      font-size: 20px; font-weight: 700; color: #1b3a4b; margin: 0;
       line-height: 1.2;
     }
     .subtitle {
-      color: #6b7884; font-size: 13px; margin: 2px 0 0;
+      color: #6b7884; font-size: 12.5px; margin: 1px 0 0;
     }
 
-    .step-content { padding: 14px 0 84px; }
+    .step-content { padding: 6px 0 16px; }
     .full-width { width: 100%; }
 
     /* Required-field asterisk inside mat-label */
@@ -405,97 +413,97 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
     }
 
     /* ===== LOCATIONS ===== */
-    .locations-grid { display: flex; flex-direction: column; gap: 10px; }
+    .locations-grid { display: flex; flex-direction: column; gap: 8px; }
     .location-card {
-      padding: 12px 14px; display: flex; align-items: flex-start; gap: 12px;
-      cursor: pointer; border: 1.5px solid transparent !important;
-      border-radius: 12px !important;
-      transition: all 0.18s;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+      padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px;
+      cursor: pointer; border: 1px solid #eef2f5 !important;
+      border-radius: 10px !important;
+      transition: all 0.15s;
+      box-shadow: none !important;
     }
     .location-card:hover {
       border-color: #b2dfdb !important;
-      box-shadow: 0 4px 12px rgba(13,138,138,0.08) !important;
+      background: #fafcfc;
     }
     .location-card.selected {
       border-color: #0d8a8a !important;
-      background: #f0f7f7;
-      box-shadow: 0 4px 14px rgba(13,138,138,0.12) !important;
+      background: #f5fafa;
+      box-shadow: 0 1px 4px rgba(13,138,138,0.08) !important;
     }
     .loc-icon {
-      width: 40px; height: 40px; border-radius: 10px;
+      width: 36px; height: 36px; border-radius: 9px;
       background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .loc-icon mat-icon {
-      color: #0d8a8a; font-size: 22px; width: 22px; height: 22px;
+      color: #0d8a8a; font-size: 20px; width: 20px; height: 20px;
     }
-    .loc-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .loc-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .loc-info strong {
-      font-size: 14px; color: #1b3a4b; font-weight: 700;
+      font-size: 13.5px; color: #1b3a4b; font-weight: 700;
     }
     .loc-address {
-      font-size: 12px; color: #6b7884;
+      font-size: 11.5px; color: #6b7884;
     }
     .loc-meta {
       display: flex; align-items: center; gap: 6px;
       font-size: 11px; color: #98a2ab;
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .loc-meta span { display: inline-flex; align-items: center; gap: 3px; }
     .meta-dot { color: #c8d0d8; }
     .tiny-icon { font-size: 12px !important; width: 12px !important; height: 12px !important; }
-    .loc-specialties { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .loc-specialties { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     .spec-chip {
       display: inline-flex; align-items: center;
-      padding: 2px 8px; border-radius: 6px;
-      background: #eef5f5; color: #0d8a8a;
-      font-size: 10px; font-weight: 600;
-      letter-spacing: 0.2px;
+      padding: 2px 7px; border-radius: 5px;
+      background: #f1f5f5; color: #5a8585;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15px;
     }
-    .spec-chip.more { background: #f0f4f8; color: #98a2ab; }
+    .spec-chip.more { background: #f4f6f8; color: #98a2ab; }
     .check-icon {
       color: #0d8a8a !important; flex-shrink: 0;
-      font-size: 22px !important; width: 22px !important; height: 22px !important;
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
     }
 
     /* ===== DOCTORS ===== */
-    .doctors-list { display: flex; flex-direction: column; gap: 8px; }
+    .doctors-list { display: flex; flex-direction: column; gap: 6px; }
     .doctor-card {
-      padding: 12px 14px; display: flex; align-items: center; gap: 12px;
-      cursor: pointer; border: 1.5px solid transparent !important;
-      border-radius: 12px !important;
-      transition: all 0.18s;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+      padding: 10px 12px; display: flex; align-items: center; gap: 10px;
+      cursor: pointer; border: 1px solid #eef2f5 !important;
+      border-radius: 10px !important;
+      transition: all 0.15s;
+      box-shadow: none !important;
     }
-    .doctor-card:hover { border-color: #b2dfdb !important; box-shadow: 0 4px 10px rgba(13,138,138,0.08) !important; }
+    .doctor-card:hover { border-color: #b2dfdb !important; background: #fafcfc; }
     .doctor-card.selected {
-      border-color: #0d8a8a !important; background: #f0f7f7;
-      box-shadow: 0 4px 14px rgba(13,138,138,0.12) !important;
+      border-color: #0d8a8a !important; background: #f5fafa;
+      box-shadow: 0 1px 4px rgba(13,138,138,0.08) !important;
     }
     .doctor-avatar {
-      width: 40px; height: 40px; border-radius: 50%;
+      width: 36px; height: 36px; border-radius: 50%;
       background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .doctor-avatar mat-icon { color: #0d8a8a; }
-    .doctor-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .doctor-info strong { font-size: 14px; color: #1b3a4b; font-weight: 700; }
-    .doctor-specialty { font-size: 12px; color: #0d8a8a; font-weight: 500; }
+    .doctor-avatar mat-icon { color: #0d8a8a; font-size: 20px; width: 20px; height: 20px; }
+    .doctor-info { flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .doctor-info strong { font-size: 13.5px; color: #1b3a4b; font-weight: 700; }
+    .doctor-specialty { font-size: 11.5px; color: #0d8a8a; font-weight: 500; }
 
     /* ===== SLOTS ===== */
     .time-head {
-      margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: #1b3a4b;
+      margin: 12px 0 6px; font-size: 13px; font-weight: 700; color: #1b3a4b;
     }
     .slots-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-      gap: 6px; margin-bottom: 8px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 5px; margin-bottom: 4px;
     }
     .slot-btn {
-      padding: 9px 8px; border-radius: 8px;
+      padding: 7px 6px; border-radius: 7px;
       border: 1px solid #e0e8e8; background: white;
-      font-size: 13px; font-weight: 500; color: #1b3a4b;
+      font-size: 12.5px; font-weight: 500; color: #1b3a4b;
       cursor: pointer; transition: all 0.15s;
       font-family: inherit;
     }
@@ -504,7 +512,7 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
     }
     .slot-btn.selected {
       background: #0d8a8a; color: white; border-color: #0d8a8a;
-      box-shadow: 0 2px 6px rgba(13,138,138,0.30);
+      box-shadow: 0 2px 6px rgba(13,138,138,0.25);
     }
     .slot-btn:disabled {
       color: #c0c0c0; background: #fafafa; cursor: not-allowed;
@@ -512,75 +520,79 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
 
     /* ===== FORM CARD ===== */
     .form-card {
-      padding: 16px 18px;
-      background: white; border: 1px solid #e8eded;
-      border-radius: 12px;
+      padding: 12px 14px;
+      background: white; border: 1px solid #eef2f5;
+      border-radius: 10px;
     }
-    .form-row { display: flex; gap: 12px; }
+    .form-row { display: flex; gap: 10px; }
     .half-width { flex: 1; min-width: 0; }
     .phone-row { gap: 8px; }
     .gb-cc-field { width: 110px; flex-shrink: 0; }
     .gb-phone-field { flex: 1; min-width: 0; }
-    @media (max-width: 420px) {
+    @media (max-width: 480px) {
       .phone-row { flex-direction: column; gap: 0; }
       .gb-cc-field { width: 100%; }
     }
 
     /* ===== CONFIRM CARD ===== */
     .confirm-card {
-      padding: 16px 18px;
-      background: white; border: 1px solid #e8eded;
-      border-radius: 12px;
+      padding: 12px 14px;
+      background: white; border: 1px solid #eef2f5;
+      border-radius: 10px;
     }
     .confirm-title {
-      margin: 0 0 12px; font-size: 15px; font-weight: 700; color: #1b3a4b;
+      margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #1b3a4b;
     }
     .confirm-block {
-      padding: 10px 0; border-top: 1px solid #f0f4f4;
+      padding: 8px 0; border-top: 1px solid #f0f4f4;
     }
     .confirm-block:first-of-type { border-top: none; padding-top: 0; }
     .block-label {
-      display: block; margin-bottom: 6px;
+      display: block; margin-bottom: 4px;
       font-size: 10px; color: #98a2ab; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.5px;
     }
-    .confirm-details { display: flex; flex-direction: column; gap: 8px; }
+    .confirm-details { display: flex; flex-direction: column; gap: 6px; }
     .confirm-row {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 13px; color: #1b3a4b; padding: 4px 0;
+      display: flex; align-items: center; gap: 9px;
+      font-size: 12.5px; color: #1b3a4b; padding: 2px 0;
     }
     .confirm-row mat-icon {
-      color: #0d8a8a; font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a; font-size: 16px !important; width: 16px !important; height: 16px !important;
       flex-shrink: 0;
     }
     .confirm-row strong { color: #1b3a4b; font-weight: 700; }
-    .reason-field { margin-top: 12px; }
+    .reason-field { margin-top: 8px; }
 
-    /* SMS notice — softer than before */
+    /* SMS notice — softer */
     .sms-notice {
-      display: flex; align-items: flex-start; gap: 8px;
-      padding: 10px 12px; margin-top: 8px;
-      background: #e0f2f1; border-left: 3px solid #0d8a8a;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; margin-top: 8px;
+      background: #e8f5f3; border-left: 3px solid #0d8a8a;
       border-radius: 6px;
-      font-size: 12px; color: #1b3a4b; line-height: 1.5;
+      font-size: 11.5px; color: #1b3a4b; line-height: 1.45;
     }
     .sms-notice mat-icon {
-      color: #0d8a8a; font-size: 16px !important; width: 16px !important; height: 16px !important;
-      flex-shrink: 0; margin-top: 1px;
+      color: #0d8a8a; font-size: 14px !important; width: 14px !important; height: 14px !important;
+      flex-shrink: 0;
     }
     .sms-notice strong { color: #0d8a8a; font-weight: 700; }
 
-    /* ===== STICKY CTA BAR ===== */
-    .step-actions {
-      display: flex; gap: 10px; align-items: center;
-    }
+    /* ===== FIXED CTA BAR (always visible) ===== */
+    .step-actions { /* outer is the fixed bar shell */ }
     .step-spacer { flex: 1; }
     .sticky-actions {
-      position: sticky; bottom: 0; z-index: 10;
-      background: linear-gradient(to bottom, rgba(245,247,250,0) 0%, rgba(245,247,250,0.95) 25%, #f5f7fa 100%);
-      padding: 12px 0;
-      margin: 16px -24px 0; padding-left: 24px; padding-right: 24px;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 50;
+      background: white;
       border-top: 1px solid #e3ecec;
+      padding: 10px 16px;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.05);
+    }
+    .sticky-actions-inner {
+      max-width: 760px; margin: 0 auto;
+      display: flex; gap: 10px; align-items: center;
     }
     .cta-primary {
       padding: 0 18px !important; height: 40px !important;
@@ -605,56 +617,56 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
 
     /* ===== SUCCESS SHELL ===== */
     .success-shell {
-      max-width: 440px; margin: 16px auto 0;
-      padding: 28px 24px;
-      background: white; border: 1px solid #e8eded; border-radius: 14px;
+      max-width: 440px; margin: 12px auto 0;
+      padding: 22px 20px;
+      background: white; border: 1px solid #eef2f5; border-radius: 12px;
       text-align: center;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04);
     }
     .success-icon-wrap {
-      width: 56px; height: 56px; border-radius: 50%;
+      width: 48px; height: 48px; border-radius: 50%;
       background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 12px;
-      box-shadow: 0 4px 14px rgba(76,175,80,0.30);
+      margin: 0 auto 10px;
+      box-shadow: 0 4px 14px rgba(76,175,80,0.28);
     }
     .success-icon-wrap mat-icon {
-      color: white; font-size: 32px !important; width: 32px !important; height: 32px !important;
+      color: white; font-size: 28px !important; width: 28px !important; height: 28px !important;
     }
     .success-shell h2 {
-      margin: 0 0 4px; color: #1b3a4b; font-size: 20px; font-weight: 700;
+      margin: 0 0 4px; color: #1b3a4b; font-size: 18px; font-weight: 700;
     }
     .success-sub {
-      margin: 0 0 18px; color: #6b7884; font-size: 13px;
+      margin: 0 0 14px; color: #6b7884; font-size: 12.5px;
     }
     .success-summary {
       text-align: left;
-      padding: 14px;
-      background: #f8fafa; border-radius: 10px;
-      display: flex; flex-direction: column; gap: 10px;
-      margin-bottom: 18px;
+      padding: 12px;
+      background: #f8fafa; border-radius: 9px;
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 14px;
     }
     .summary-row {
       display: flex; align-items: flex-start; gap: 10px;
     }
     .summary-row mat-icon {
-      color: #0d8a8a; font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a; font-size: 16px !important; width: 16px !important; height: 16px !important;
       margin-top: 2px; flex-shrink: 0;
     }
     .summary-row div { display: flex; flex-direction: column; min-width: 0; }
-    .summary-row strong { font-size: 13px; color: #1b3a4b; font-weight: 700; }
-    .summary-row span { font-size: 12px; color: #6b7884; }
+    .summary-row strong { font-size: 12.5px; color: #1b3a4b; font-weight: 700; }
+    .summary-row span { font-size: 11.5px; color: #6b7884; }
 
     .success-cta p {
-      margin: 0 0 12px; font-size: 13px; color: #6b7884;
+      margin: 0 0 10px; font-size: 12.5px; color: #6b7884;
     }
     .success-actions {
-      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
     }
 
     /* ===== STEPPER OVERRIDES (compact, teal) ===== */
     ::ng-deep .mat-stepper-horizontal { background: transparent; }
-    ::ng-deep .mat-step-header { padding: 10px 16px !important; }
+    ::ng-deep .mat-step-header { padding: 8px 14px !important; }
     ::ng-deep .mat-step-header .mat-step-icon-selected,
     ::ng-deep .mat-step-header .mat-step-icon-state-edit {
       background-color: #0d8a8a !important;
@@ -665,11 +677,25 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
     @media (max-width: 600px) {
       .form-row { flex-direction: column; gap: 0; }
       .slots-grid { grid-template-columns: repeat(3, 1fr); }
-      .sticky-actions { margin: 16px -16px 0; padding: 12px 16px; }
-      h1 { font-size: 19px; }
+      .sticky-actions { padding: 10px 12px; }
+      h1 { font-size: 18px; }
       .subtitle { font-size: 12px; }
-      .step-content { padding: 10px 0 80px; }
-      .success-shell { padding: 24px 18px; }
+      .step-content { padding: 6px 0 12px; }
+      .success-shell { padding: 20px 16px; }
+    }
+    @media (max-width: 480px) {
+      .guest-container { padding: 0 4px 92px; }
+      .form-card { padding: 12px; }
+      .form-row { gap: 0; }
+      .slot-btn { padding: 9px 5px; font-size: 12px; }
+      .slots-grid { gap: 5px; }
+      .head-icon { width: 30px; height: 30px; border-radius: 8px; }
+      .head-icon mat-icon { font-size: 17px; width: 17px; height: 17px; }
+      h1 { font-size: 17px; }
+      .req-star { margin-left: 1px; }
+      .confirm-card { padding: 12px; }
+      .cta-back, .cta-primary { font-size: 13px !important; height: 38px !important; }
+      .cta-primary { padding: 0 14px !important; }
     }
     @media (max-width: 380px) {
       .slots-grid { grid-template-columns: repeat(2, 1fr); }
