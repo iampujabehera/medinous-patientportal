@@ -233,18 +233,18 @@ export const MOCK_PAYMENTS: Payment[] = [
   },
   {
     id: 'pay-009', date: '2026-04-20T10:00:00', amount: 1500, currency: 'AED',
-    status: 'completed', method: 'card', description: 'Deposit Added — General Hospital Wallet',
-    receiptUrl: '/receipts/pay-009.pdf', invoiceNumber: 'DEP-2026-0001',
+    status: 'completed', method: 'card', description: 'Advance Payment Added — General Hospital Wallet',
+    receiptUrl: '/receipts/pay-009.pdf', invoiceNumber: 'ADV-2026-0001',
     breakdown: [
-      { label: 'Deposit Balance Top-up', amount: 1500 }
+      { label: 'Advance Balance Top-up', amount: 1500 }
     ]
   },
   {
     id: 'pay-010', date: '2026-05-05T11:15:00', amount: 500, currency: 'AED',
-    status: 'completed', method: 'card', description: 'Deposit Added — Upcoming Admission',
-    receiptUrl: '/receipts/pay-010.pdf', invoiceNumber: 'DEP-2026-0002',
+    status: 'completed', method: 'card', description: 'Advance Payment Added — Upcoming Admission',
+    receiptUrl: '/receipts/pay-010.pdf', invoiceNumber: 'ADV-2026-0002',
     breakdown: [
-      { label: 'Deposit Balance Top-up', amount: 500 }
+      { label: 'Advance Balance Top-up', amount: 500 }
     ]
   },
   {

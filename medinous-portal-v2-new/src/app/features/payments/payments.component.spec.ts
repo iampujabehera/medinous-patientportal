@@ -181,7 +181,7 @@ describe('PaymentsComponent', () => {
     component.submitAdvancePayment();
 
     expect(component.payments().length).toBe(initialCount + 1);
-    expect(component.payments()[0].description).toContain('Deposit Added');
+    expect(component.payments()[0].description).toContain('Advance Payment Added');
     expect(component.payments()[0].amount).toBe(50);
     expect(component.payments()[0].status).toBe('completed');
     expect(component.showAdvanceForm()).toBeFalse();
