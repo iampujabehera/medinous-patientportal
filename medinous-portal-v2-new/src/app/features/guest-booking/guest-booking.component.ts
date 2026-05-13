@@ -313,7 +313,10 @@ import { Doctor, BookingSlot, GuestPatient, GuestBookingResult, ClinicLocation }
                     @if (booking()) {
                       <mat-spinner diameter="18"></mat-spinner>
                     } @else {
-                      {{ 'appt.confirm_booking' | translate }} <mat-icon>check</mat-icon>
+                      <mat-icon>check</mat-icon>
+                    }
+                    @if (!booking()) {
+                      <span>{{ 'appt.confirm_booking' | translate }}</span>
                     }
                   </button>
                 </div>

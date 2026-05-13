@@ -84,10 +84,9 @@ import { DashboardSummary, VitalSign, Appointment, Medication } from '../../core
                         [class.done]="medChecked().has(med.id)"
                         (click)="toggleMedCheck(med.id)">
                   @if (medChecked().has(med.id)) {
-                    <mat-icon>check</mat-icon> Done
-                  } @else {
-                    Mark
+                    <mat-icon>check</mat-icon>
                   }
+                  <span>{{ medChecked().has(med.id) ? 'Done' : 'Mark' }}</span>
                 </button>
               </div>
             }

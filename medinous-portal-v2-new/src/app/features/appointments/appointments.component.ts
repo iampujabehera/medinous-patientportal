@@ -352,9 +352,12 @@ interface DateOption {
               @if (booking()) {
                 <mat-spinner diameter="18" class="cta-spin"></mat-spinner>
               } @else if (rescheduling()) {
-                Confirm New Slot <mat-icon iconPositionEnd>check</mat-icon>
+                <span>Confirm New Slot</span>
               } @else {
-                Confirm Appointment <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+                <span>Confirm Appointment</span>
+              }
+              @if (!booking()) {
+                <mat-icon iconPositionEnd>{{ rescheduling() ? 'check' : 'arrow_forward' }}</mat-icon>
               }
             </button>
           </div>
@@ -722,7 +725,10 @@ interface DateOption {
                 @if (booking()) {
                   <mat-spinner diameter="18" class="cta-spin"></mat-spinner>
                 } @else {
-                  Confirm &amp; Book <mat-icon iconPositionEnd>check</mat-icon>
+                  <span>Confirm &amp; Book</span>
+                }
+                @if (!booking()) {
+                  <mat-icon iconPositionEnd>check</mat-icon>
                 }
               </button>
             </div>
