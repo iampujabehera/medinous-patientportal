@@ -15,6 +15,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { GeographyService } from '../../../core/services/geography.service';
 import { I18nService, SupportedLang } from '../../../core/services/i18n.service';
@@ -30,7 +31,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     MatToolbarModule, MatSidenavModule, MatListModule,
     MatIconModule, MatButtonModule, MatMenuModule, MatSelectModule,
     MatDividerModule, MatChipsModule, MatTooltipModule, MatCardModule,
-    MatCheckboxModule, MatFormFieldModule, MatInputModule, FormsModule,
+    MatCheckboxModule, MatFormFieldModule, MatInputModule, MatSnackBarModule, FormsModule,
     TranslatePipe
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -677,24 +678,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <button mat-menu-item routerLink="/profile">
               <mat-icon>person</mat-icon> {{ 'nav.profile' | translate }}
             </button>
-            <button mat-menu-item>
-              <mat-icon>settings</mat-icon> {{ 'nav.settings' | translate }}
+            <button mat-menu-item (click)="openChangePassword()">
+              <mat-icon>lock</mat-icon> Change Password
             </button>
-            <button mat-menu-item [matMenuTriggerFor]="regionMenu">
-              <mat-icon>public</mat-icon> Region
+            <button mat-menu-item routerLink="/dashboard" [queryParams]="{ openFeedback: '1' }">
+              <mat-icon>rate_review</mat-icon> Feedback
             </button>
             <mat-divider></mat-divider>
             <button mat-menu-item>
               <mat-icon>logout</mat-icon> {{ 'nav.signout' | translate }}
             </button>
-          </mat-menu>
-          <mat-menu #regionMenu="matMenu">
-            @for (region of geo.availableRegions; track region.code) {
-              <button mat-menu-item (click)="geo.setGeography(region.code)">
-                <mat-icon [class.invisible]="geo.config().code !== region.code">check</mat-icon>
-                {{ region.name }}
-              </button>
-            }
           </mat-menu>
         </mat-toolbar>
 
@@ -743,6 +736,108 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <router-outlet />
           </mat-sidenav-content>
         </mat-sidenav-container>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- CHANGE PASSWORD MODAL                        -->
+      <!-- ============================================ -->
+      @if (changePasswordOpen()) {
+        <div class="cp-backdrop" (click)="closeChangePassword()"></div>
+      }
+      <div class="cp-modal" [class.open]="changePasswordOpen()" role="dialog" aria-modal="true">
+        <header class="cp-head">
+          <div class="cp-head-icon"><mat-icon>lock_reset</mat-icon></div>
+          <div class="cp-head-text">
+            <h3>Change Password</h3>
+            <p>Keep your account secure with a strong password.</p>
+          </div>
+          <button mat-icon-button class="cp-close" (click)="closeChangePassword()" aria-label="Close">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="cp-body">
+          <!-- Current Password -->
+          <label class="cp-label">Current Password</label>
+          <div class="cp-field">
+            <input class="cp-input"
+                   [type]="showCurrent() ? 'text' : 'password'"
+                   placeholder="Enter your current password"
+                   autocomplete="current-password"
+                   [ngModel]="cpCurrent()" (ngModelChange)="cpCurrent.set($event)">
+            <button mat-icon-button class="cp-eye" (click)="showCurrent.set(!showCurrent())"
+                    aria-label="Show or hide current password">
+              <mat-icon>{{ showCurrent() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
+
+          <!-- New Password -->
+          <label class="cp-label">New Password</label>
+          <div class="cp-field">
+            <input class="cp-input"
+                   [type]="showNew() ? 'text' : 'password'"
+                   placeholder="Enter a new password"
+                   autocomplete="new-password"
+                   [ngModel]="cpNew()" (ngModelChange)="cpNew.set($event)">
+            <button mat-icon-button class="cp-eye" (click)="showNew.set(!showNew())"
+                    aria-label="Show or hide new password">
+              <mat-icon>{{ showNew() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
+
+          <!-- Requirements -->
+          @if (cpNew().length > 0) {
+            <ul class="cp-rules">
+              <li [class.met]="ruleLength()">
+                <mat-icon>{{ ruleLength() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                At least 8 characters
+              </li>
+              <li [class.met]="ruleNumber()">
+                <mat-icon>{{ ruleNumber() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                Contains a number
+              </li>
+              <li [class.met]="ruleUpper()">
+                <mat-icon>{{ ruleUpper() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                Contains an uppercase letter
+              </li>
+              <li [class.met]="ruleDifferent()">
+                <mat-icon>{{ ruleDifferent() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                Different from current password
+              </li>
+            </ul>
+          }
+
+          <!-- Confirm New Password -->
+          <label class="cp-label">Confirm New Password</label>
+          <div class="cp-field"
+               [class.cp-error]="cpConfirm().length > 0 && !ruleMatch()">
+            <input class="cp-input"
+                   [type]="showConfirm() ? 'text' : 'password'"
+                   placeholder="Re-enter the new password"
+                   autocomplete="new-password"
+                   [ngModel]="cpConfirm()" (ngModelChange)="cpConfirm.set($event)"
+                   (keyup.enter)="submitChangePassword()">
+            <button mat-icon-button class="cp-eye" (click)="showConfirm.set(!showConfirm())"
+                    aria-label="Show or hide confirm password">
+              <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
+          @if (cpConfirm().length > 0 && !ruleMatch()) {
+            <span class="cp-error-text">
+              <mat-icon>error_outline</mat-icon>
+              Passwords do not match
+            </span>
+          }
+        </div>
+
+        <footer class="cp-footer">
+          <button mat-stroked-button (click)="closeChangePassword()">Cancel</button>
+          <button mat-flat-button color="primary"
+                  [disabled]="!canSubmitChangePassword()"
+                  (click)="submitChangePassword()">
+            Update Password
+          </button>
+        </footer>
       </div>
     }
   `,
@@ -1589,14 +1684,199 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .loc-name { max-width: 40px; }
       .lang-pill { display: none !important; }
     }
+
+    /* ============================================
+       CHANGE PASSWORD MODAL
+       ============================================ */
+    .cp-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 1100;
+      animation: cp-fade 0.18s ease;
+    }
+    @keyframes cp-fade { from { opacity: 0; } to { opacity: 1; } }
+
+    .cp-modal {
+      position: fixed; top: 0; left: 50%;
+      transform: translate(-50%, -110%);
+      width: min(520px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      margin-top: 12px;
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+      z-index: 1101;
+      display: flex; flex-direction: column;
+      visibility: hidden;
+      transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  visibility 0.32s linear;
+    }
+    .cp-modal.open { transform: translate(-50%, 0); visibility: visible; }
+
+    .cp-head {
+      padding: 18px 20px 14px;
+      display: flex; align-items: flex-start; gap: 12px;
+      border-bottom: 1px solid #eceff1;
+      flex-shrink: 0;
+    }
+    .cp-head-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: linear-gradient(135deg, #1a237e, #3949ab);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .cp-head-icon mat-icon { font-size: 22px; width: 22px; height: 22px; }
+    .cp-head-text { flex: 1; min-width: 0; }
+    .cp-head-text h3 { margin: 0; font-size: 17px; font-weight: 600; color: #1b3a4b; }
+    .cp-head-text p { margin: 4px 0 0; font-size: 12px; color: #607d8b; }
+    .cp-close { flex-shrink: 0; }
+
+    .cp-body {
+      padding: 16px 20px;
+      overflow-y: auto; flex: 1;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .cp-label {
+      display: block;
+      font-size: 12px; font-weight: 600; color: #455a64;
+      text-transform: uppercase; letter-spacing: .04em;
+      margin: 10px 0 6px;
+    }
+
+    .cp-field {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 4px 0 12px;
+      background: white;
+      border: 1.5px solid #cfd8dc; border-radius: 10px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .cp-field:focus-within {
+      border-color: #1a237e;
+      box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.10);
+    }
+    .cp-field.cp-error {
+      border-color: #c62828;
+    }
+    .cp-field.cp-error:focus-within { box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.10); }
+    .cp-input {
+      flex: 1; min-width: 0;
+      border: none; outline: none; background: transparent;
+      font: inherit; font-size: 14px; color: #1b3a4b;
+      padding: 12px 0;
+    }
+    .cp-input::placeholder { color: #b0bec5; }
+    .cp-eye {
+      width: 36px !important; height: 36px !important; line-height: 36px !important;
+      color: #90a4ae !important; flex-shrink: 0;
+    }
+    .cp-eye mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .cp-eye:hover { color: #1a237e !important; }
+
+    .cp-rules {
+      list-style: none; padding: 8px 0 0; margin: 0 0 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .cp-rules li {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #90a4ae;
+      transition: color 0.15s;
+    }
+    .cp-rules li mat-icon {
+      font-size: 16px; width: 16px; height: 16px;
+      color: #cfd8dc;
+    }
+    .cp-rules li.met { color: #2e7d32; }
+    .cp-rules li.met mat-icon { color: #2e7d32; }
+
+    .cp-error-text {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 12px; color: #c62828; margin-top: 4px;
+    }
+    .cp-error-text mat-icon { font-size: 14px; width: 14px; height: 14px; }
+
+    .cp-footer {
+      padding: 14px 20px;
+      display: flex; gap: 10px; justify-content: flex-end;
+      border-top: 1px solid #eceff1;
+      background: #fafafa;
+      flex-shrink: 0;
+    }
+    .cp-footer button {
+      height: 40px !important;
+      font-size: 13px !important; font-weight: 600 !important;
+      border-radius: 10px !important;
+      padding: 0 18px !important;
+    }
+
+    @media (max-width: 600px) {
+      .cp-modal {
+        width: 100%; max-width: 100%;
+        max-height: 100vh; height: 100vh;
+        margin: 0; border-radius: 0;
+      }
+    }
   `]
 })
 export class ShellComponent {
   private readonly router = inject(Router);
   private readonly signupHandoff = inject(SignupHandoffService);
+  private readonly snackBar = inject(MatSnackBar);
   readonly geo = inject(GeographyService);
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
+
+  // ===== Change Password =====
+  readonly changePasswordOpen = signal(false);
+  readonly cpCurrent = signal('');
+  readonly cpNew = signal('');
+  readonly cpConfirm = signal('');
+  readonly showCurrent = signal(false);
+  readonly showNew = signal(false);
+  readonly showConfirm = signal(false);
+
+  readonly ruleLength = computed(() => this.cpNew().length >= 8);
+  readonly ruleNumber = computed(() => /\d/.test(this.cpNew()));
+  readonly ruleUpper = computed(() => /[A-Z]/.test(this.cpNew()));
+  readonly ruleDifferent = computed(() =>
+    this.cpNew().length > 0 && this.cpNew() !== this.cpCurrent()
+  );
+  readonly ruleMatch = computed(() =>
+    this.cpConfirm().length > 0 && this.cpConfirm() === this.cpNew()
+  );
+
+  readonly canSubmitChangePassword = computed(() =>
+    this.cpCurrent().length > 0 &&
+    this.ruleLength() &&
+    this.ruleNumber() &&
+    this.ruleUpper() &&
+    this.ruleDifferent() &&
+    this.ruleMatch()
+  );
+
+  openChangePassword(): void {
+    this.cpCurrent.set('');
+    this.cpNew.set('');
+    this.cpConfirm.set('');
+    this.showCurrent.set(false);
+    this.showNew.set(false);
+    this.showConfirm.set(false);
+    this.changePasswordOpen.set(true);
+  }
+
+  closeChangePassword(): void {
+    this.changePasswordOpen.set(false);
+  }
+
+  submitChangePassword(): void {
+    if (!this.canSubmitChangePassword()) return;
+    // In a real build, POST to /auth/change-password. For demo, just show success.
+    this.changePasswordOpen.set(false);
+    this.snackBar.open('Password updated successfully', 'Close', { duration: 3500 });
+    this.cpCurrent.set('');
+    this.cpNew.set('');
+    this.cpConfirm.set('');
+  }
   readonly sidenavOpen = signal(false);
   readonly isMobile = signal(typeof window !== 'undefined' ? window.innerWidth <= 768 : false);
   readonly sidenavOpened = computed(() => !this.isMobile() || this.sidenavOpen());

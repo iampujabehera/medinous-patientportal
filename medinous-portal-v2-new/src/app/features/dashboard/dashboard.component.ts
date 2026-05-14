@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -1215,6 +1215,7 @@ interface SpecialtyTile {
 export class DashboardComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly loading = signal(true);
@@ -1275,6 +1276,12 @@ export class DashboardComponent implements OnInit {
     this.api.getConsultations().subscribe(list => {
       this.consultations.set(list);
     });
+    // Allow other surfaces (e.g. the user menu) to open the feedback form
+    // by navigating here with ?openFeedback=1
+    if (this.route.snapshot.queryParamMap.get('openFeedback') === '1') {
+      this.feedbackDismissed.set(false);
+      this.feedbackFormOpen.set(true);
+    }
   }
 
   // ===== Computed UI state =====
