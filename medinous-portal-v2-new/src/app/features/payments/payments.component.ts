@@ -366,15 +366,12 @@ type SheetMode = 'balance' | 'add' | null;
           }
         </div>
 
-        <label class="field-label">Apply advance to</label>
+        <label class="field-label">Remarks <span class="optional">(optional)</span></label>
         <mat-form-field appearance="outline" class="full" subscriptSizing="dynamic">
-          <mat-select [ngModel]="advanceTarget()" (ngModelChange)="advanceTarget.set($event)">
-            <mat-option value="general">General Hospital Wallet</mat-option>
-            <mat-option value="consultation">Upcoming Consultation</mat-option>
-            <mat-option value="admission">Admission</mat-option>
-            <mat-option value="surgery">Surgery</mat-option>
-            <mat-option value="lab">Diagnostics</mat-option>
-          </mat-select>
+          <textarea matInput rows="3" maxlength="200"
+                    placeholder="e.g. Upcoming admission, family member's visit, etc."
+                    [ngModel]="advanceRemarks()"
+                    (ngModelChange)="advanceRemarks.set($event)"></textarea>
         </mat-form-field>
 
         <div class="how-it-works">
@@ -698,6 +695,10 @@ type SheetMode = 'balance' | 'add' | null;
       text-transform: uppercase; letter-spacing: .04em;
       margin: 8px 0 6px;
     }
+    .field-label .optional {
+      text-transform: none; letter-spacing: 0;
+      color: #b0bec5; font-weight: 500;
+    }
     .full { width: 100%; }
     .quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 14px; }
     .qa-btn {
@@ -760,7 +761,8 @@ export class PaymentsComponent implements OnInit {
   readonly generatingReceipt = signal<string | null>(null);
   readonly showAdvanceForm = signal(false);
   readonly advanceAmount = signal<number>(0);
-  readonly advanceTarget = signal('general');
+  readonly advanceTarget = signal('general'); // kept for spec back-compat; no longer surfaced in UI
+  readonly advanceRemarks = signal<string>('');
   readonly searchQuery = signal('');
   readonly selectedPeriod = signal(30);
   readonly sheetOpen = signal<SheetMode>(null);
@@ -1079,7 +1081,7 @@ export class PaymentsComponent implements OnInit {
   openBalanceSheet(): void { this.sheetOpen.set('balance'); }
   openAddAdvanceSheet(): void {
     this.advanceAmount.set(0);
-    this.advanceTarget.set('general');
+    this.advanceRemarks.set('');
     this.showAdvanceForm.set(true);
     this.sheetOpen.set('add');
   }
@@ -1122,21 +1124,15 @@ export class PaymentsComponent implements OnInit {
     const amount = this.advanceAmount();
     if (!amount || amount <= 0) return;
 
-    const targetLabels: Record<string, string> = {
-      general: 'General Hospital Wallet',
-      consultation: 'Upcoming Consultation',
-      admission: 'Admission',
-      surgery: 'Surgery',
-      lab: 'Diagnostics'
-    };
-    const targetLabel = targetLabels[this.advanceTarget()] ?? 'General Hospital Wallet';
+    const remarks = this.advanceRemarks().trim();
+    const appliedTo = remarks || 'Advance Payment';
 
     const newBalance = this.advanceBalance() + amount;
     const newEvent: AdvanceEvent = {
       id: 'ae-' + Date.now(),
       type: 'added',
       amount,
-      appliedTo: targetLabel,
+      appliedTo,
       category: 'advance',
       date: new Date().toISOString(),
       balanceAfter: newBalance
@@ -1150,7 +1146,7 @@ export class PaymentsComponent implements OnInit {
       currency: this.geo.config().currency,
       status: 'completed',
       method: 'card',
-      description: 'Advance Payment Added — ' + targetLabel,
+      description: remarks ? `Advance Payment Added — ${remarks}` : 'Advance Payment Added',
       invoiceNumber: 'ADV-' + Date.now().toString().slice(-6),
       breakdown: [{ label: 'Advance Balance Top-up', amount }]
     };
@@ -1158,7 +1154,7 @@ export class PaymentsComponent implements OnInit {
 
     this.showAdvanceForm.set(false);
     this.advanceAmount.set(0);
-    this.advanceTarget.set('general');
+    this.advanceRemarks.set('');
     this.sheetOpen.set('balance');
     this.snackBar.open(
       `${this.formatCurrency(amount)} added to advance balance`,
