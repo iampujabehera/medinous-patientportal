@@ -6,14 +6,16 @@ import {
 
 export const MOCK_DASHBOARD: DashboardSummary = {
   patient: {
-    id: 'p-001',
+    id: '12345678',
     firstName: 'Priya',
     lastName: 'Sharma',
     dateOfBirth: '1990-05-15',
     gender: 'Female',
     email: 'priya.sharma@email.com',
-    phone: '+91-9876543210',
-    avatarUrl: ''
+    phone: '+973 3322 4455',
+    avatarUrl: '',
+    registrationDate: '2018-03-12T09:15:00',
+    sponsorName: 'Self-pay · Cash'
   },
   upcomingAppointments: [
     {

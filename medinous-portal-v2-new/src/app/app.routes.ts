@@ -30,6 +30,10 @@ export const routes: Routes = [
         path: 'payments',
         loadChildren: () => import('./features/payments/payments.routes').then(m => m.PAYMENTS_ROUTES)
       },
+      {
+        path: 'profile',
+        loadChildren: () => import('./features/profile/profile.routes').then(m => m.PROFILE_ROUTES)
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

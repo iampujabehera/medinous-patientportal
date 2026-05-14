@@ -7,6 +7,8 @@ export interface Patient {
   email: string;
   phone: string;
   avatarUrl?: string;
+  registrationDate?: string;
+  sponsorName?: string;
 }
 
 export interface VitalSign {

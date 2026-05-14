@@ -674,7 +674,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <mat-icon>account_circle</mat-icon>
           </button>
           <mat-menu #userMenu="matMenu" class="hdr-menu">
-            <button mat-menu-item>
+            <button mat-menu-item routerLink="/profile">
               <mat-icon>person</mat-icon> {{ 'nav.profile' | translate }}
             </button>
             <button mat-menu-item>
