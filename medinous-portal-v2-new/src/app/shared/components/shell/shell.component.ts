@@ -749,7 +749,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <div class="cp-head-icon"><mat-icon>lock_reset</mat-icon></div>
           <div class="cp-head-text">
             <h3>Change Password</h3>
-            <p>Keep your account secure with a strong password.</p>
+            <p>Verify it's you, then choose a new password.</p>
           </div>
           <button mat-icon-button class="cp-close" (click)="closeChangePassword()" aria-label="Close">
             <mat-icon>close</mat-icon>
@@ -757,87 +757,137 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </header>
 
         <div class="cp-body">
-          <!-- Current Password -->
-          <label class="cp-label">Current Password</label>
-          <div class="cp-field">
-            <input class="cp-input"
-                   [type]="showCurrent() ? 'text' : 'password'"
-                   placeholder="Enter your current password"
-                   autocomplete="current-password"
-                   [ngModel]="cpCurrent()" (ngModelChange)="cpCurrent.set($event)">
-            <button mat-icon-button class="cp-eye" (click)="showCurrent.set(!showCurrent())"
-                    aria-label="Show or hide current password">
-              <mat-icon>{{ showCurrent() ? 'visibility_off' : 'visibility' }}</mat-icon>
-            </button>
+          <!-- Stepper -->
+          <div class="cp-stepper">
+            <div class="cp-step" [class.active]="cpStep() >= 1" [class.done]="cpStep() > 1">
+              <span class="cp-step-num">{{ cpStep() > 1 ? '✓' : '1' }}</span>
+              <span class="cp-step-label">Identify</span>
+            </div>
+            <div class="cp-step-line" [class.done]="cpStep() > 1"></div>
+            <div class="cp-step" [class.active]="cpStep() >= 2" [class.done]="cpStep() > 2">
+              <span class="cp-step-num">{{ cpStep() > 2 ? '✓' : '2' }}</span>
+              <span class="cp-step-label">Verify</span>
+            </div>
+            <div class="cp-step-line" [class.done]="cpStep() > 2"></div>
+            <div class="cp-step" [class.active]="cpStep() >= 3">
+              <span class="cp-step-num">3</span>
+              <span class="cp-step-label">New Password</span>
+            </div>
           </div>
 
-          <!-- New Password -->
-          <label class="cp-label">New Password</label>
-          <div class="cp-field">
-            <input class="cp-input"
-                   [type]="showNew() ? 'text' : 'password'"
-                   placeholder="Enter a new password"
-                   autocomplete="new-password"
-                   [ngModel]="cpNew()" (ngModelChange)="cpNew.set($event)">
-            <button mat-icon-button class="cp-eye" (click)="showNew.set(!showNew())"
-                    aria-label="Show or hide new password">
-              <mat-icon>{{ showNew() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          <!-- Step 1: Identify -->
+          @if (cpStep() === 1) {
+            <p class="cp-step-desc">
+              We'll send a 6-digit OTP to the mobile registered with your account.
+            </p>
+            <div class="cp-identity">
+              <div class="cp-identity-row">
+                <span class="cp-identity-label">Patient ID</span>
+                <strong>{{ cpPatientId }}</strong>
+              </div>
+              <div class="cp-identity-row">
+                <span class="cp-identity-label">Mobile</span>
+                <strong>{{ cpMaskedPhone }}</strong>
+              </div>
+            </div>
+            <button mat-flat-button color="primary" class="cp-step-btn" (click)="cpSendOtp()">
+              <mat-icon>send</mat-icon> Send OTP
             </button>
-          </div>
-
-          <!-- Requirements -->
-          @if (cpNew().length > 0) {
-            <ul class="cp-rules">
-              <li [class.met]="ruleLength()">
-                <mat-icon>{{ ruleLength() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                At least 8 characters
-              </li>
-              <li [class.met]="ruleNumber()">
-                <mat-icon>{{ ruleNumber() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                Contains a number
-              </li>
-              <li [class.met]="ruleUpper()">
-                <mat-icon>{{ ruleUpper() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                Contains an uppercase letter
-              </li>
-              <li [class.met]="ruleDifferent()">
-                <mat-icon>{{ ruleDifferent() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                Different from current password
-              </li>
-            </ul>
           }
 
-          <!-- Confirm New Password -->
-          <label class="cp-label">Confirm New Password</label>
-          <div class="cp-field"
-               [class.cp-error]="cpConfirm().length > 0 && !ruleMatch()">
-            <input class="cp-input"
-                   [type]="showConfirm() ? 'text' : 'password'"
-                   placeholder="Re-enter the new password"
-                   autocomplete="new-password"
-                   [ngModel]="cpConfirm()" (ngModelChange)="cpConfirm.set($event)"
-                   (keyup.enter)="submitChangePassword()">
-            <button mat-icon-button class="cp-eye" (click)="showConfirm.set(!showConfirm())"
-                    aria-label="Show or hide confirm password">
-              <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          <!-- Step 2: Verify -->
+          @if (cpStep() === 2) {
+            <p class="cp-step-desc">
+              Enter the 6-digit code we sent to <strong>{{ cpMaskedPhone }}</strong>.
+            </p>
+            <label class="cp-label">Verification Code</label>
+            <div class="cp-field">
+              <input class="cp-input"
+                     type="text" inputmode="numeric" maxlength="6"
+                     placeholder="6-digit code"
+                     autocomplete="one-time-code"
+                     [ngModel]="cpOtp()" (ngModelChange)="cpOtp.set($event)"
+                     (keyup.enter)="cpVerifyOtp()">
+            </div>
+            <p class="cp-otp-hint">Demo OTP: <code>123456</code></p>
+            <div class="cp-otp-meta">
+              <span>Didn't receive it?</span>
+              <a class="cp-resend" (click)="cpSendOtp()">Resend OTP</a>
+            </div>
+            <button mat-flat-button color="primary" class="cp-step-btn"
+                    [disabled]="cpOtp().length !== 6" (click)="cpVerifyOtp()">
+              <mat-icon>check</mat-icon> Verify
             </button>
-          </div>
-          @if (cpConfirm().length > 0 && !ruleMatch()) {
-            <span class="cp-error-text">
-              <mat-icon>error_outline</mat-icon>
-              Passwords do not match
-            </span>
+          }
+
+          <!-- Step 3: New password -->
+          @if (cpStep() === 3) {
+            <p class="cp-step-desc">Set a new password. Make it strong.</p>
+
+            <label class="cp-label">New Password</label>
+            <div class="cp-field">
+              <input class="cp-input"
+                     [type]="showNew() ? 'text' : 'password'"
+                     placeholder="Enter a new password"
+                     autocomplete="new-password"
+                     [ngModel]="cpNew()" (ngModelChange)="cpNew.set($event)">
+              <button mat-icon-button class="cp-eye" (click)="showNew.set(!showNew())"
+                      aria-label="Show or hide new password">
+                <mat-icon>{{ showNew() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </div>
+
+            @if (cpNew().length > 0) {
+              <ul class="cp-rules">
+                <li [class.met]="ruleLength()">
+                  <mat-icon>{{ ruleLength() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  At least 8 characters
+                </li>
+                <li [class.met]="ruleNumber()">
+                  <mat-icon>{{ ruleNumber() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  Contains a number
+                </li>
+                <li [class.met]="ruleUpper()">
+                  <mat-icon>{{ ruleUpper() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  Contains an uppercase letter
+                </li>
+              </ul>
+            }
+
+            <label class="cp-label">Confirm New Password</label>
+            <div class="cp-field"
+                 [class.cp-error]="cpConfirm().length > 0 && !ruleMatch()">
+              <input class="cp-input"
+                     [type]="showConfirm() ? 'text' : 'password'"
+                     placeholder="Re-enter the new password"
+                     autocomplete="new-password"
+                     [ngModel]="cpConfirm()" (ngModelChange)="cpConfirm.set($event)"
+                     (keyup.enter)="submitChangePassword()">
+              <button mat-icon-button class="cp-eye" (click)="showConfirm.set(!showConfirm())"
+                      aria-label="Show or hide confirm password">
+                <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+            </div>
+            @if (cpConfirm().length > 0 && !ruleMatch()) {
+              <span class="cp-error-text">
+                <mat-icon>error_outline</mat-icon>
+                Passwords do not match
+              </span>
+            }
+
+            <button mat-flat-button color="primary" class="cp-step-btn"
+                    [disabled]="!canSubmitChangePassword()"
+                    (click)="submitChangePassword()">
+              <mat-icon>check_circle</mat-icon> Update Password
+            </button>
           }
         </div>
 
-        <footer class="cp-footer">
-          <button mat-stroked-button (click)="closeChangePassword()">Cancel</button>
-          <button mat-flat-button color="primary"
-                  [disabled]="!canSubmitChangePassword()"
-                  (click)="submitChangePassword()">
-            Update Password
-          </button>
-        </footer>
+        @if (cpStep() < 3 || cpNew().length === 0) {
+          <footer class="cp-footer">
+            <button mat-stroked-button (click)="closeChangePassword()">Cancel</button>
+          </footer>
+        }
       </div>
     }
   `,
@@ -1737,6 +1787,91 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       overflow-y: auto; flex: 1;
       display: flex; flex-direction: column; gap: 6px;
     }
+
+    /* Stepper */
+    .cp-stepper {
+      display: flex; align-items: center; gap: 6px;
+      margin: 4px 0 18px; padding: 0 4px;
+    }
+    .cp-step {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    .cp-step-num {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600;
+      background: #e8eaee; color: #999;
+      transition: all 0.25s;
+    }
+    .cp-step.active .cp-step-num {
+      background: #1a237e; color: white;
+      box-shadow: 0 2px 8px rgba(26,35,126,0.32);
+    }
+    .cp-step.done .cp-step-num { background: #7986cb; color: white; }
+    .cp-step-label {
+      font-size: 11px; color: #888; font-weight: 500; letter-spacing: 0.2px;
+    }
+    .cp-step.active .cp-step-label { color: #1a237e; font-weight: 600; }
+    .cp-step-line {
+      flex: 1; height: 2px; background: #e8eaee;
+      margin-bottom: 18px; transition: background 0.25s;
+    }
+    .cp-step-line.done { background: #7986cb; }
+
+    /* Step descriptions / step-level CTAs */
+    .cp-step-desc {
+      font-size: 13px; color: #455a64; line-height: 1.5;
+      margin: 4px 0 14px; text-align: center;
+    }
+    .cp-step-desc strong { color: #1b3a4b; }
+
+    .cp-identity {
+      background: #f6f8fc; border: 1px solid #e3e7f5;
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 6px;
+      margin-bottom: 16px;
+    }
+    .cp-identity-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: 13px;
+    }
+    .cp-identity-label {
+      color: #607d8b; text-transform: uppercase; letter-spacing: .04em;
+      font-size: 11px; font-weight: 600;
+    }
+    .cp-identity-row strong { color: #1b3a4b; font-size: 14px; }
+
+    .cp-step-btn {
+      width: 100%;
+      height: 44px !important;
+      border-radius: 10px !important;
+      font-weight: 600 !important;
+      margin-top: 4px;
+    }
+    .cp-step-btn mat-icon {
+      font-size: 18px; width: 18px; height: 18px;
+      vertical-align: middle; margin-right: 4px;
+    }
+
+    .cp-otp-hint {
+      font-size: 11px; color: #999; text-align: center;
+      margin: -2px 0 6px;
+    }
+    .cp-otp-hint code {
+      background: #f3f4f6; padding: 1px 6px; border-radius: 4px;
+      font-family: 'Courier New', monospace; color: #1b3a4b; font-weight: 600;
+    }
+    .cp-otp-meta {
+      display: flex; justify-content: center; gap: 6px;
+      font-size: 12px; color: #888;
+      margin: 0 0 14px;
+    }
+    .cp-resend {
+      color: #1a237e; font-weight: 600; cursor: pointer;
+    }
+    .cp-resend:hover { text-decoration: underline; }
+
     .cp-label {
       display: block;
       font-size: 12px; font-weight: 600; color: #455a64;
@@ -1826,39 +1961,38 @@ export class ShellComponent {
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
 
-  // ===== Change Password =====
+  // ===== Change Password (OTP-driven, mirrors forgot-password flow) =====
   readonly changePasswordOpen = signal(false);
-  readonly cpCurrent = signal('');
+  readonly cpStep = signal<1 | 2 | 3>(1);
+  readonly cpOtp = signal('');
   readonly cpNew = signal('');
   readonly cpConfirm = signal('');
-  readonly showCurrent = signal(false);
   readonly showNew = signal(false);
   readonly showConfirm = signal(false);
+
+  // Patient identity surfaced on step 1
+  readonly cpPatientId = '12345678';
+  readonly cpMaskedPhone = '+973 ••• ••55';
 
   readonly ruleLength = computed(() => this.cpNew().length >= 8);
   readonly ruleNumber = computed(() => /\d/.test(this.cpNew()));
   readonly ruleUpper = computed(() => /[A-Z]/.test(this.cpNew()));
-  readonly ruleDifferent = computed(() =>
-    this.cpNew().length > 0 && this.cpNew() !== this.cpCurrent()
-  );
   readonly ruleMatch = computed(() =>
     this.cpConfirm().length > 0 && this.cpConfirm() === this.cpNew()
   );
 
   readonly canSubmitChangePassword = computed(() =>
-    this.cpCurrent().length > 0 &&
     this.ruleLength() &&
     this.ruleNumber() &&
     this.ruleUpper() &&
-    this.ruleDifferent() &&
     this.ruleMatch()
   );
 
   openChangePassword(): void {
-    this.cpCurrent.set('');
+    this.cpStep.set(1);
+    this.cpOtp.set('');
     this.cpNew.set('');
     this.cpConfirm.set('');
-    this.showCurrent.set(false);
     this.showNew.set(false);
     this.showConfirm.set(false);
     this.changePasswordOpen.set(true);
@@ -1868,12 +2002,26 @@ export class ShellComponent {
     this.changePasswordOpen.set(false);
   }
 
+  cpSendOtp(): void {
+    this.cpOtp.set('');
+    this.cpStep.set(2);
+    this.snackBar.open(`OTP sent to ${this.cpMaskedPhone}`, 'Close', { duration: 2500 });
+  }
+
+  cpVerifyOtp(): void {
+    if (this.cpOtp() === '123456') {
+      this.cpStep.set(3);
+    } else {
+      this.snackBar.open('Incorrect OTP. Please try again.', 'Close', { duration: 3000 });
+    }
+  }
+
   submitChangePassword(): void {
     if (!this.canSubmitChangePassword()) return;
-    // In a real build, POST to /auth/change-password. For demo, just show success.
+    // In a real build, POST to /auth/change-password with the OTP.
     this.changePasswordOpen.set(false);
     this.snackBar.open('Password updated successfully', 'Close', { duration: 3500 });
-    this.cpCurrent.set('');
+    this.cpOtp.set('');
     this.cpNew.set('');
     this.cpConfirm.set('');
   }
