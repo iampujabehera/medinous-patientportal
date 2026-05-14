@@ -186,7 +186,24 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 4. HEALTH SNAPSHOT (vitals)                  -->
+          <!-- 4. NEED HELP BANNER                          -->
+          <!-- ============================================ -->
+          <a class="help-banner" [href]="'tel:' + hospitalPhoneRaw" aria-label="Call hospital">
+            <div class="hb-illo">
+              <mat-icon>support_agent</mat-icon>
+            </div>
+            <div class="hb-body">
+              <strong>Need help?</strong>
+              <span>Talk to our care team · available 24/7 · {{ hospitalPhone }}</span>
+            </div>
+            <span class="hb-cta">
+              <mat-icon>call</mat-icon>
+              Call Now
+            </span>
+          </a>
+
+          <!-- ============================================ -->
+          <!-- 5. HEALTH SNAPSHOT (vitals)                  -->
           <!-- ============================================ -->
           @if (dashboardVitals().length > 0) {
             <section class="section vitals-section">
@@ -224,7 +241,7 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 5. MEDICATIONS LINK CARD (compact)           -->
+          <!-- 6. MEDICATIONS LINK CARD (compact)           -->
           <!-- ============================================ -->
           <a class="meds-link-card" routerLink="/medications">
             <div class="ml-illo">
@@ -765,6 +782,40 @@ interface SpecialtyTile {
     .v-time { font-size: 11px; color: #b0bec5; }
 
     /* ===== Medications link card ===== */
+    /* ===== Need Help banner ===== */
+    .help-banner {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 18px; margin-bottom: 24px;
+      background: linear-gradient(135deg, #e0f2f1 0%, #ffffff 100%);
+      border: 1px solid #b2dfdb; border-radius: 14px;
+      text-decoration: none; color: inherit;
+      transition: all 0.15s;
+    }
+    .help-banner:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0,137,123,0.12);
+    }
+    .hb-illo {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: linear-gradient(135deg, #00897b, #26a69a);
+      color: white;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .hb-illo mat-icon { font-size: 22px; width: 22px; height: 22px; }
+    .hb-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .hb-body strong { font-size: 14px; color: #00695c; font-weight: 700; }
+    .hb-body span { font-size: 12px; color: #455a64; }
+    .hb-cta {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 10px;
+      background: #00897b; color: white;
+      font-size: 13px; font-weight: 600;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,137,123,0.25);
+    }
+    .hb-cta mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .help-banner:hover .hb-cta { background: #00796b; }
+
     .meds-link-card {
       display: flex; align-items: center; gap: 14px;
       padding: 16px 18px; margin-bottom: 28px;
@@ -1125,6 +1176,9 @@ interface SpecialtyTile {
       .ap-manage { flex: 1; margin-left: 0; }
       .care-card { width: 280px; }
       .specialty-grid { grid-template-columns: repeat(3, 1fr); }
+      .help-banner { padding: 12px 14px; }
+      .hb-body span { font-size: 11px; }
+      .hb-cta { padding: 7px 12px; font-size: 12px; }
 
       /* CSAT strip — mobile */
       .csat-strip { padding: 8px 10px env(safe-area-inset-bottom, 8px); }
@@ -1188,6 +1242,11 @@ export class DashboardComponent implements OnInit {
   ];
 
   // Order: most-likely tap targets first
+  // Hospital contact (BSH primary line). For multi-location white-label
+  // this would come from the GeographyService / tenant config.
+  readonly hospitalPhone = '+973 1781 2000';
+  readonly hospitalPhoneRaw = '+97317812000';
+
   readonly actionChips = [
     { label: 'Book Appointment', icon: 'event_available', route: '/appointments', color: '#3949ab' },
     { label: 'My Health', icon: 'health_and_safety', route: '/consultations', color: '#5e35b1' },
