@@ -7,38 +7,38 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
-import { DashboardSummary, VitalSign, Appointment, Medication, AlertItem } from '../../core/models/patient.model';
+import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation } from '../../core/models/patient.model';
 
-interface OngoingActivity {
+interface LabActivity {
   id: string;
-  theme: 'lab' | 'tests' | 'wallet' | 'followup' | 'refill' | 'video' | 'pending';
-  icon: string;
-  title: string;
-  description: string;
-  cta: string;
-  route?: string;
-  action?: () => void;
+  type: 'prescribed' | 'ready';
+  labName: string;
+  category: 'lab' | 'imaging' | 'cardiac' | 'other';
+  doctorName: string;
+  doctorSpecialty: string;
+  consultationDate: string;
+  consultationId: string;
 }
 
-interface MedTimeSlot {
-  label: 'Morning' | 'Afternoon' | 'Evening';
-  icon: string;
-  meds: Medication[];
+interface FollowUpItem {
+  id: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  consultationDate: string;
+  followUpDate: string;
+  reason: string;
 }
 
-interface LabCard {
-  id: string;
-  theme: 'ready' | 'prescribed' | 'pending';
+interface SpecialtyTile {
+  name: string;
   icon: string;
-  title: string;
-  description: string;
-  actions: { label: string; primary?: boolean; route?: string }[];
+  color: string;
+  doctors: number;
 }
 
 @Component({
@@ -47,8 +47,7 @@ interface LabCard {
   imports: [
     CommonModule, RouterModule,
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
-    MatProgressBarModule, MatDividerModule, MatButtonToggleModule,
-    MatTooltipModule, MatSnackBarModule,
+    MatProgressBarModule, MatDividerModule, MatTooltipModule, MatSnackBarModule,
     SkeletonLoaderComponent, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,266 +62,288 @@ interface LabCard {
       } @else {
         @if (data(); as d) {
 
-        <!-- ============================================ -->
-        <!-- GREETING                                     -->
-        <!-- ============================================ -->
-        <header class="greeting">
-          <h1>Good {{ timeOfDay() }}, {{ d.patient.firstName }}</h1>
-          <p class="greeting-sub">Here's your health journey today.</p>
-        </header>
+          <!-- Greeting -->
+          <header class="greeting">
+            <h1>Good {{ timeOfDay() }}, {{ d.patient.firstName }}</h1>
+            <p class="greeting-sub">Here's your health journey today.</p>
+          </header>
 
-        <!-- ============================================ -->
-        <!-- 1. ONGOING ACTIVITIES (horizontal scroll)    -->
-        <!-- ============================================ -->
-        @if (ongoingActivities().length > 0) {
-          <section class="section ongoing-section">
-            <div class="sec-head">
-              <h2>Ongoing Activities</h2>
-              <span class="sec-count">{{ ongoingActivities().length }}</span>
+          <!-- ============================================ -->
+          <!-- 1. QUICK ACTIONS (top — primary actions)     -->
+          <!-- ============================================ -->
+          <section class="section quick-section">
+            <h2 class="visually-bold">Quick Actions</h2>
+            <div class="quick-grid">
+              @for (chip of actionChips; track chip.label) {
+                <a class="quick-pill" [routerLink]="chip.route">
+                  <div class="qp-icon" [style.background]="chip.color">
+                    <mat-icon>{{ chip.icon }}</mat-icon>
+                  </div>
+                  <span>{{ chip.label }}</span>
+                </a>
+              }
             </div>
-            <div class="hscroll">
-              @for (act of ongoingActivities(); track act.id) {
-                <article class="activity-card" [class]="'a-' + act.theme">
-                  <div class="a-illo">
-                    <mat-icon>{{ act.icon }}</mat-icon>
+          </section>
+
+          <!-- ============================================ -->
+          <!-- 2. UPCOMING APPOINTMENT (only if exists)     -->
+          <!-- ============================================ -->
+          @if (nextAppt(); as appt) {
+            <section class="section appt-section">
+              <h2>Upcoming Appointment</h2>
+              <article class="appt-premium">
+                <div class="ap-left">
+                  <div class="ap-avatar">{{ doctorInitials(appt.doctorName) }}</div>
+                  <span class="ap-status" [class]="'aps-' + apptWhen(appt)">
+                    {{ apptWhenLabel(appt) }}
+                  </span>
+                </div>
+                <div class="ap-body">
+                  <div class="ap-name-row">
+                    <strong class="ap-name">{{ appt.doctorName }}</strong>
+                    <span class="ap-type-chip" [class]="'apt-' + appt.type">
+                      <mat-icon>{{ appt.type === 'telehealth' ? 'videocam' : 'local_hospital' }}</mat-icon>
+                      {{ appt.type === 'telehealth' ? 'Video Consultation' : 'In-person' }}
+                    </span>
                   </div>
-                  <div class="a-content">
-                    <strong>{{ act.title }}</strong>
-                    <p>{{ act.description }}</p>
+                  <span class="ap-spec">{{ appt.specialty }}</span>
+                  <div class="ap-meta">
+                    <mat-icon>schedule</mat-icon>
+                    <span>{{ appt.date | date:'fullDate' }} · {{ appt.time }}</span>
                   </div>
-                  <button mat-flat-button class="a-cta" (click)="runActivity(act)">
-                    {{ act.cta }}
+                  <div class="ap-meta">
+                    <mat-icon>place</mat-icon>
+                    <span>{{ appt.location }}</span>
+                  </div>
+                  <div class="ap-actions">
+                    <button mat-icon-button class="ap-icon-btn" matTooltip="Get directions">
+                      <mat-icon>directions</mat-icon>
+                    </button>
+                    <button mat-icon-button class="ap-icon-btn" matTooltip="Add to calendar">
+                      <mat-icon>event_available</mat-icon>
+                    </button>
+                    <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
+                      Manage Booking
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </section>
+          }
+
+          <!-- ============================================ -->
+          <!-- 3. PENDING LABS (prescribed + ready)         -->
+          <!-- ============================================ -->
+          @if (labActivities().length > 0) {
+            <section class="section labs-section">
+              <div class="sec-head">
+                <div class="sec-titles">
+                  <h2>Pending Labs</h2>
+                  <p class="sec-sub">Tests requested or results awaiting your review</p>
+                </div>
+                <a class="sec-link" routerLink="/consultations">
+                  See all <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+
+              <div class="lab-list">
+                @for (lab of labActivities(); track lab.id) {
+                  <article class="lab-card" [class]="'lc-' + lab.type">
+                    <div class="lc-icon" [class]="'cat-' + lab.category">
+                      <mat-icon>{{ labIcon(lab) }}</mat-icon>
+                    </div>
+                    <div class="lc-body">
+                      <div class="lc-top">
+                        <strong>{{ lab.labName }}</strong>
+                        <span class="lc-status" [class]="'lc-st-' + lab.type">
+                          {{ lab.type === 'prescribed' ? 'Prescribed' : 'Results ready' }}
+                        </span>
+                      </div>
+                      <div class="lc-context">
+                        <span class="lc-dr">
+                          <mat-icon>person</mat-icon>
+                          {{ lab.doctorName }} · {{ lab.doctorSpecialty }}
+                        </span>
+                        <span class="lc-date">
+                          <mat-icon>event</mat-icon>
+                          Consulted {{ lab.consultationDate | date:'mediumDate' }}
+                        </span>
+                      </div>
+                      <div class="lc-actions">
+                        @if (lab.type === 'prescribed') {
+                          <button mat-stroked-button class="lc-btn" routerLink="/appointments">
+                            <mat-icon>event</mat-icon> Book Test
+                          </button>
+                          <button mat-stroked-button class="lc-btn" routerLink="/payments">
+                            <mat-icon>payments</mat-icon> Pay
+                          </button>
+                        } @else {
+                          <button mat-flat-button color="primary" class="lc-btn"
+                                  (click)="openConsultation(lab.consultationId)">
+                            <mat-icon>description</mat-icon> View Report
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  </article>
+                }
+              </div>
+            </section>
+          }
+
+          <!-- ============================================ -->
+          <!-- 4. FOLLOW-UPS (concise + creative)           -->
+          <!-- ============================================ -->
+          @if (followUps().length > 0) {
+            <section class="section followups-section">
+              <div class="sec-head">
+                <div class="sec-titles">
+                  <h2>Follow-ups</h2>
+                  <p class="sec-sub">Doctors waiting to see you again</p>
+                </div>
+                <a class="sec-link" routerLink="/consultations">
+                  See all <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+
+              <div class="hscroll followup-scroll">
+                @for (fu of followUps(); track fu.id) {
+                  <button class="followup-card" (click)="bookFollowUp(fu)">
+                    <div class="fu-date-tile">
+                      <span class="fu-month">{{ fu.followUpDate | date:'MMM' }}</span>
+                      <strong class="fu-day">{{ fu.followUpDate | date:'d' }}</strong>
+                      <span class="fu-dow">{{ fu.followUpDate | date:'EEE' }}</span>
+                    </div>
+                    <div class="fu-body">
+                      <div class="fu-avatar-row">
+                        <div class="fu-avatar" [class]="'av-' + specialtyTheme(fu.doctorSpecialty)">
+                          {{ doctorInitials(fu.doctorName) }}
+                        </div>
+                        <div class="fu-name-block">
+                          <strong>{{ fu.doctorName }}</strong>
+                          <span>{{ fu.doctorSpecialty }}</span>
+                        </div>
+                      </div>
+                      <p class="fu-reason">{{ fu.reason }}</p>
+                      <div class="fu-trace">
+                        <mat-icon>history</mat-icon>
+                        <span>Last seen {{ fu.consultationDate | date:'mediumDate' }}</span>
+                      </div>
+                    </div>
                   </button>
+                }
+              </div>
+            </section>
+          }
+
+          <!-- ============================================ -->
+          <!-- 5. HEALTH SNAPSHOT (vitals)                  -->
+          <!-- ============================================ -->
+          <section class="section vitals-section">
+            <div class="sec-head">
+              <div class="sec-titles">
+                <h2>Health Snapshot</h2>
+                <p class="sec-sub">Latest recorded vitals</p>
+              </div>
+              <a class="sec-link" routerLink="/timeline">
+                View All <mat-icon>arrow_forward</mat-icon>
+              </a>
+            </div>
+            <div class="hscroll vitals-scroll">
+              @for (vital of dashboardVitals(); track vital.type) {
+                <article class="vital-card" [class]="'v-' + vital.status">
+                  <div class="v-top">
+                    <div class="v-icon" [class]="'vbg-' + vital.status">
+                      <mat-icon>{{ getVitalIcon(vital) }}</mat-icon>
+                    </div>
+                    <span class="v-trend-chip" [class]="'tc-' + vital.status">
+                      <mat-icon>{{ trendIcon(vital) }}</mat-icon>
+                      {{ trendLabel(vital) }}
+                    </span>
+                  </div>
+                  <span class="v-label">{{ getVitalLabel(vital) }}</span>
+                  <div class="v-value-row">
+                    <span class="v-value">{{ vital.value }}</span>
+                    <span class="v-unit">{{ vital.unit }}</span>
+                  </div>
+                  <span class="v-time">Updated {{ vital.timestamp | date:'mediumDate' }}</span>
                 </article>
               }
             </div>
           </section>
-        }
 
-        <!-- ============================================ -->
-        <!-- 2. HEALTH SNAPSHOT (vitals)                  -->
-        <!-- ============================================ -->
-        <section class="section vitals-section">
-          <div class="sec-head">
-            <div class="sec-titles">
-              <h2>Health Snapshot</h2>
-              <p class="sec-sub">Latest recorded vitals</p>
+          <!-- ============================================ -->
+          <!-- 6. MEDICATIONS LINK CARD (compact)           -->
+          <!-- ============================================ -->
+          <a class="meds-link-card" routerLink="/medications">
+            <div class="ml-illo">
+              <mat-icon>medication</mat-icon>
             </div>
-            <a class="sec-link" routerLink="/timeline">
-              View All Vitals <mat-icon>arrow_forward</mat-icon>
-            </a>
-          </div>
-          <div class="hscroll vitals-scroll">
-            @for (vital of dashboardVitals(); track vital.type) {
-              <article class="vital-card" [class]="'v-' + vital.status">
-                <div class="v-top">
-                  <div class="v-icon" [class]="'vbg-' + vital.status">
-                    <mat-icon>{{ getVitalIcon(vital) }}</mat-icon>
-                  </div>
-                  <span class="v-trend-chip" [class]="'tc-' + vital.status">
-                    <mat-icon>{{ trendIcon(vital) }}</mat-icon>
-                    {{ trendLabel(vital) }}
-                  </span>
-                </div>
-                <span class="v-label">{{ getVitalLabel(vital) }}</span>
-                <div class="v-value-row">
-                  <span class="v-value">{{ vital.value }}</span>
-                  <span class="v-unit">{{ vital.unit }}</span>
-                </div>
-                <span class="v-time">Updated {{ vital.timestamp | date:'mediumDate' }}</span>
-              </article>
-            }
-          </div>
-        </section>
-
-        <!-- ============================================ -->
-        <!-- 3. UPCOMING APPOINTMENT                      -->
-        <!-- ============================================ -->
-        @if (nextAppt(); as appt) {
-          <section class="section appt-section">
-            <div class="sec-head">
-              <h2>Upcoming Appointment</h2>
-            </div>
-            <article class="appt-premium">
-              <div class="ap-left">
-                <div class="ap-avatar">{{ doctorInitials(appt.doctorName) }}</div>
-                <span class="ap-status" [class]="'aps-' + apptWhen(appt)">
-                  {{ apptWhenLabel(appt) }}
-                </span>
-              </div>
-              <div class="ap-body">
-                <div class="ap-name-row">
-                  <strong class="ap-name">{{ appt.doctorName }}</strong>
-                  <span class="ap-type-chip" [class]="'apt-' + appt.type">
-                    <mat-icon>{{ appt.type === 'telehealth' ? 'videocam' : 'local_hospital' }}</mat-icon>
-                    {{ appt.type === 'telehealth' ? 'Video Consultation' : 'In-person' }}
-                  </span>
-                </div>
-                <span class="ap-spec">{{ appt.specialty }}</span>
-                <div class="ap-meta">
-                  <mat-icon>schedule</mat-icon>
-                  <span>{{ appt.date | date:'fullDate' }} · {{ appt.time }}</span>
-                </div>
-                <div class="ap-meta">
-                  <mat-icon>place</mat-icon>
-                  <span>{{ appt.location }}</span>
-                </div>
-                <div class="ap-actions">
-                  <button mat-icon-button class="ap-icon-btn" matTooltip="Get directions">
-                    <mat-icon>directions</mat-icon>
-                  </button>
-                  <button mat-icon-button class="ap-icon-btn" matTooltip="Add to calendar">
-                    <mat-icon>event_available</mat-icon>
-                  </button>
-                  <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
-                    Manage Booking
-                  </button>
-                </div>
-              </div>
-            </article>
-          </section>
-        }
-
-        <!-- ============================================ -->
-        <!-- 4. MEDICATION REMINDER                       -->
-        <!-- ============================================ -->
-        <section class="section meds-section">
-          <div class="sec-head">
-            <h2>Medication Reminder</h2>
-            @if (medChecked().size > 0) {
-              <span class="streak-chip">
-                <mat-icon>local_fire_department</mat-icon>
-                {{ medChecked().size }} taken today
-              </span>
-            }
-          </div>
-
-          <mat-button-toggle-group [value]="medsTab()"
-                                   (change)="setMedsTab($event.value)"
-                                   class="meds-tabs">
-            <mat-button-toggle value="ongoing">Ongoing</mat-button-toggle>
-            <mat-button-toggle value="all">All Medications</mat-button-toggle>
-          </mat-button-toggle-group>
-
-          @if (medsTab() === 'ongoing') {
-            @if (medTimeSlots().length === 0) {
-              <div class="empty-mini">
-                <mat-icon>medication</mat-icon>
-                <p>No medications scheduled today.</p>
-              </div>
-            }
-            @for (slot of medTimeSlots(); track slot.label) {
-              <div class="time-slot">
-                <div class="ts-head">
-                  <mat-icon class="ts-icon">{{ slot.icon }}</mat-icon>
-                  <span class="ts-label">{{ slot.label }}</span>
-                </div>
-                @for (med of slot.meds; track med.id) {
-                  <article class="med-card" [class.done]="medChecked().has(med.id)">
-                    <div class="m-icon"><mat-icon>medication</mat-icon></div>
-                    <div class="m-body">
-                      <strong>{{ med.name }} {{ med.dosage }}</strong>
-                      <span class="m-sub">{{ med.frequency }} · {{ med.instructions ?? '' }}</span>
-                    </div>
-                    @if (medChecked().has(med.id)) {
-                      <span class="m-done">
-                        <mat-icon>check_circle</mat-icon>
-                        Taken
-                      </span>
-                    } @else {
-                      <button mat-stroked-button class="m-mark"
-                              (click)="toggleMedCheck(med.id)">
-                        Mark as Taken
-                      </button>
-                    }
-                  </article>
+            <div class="ml-body">
+              <strong>Your Medications</strong>
+              <span>
+                {{ d.activeMedications.length }} active prescription{{ d.activeMedications.length === 1 ? '' : 's' }}
+                @if (medsTakenToday() > 0) {
+                  · {{ medsTakenToday() }} taken today
                 }
-              </div>
-            }
-          }
-        </section>
-
-        <!-- ============================================ -->
-        <!-- 5. LAB & REPORTS                             -->
-        <!-- ============================================ -->
-        <section class="section labs-section">
-          <div class="sec-head">
-            <div class="sec-titles">
-              <h2>Lab &amp; Reports</h2>
-              <p class="sec-sub">Recent activity from your care team</p>
+              </span>
             </div>
-            <a class="sec-link" routerLink="/timeline">
-              View All <mat-icon>arrow_forward</mat-icon>
-            </a>
-          </div>
+            <div class="ml-progress">
+              <div class="ml-bar" [style.width.%]="medsAdherence()"></div>
+              <span class="ml-adh">{{ medsAdherence() }}%</span>
+            </div>
+            <mat-icon class="ml-arrow">arrow_forward</mat-icon>
+          </a>
 
-          @for (lab of labCards(); track lab.id) {
-            <article class="lab-card" [class]="'lc-' + lab.theme">
-              <div class="lc-illo">
-                <mat-icon>{{ lab.icon }}</mat-icon>
+          <!-- ============================================ -->
+          <!-- 7. CONSULT BY SPECIALTY                      -->
+          <!-- ============================================ -->
+          <section class="section specialty-section">
+            <div class="sec-head">
+              <div class="sec-titles">
+                <h2>Consult a Doctor</h2>
+                <p class="sec-sub">Choose a specialty to find the right doctor</p>
               </div>
-              <div class="lc-body">
-                <strong>{{ lab.title }}</strong>
-                <p>{{ lab.description }}</p>
-                <div class="lc-actions">
-                  @for (act of lab.actions; track act.label) {
-                    @if (act.primary) {
-                      <button mat-flat-button color="primary" class="lc-btn"
-                              (click)="navigate(act.route)">
-                        {{ act.label }}
-                      </button>
-                    } @else {
-                      <button mat-stroked-button class="lc-btn"
-                              (click)="navigate(act.route)">
-                        {{ act.label }}
-                      </button>
-                    }
+              <a class="sec-link" routerLink="/appointments">
+                All doctors <mat-icon>arrow_forward</mat-icon>
+              </a>
+            </div>
+            <div class="specialty-grid">
+              @for (sp of specialtyTiles; track sp.name) {
+                <a class="specialty-tile" [routerLink]="['/appointments']"
+                   [queryParams]="{ specialty: sp.name }">
+                  <div class="sp-icon" [style.background]="sp.color">
+                    <mat-icon>{{ sp.icon }}</mat-icon>
+                  </div>
+                  <strong class="sp-name">{{ sp.name }}</strong>
+                  <span class="sp-meta">{{ sp.doctors }} doctor{{ sp.doctors === 1 ? '' : 's' }}</span>
+                </a>
+              }
+            </div>
+          </section>
+
+          <!-- CSAT (subtle bottom feedback) -->
+          @if (!feedbackDismissed()) {
+            <section class="csat-section">
+              <button mat-icon-button class="csat-x" (click)="feedbackDismissed.set(true)">
+                <mat-icon>close</mat-icon>
+              </button>
+              <div class="csat-row">
+                <span class="csat-text">How was your experience today?</span>
+                <div class="csat-stars">
+                  @for (s of [1,2,3,4,5]; track s) {
+                    <button mat-icon-button class="csat-star" [class.on]="feedbackRating() >= s"
+                            (click)="submitFeedback(s)">
+                      <mat-icon>{{ feedbackRating() >= s ? 'star' : 'star_border' }}</mat-icon>
+                    </button>
                   }
                 </div>
               </div>
-            </article>
+              @if (feedbackRating()) {
+                <div class="csat-ty"><mat-icon>check_circle</mat-icon> Thanks for your feedback!</div>
+              }
+            </section>
           }
-        </section>
-
-        <!-- ============================================ -->
-        <!-- 6. QUICK ACTIONS                             -->
-        <!-- ============================================ -->
-        <section class="section quick-section">
-          <h2>Quick Actions</h2>
-          <div class="quick-grid">
-            @for (chip of actionChips; track chip.label) {
-              <a class="quick-pill" [routerLink]="chip.route">
-                <div class="qp-icon" [style.background]="chip.color">
-                  <mat-icon>{{ chip.icon }}</mat-icon>
-                </div>
-                <span>{{ chip.label }}</span>
-              </a>
-            }
-          </div>
-        </section>
-
-        <!-- CSAT (subtle bottom feedback) -->
-        @if (!feedbackDismissed()) {
-          <section class="csat-section">
-            <button mat-icon-button class="csat-x" (click)="feedbackDismissed.set(true)">
-              <mat-icon>close</mat-icon>
-            </button>
-            <div class="csat-row">
-              <span class="csat-text">How was your experience today?</span>
-              <div class="csat-stars">
-                @for (s of [1,2,3,4,5]; track s) {
-                  <button mat-icon-button class="csat-star" [class.on]="feedbackRating() >= s"
-                          (click)="submitFeedback(s)">
-                    <mat-icon>{{ feedbackRating() >= s ? 'star' : 'star_border' }}</mat-icon>
-                  </button>
-                }
-              </div>
-            </div>
-            @if (feedbackRating()) {
-              <div class="csat-ty"><mat-icon>check_circle</mat-icon> Thanks for your feedback!</div>
-            }
-          </section>
-        }
 
         }
       }
@@ -360,7 +381,6 @@ interface LabCard {
               <mat-icon class="mb-arrow">chevron_right</mat-icon>
             </button>
           }
-
           <button class="mb-action" (click)="actionPlaceholder('Opening details')">
             <div class="mb-icon mb-bg-indigo"><mat-icon>info</mat-icon></div>
             <div class="mb-text">
@@ -369,7 +389,6 @@ interface LabCard {
             </div>
             <mat-icon class="mb-arrow">chevron_right</mat-icon>
           </button>
-
           <button class="mb-action" (click)="actionPlaceholder('Reschedule flow')">
             <div class="mb-icon mb-bg-amber"><mat-icon>event_repeat</mat-icon></div>
             <div class="mb-text">
@@ -378,7 +397,6 @@ interface LabCard {
             </div>
             <mat-icon class="mb-arrow">chevron_right</mat-icon>
           </button>
-
           <button class="mb-action" (click)="navigate('/payments')">
             <div class="mb-icon mb-bg-green"><mat-icon>payments</mat-icon></div>
             <div class="mb-text">
@@ -387,7 +405,6 @@ interface LabCard {
             </div>
             <mat-icon class="mb-arrow">chevron_right</mat-icon>
           </button>
-
           <button class="mb-action mb-danger" (click)="actionPlaceholder('Cancel flow')">
             <div class="mb-icon mb-bg-red"><mat-icon>cancel</mat-icon></div>
             <div class="mb-text">
@@ -402,15 +419,12 @@ interface LabCard {
   `,
   styles: [`
     :host { display: block; }
-    .dash { max-width: 880px; margin: 0 auto; padding-bottom: 60px; }
+    .dash { max-width: 920px; margin: 0 auto; padding-bottom: 60px; }
     .skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
 
     /* ===== Greeting ===== */
-    .greeting { margin-bottom: 22px; }
-    .greeting h1 {
-      font-size: 24px; font-weight: 600; color: #1a237e; margin: 0;
-      letter-spacing: -0.01em;
-    }
+    .greeting { margin-bottom: 20px; }
+    .greeting h1 { font-size: 24px; font-weight: 600; color: #1a237e; margin: 0; letter-spacing: -0.01em; }
     .greeting-sub { color: #607d8b; margin: 4px 0 0; font-size: 14px; }
 
     /* ===== Section ===== */
@@ -422,16 +436,9 @@ interface LabCard {
     .sec-titles { flex: 1; min-width: 0; }
     .section h2 { font-size: 16px; font-weight: 600; color: #1b3a4b; margin: 0; }
     .sec-sub { font-size: 12px; color: #888; margin: 2px 0 0; }
-    .sec-count {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-width: 22px; height: 22px; padding: 0 8px;
-      background: #eef0fb; color: #1a237e;
-      border-radius: 11px; font-size: 12px; font-weight: 600;
-    }
     .sec-link {
       display: inline-flex; align-items: center; gap: 4px;
-      color: #1a237e; font-size: 13px; font-weight: 500;
-      text-decoration: none;
+      color: #1a237e; font-size: 13px; font-weight: 500; text-decoration: none;
     }
     .sec-link mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .sec-link:hover { color: #283593; }
@@ -444,235 +451,8 @@ interface LabCard {
     }
     .hscroll::-webkit-scrollbar { display: none; }
 
-    /* ===== Activity cards ===== */
-    .activity-card {
-      flex-shrink: 0; width: 280px;
-      padding: 18px; border-radius: 16px;
-      display: flex; flex-direction: column; gap: 12px;
-      background: #f6f8fc;
-      border: 1px solid transparent;
-      transition: box-shadow 0.15s, transform 0.15s;
-    }
-    .activity-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
-    .a-illo {
-      width: 44px; height: 44px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .a-illo mat-icon { color: white; font-size: 22px; width: 22px; height: 22px; }
-    .a-content { flex: 1; }
-    .a-content strong { display: block; font-size: 14px; color: #1b3a4b; margin-bottom: 4px; }
-    .a-content p { font-size: 13px; color: #607d8b; margin: 0; line-height: 1.45; }
-    .a-cta {
-      align-self: flex-start;
-      height: 34px !important; padding: 0 14px !important;
-      font-size: 13px !important; font-weight: 600 !important;
-      border-radius: 8px !important;
-    }
-    .a-lab { background: #e0f2f1; }
-    .a-lab .a-illo { background: #00897b; }
-    .a-lab .a-cta { background: #00897b !important; color: white !important; }
-    .a-tests { background: #e3f2fd; }
-    .a-tests .a-illo { background: #1565c0; }
-    .a-tests .a-cta { background: #1565c0 !important; color: white !important; }
-    .a-wallet { background: #eef0fb; }
-    .a-wallet .a-illo { background: #3949ab; }
-    .a-wallet .a-cta { background: #3949ab !important; color: white !important; }
-    .a-followup { background: #fce4ec; }
-    .a-followup .a-illo { background: #c2185b; }
-    .a-followup .a-cta { background: #c2185b !important; color: white !important; }
-    .a-refill { background: #fff3e0; }
-    .a-refill .a-illo { background: #e65100; }
-    .a-refill .a-cta { background: #e65100 !important; color: white !important; }
-    .a-video { background: #e8f5e9; }
-    .a-video .a-illo { background: #2e7d32; }
-    .a-video .a-cta { background: #2e7d32 !important; color: white !important; }
-    .a-pending { background: #fff8e1; }
-    .a-pending .a-illo { background: #b07b00; }
-    .a-pending .a-cta { background: #b07b00 !important; color: white !important; }
-
-    /* ===== Vital cards ===== */
-    .vitals-scroll { padding: 4px 2px 12px; }
-    .vital-card {
-      flex-shrink: 0; width: 180px;
-      padding: 16px; border-radius: 14px;
-      background: white; border: 1px solid #eceff1;
-      display: flex; flex-direction: column; gap: 8px;
-      transition: box-shadow 0.15s;
-    }
-    .vital-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
-    .v-top { display: flex; align-items: center; justify-content: space-between; }
-    .v-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .v-icon mat-icon { color: white; font-size: 18px; width: 18px; height: 18px; }
-    .vbg-normal { background: #43a047; }
-    .vbg-warning { background: #f57c00; }
-    .vbg-critical { background: #d32f2f; }
-
-    .v-trend-chip {
-      display: inline-flex; align-items: center; gap: 2px;
-      padding: 2px 8px; border-radius: 10px;
-      font-size: 11px; font-weight: 600;
-    }
-    .v-trend-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }
-    .tc-normal { background: #e8f5e9; color: #2e7d32; }
-    .tc-warning { background: #fff3e0; color: #ef6c00; }
-    .tc-critical { background: #fdecea; color: #c62828; }
-
-    .v-label {
-      font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
-      color: #607d8b; font-weight: 600;
-    }
-    .v-value-row { display: flex; align-items: baseline; gap: 4px; }
-    .v-value { font-size: 24px; font-weight: 700; color: #1b3a4b; line-height: 1; }
-    .v-unit { font-size: 12px; color: #90a4ae; }
-    .v-time { font-size: 11px; color: #b0bec5; }
-
-    /* ===== Premium Appointment Card ===== */
-    .appt-premium {
-      display: flex; gap: 16px; padding: 20px;
-      background: linear-gradient(135deg, #f8f9ff 0%, #eef0fb 100%);
-      border: 1px solid #e3e7f5;
-      border-radius: 16px;
-    }
-    .ap-left { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
-    .ap-avatar {
-      width: 56px; height: 56px; border-radius: 50%;
-      background: linear-gradient(135deg, #1a237e, #3949ab);
-      color: white; font-weight: 600; font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .ap-status {
-      font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 10px;
-      text-transform: uppercase; letter-spacing: .04em;
-    }
-    .aps-today { background: #fff3e0; color: #e65100; }
-    .aps-tomorrow { background: #e8f5e9; color: #2e7d32; }
-    .aps-upcoming { background: #e8eaf6; color: #3949ab; }
-
-    .ap-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .ap-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .ap-name { font-size: 16px; color: #1b3a4b; font-weight: 600; }
-    .ap-type-chip {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px;
-    }
-    .ap-type-chip mat-icon { font-size: 13px; width: 13px; height: 13px; }
-    .apt-in_person { background: #e8eaf6; color: #3949ab; }
-    .apt-telehealth { background: #e0f2f1; color: #00897b; }
-
-    .ap-spec { font-size: 13px; color: #607d8b; margin-bottom: 4px; }
-    .ap-meta {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 12px; color: #546e7a;
-    }
-    .ap-meta mat-icon { font-size: 15px; width: 15px; height: 15px; color: #90a4ae; }
-
-    .ap-actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-    .ap-icon-btn {
-      width: 36px !important; height: 36px !important;
-      line-height: 36px !important;
-      background: white !important;
-      border: 1px solid #e3e7f5 !important;
-      border-radius: 10px !important;
-    }
-    .ap-icon-btn mat-icon { color: #1a237e; font-size: 18px; width: 18px; height: 18px; }
-    .ap-manage {
-      margin-left: auto;
-      font-weight: 600 !important; border-radius: 10px !important;
-      height: 36px !important; padding: 0 18px !important;
-      font-size: 13px !important;
-    }
-
-    /* ===== Medications ===== */
-    .meds-tabs { margin-bottom: 14px; }
-    .streak-chip {
-      display: inline-flex; align-items: center; gap: 4px;
-      background: #fff3e0; color: #e65100;
-      padding: 4px 10px; border-radius: 12px;
-      font-size: 12px; font-weight: 600;
-    }
-    .streak-chip mat-icon { font-size: 14px; width: 14px; height: 14px; }
-
-    .time-slot { margin-bottom: 14px; }
-    .time-slot:last-child { margin-bottom: 0; }
-    .ts-head {
-      display: flex; align-items: center; gap: 6px;
-      margin-bottom: 8px;
-      font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
-      color: #607d8b; font-weight: 600;
-    }
-    .ts-icon { font-size: 16px; width: 16px; height: 16px; color: #90a4ae; }
-
-    .med-card {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; background: white;
-      border-radius: 12px; border: 1px solid #eceff1;
-      margin-bottom: 6px;
-      transition: all 0.2s;
-    }
-    .med-card:last-child { margin-bottom: 0; }
-    .med-card.done { background: #f1f8f4; border-color: #c8e6c9; opacity: 0.85; }
-    .m-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: #fff3e0; color: #ef6c00;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .med-card.done .m-icon { background: #e8f5e9; color: #2e7d32; }
-    .m-icon mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    .m-body { flex: 1; min-width: 0; }
-    .m-body strong { display: block; font-size: 14px; color: #1b3a4b; }
-    .m-sub { font-size: 12px; color: #90a4ae; }
-    .m-mark {
-      font-size: 12px !important; height: 32px !important;
-      padding: 0 14px !important; border-radius: 8px !important;
-      color: #1a237e !important; border-color: #c5cae9 !important;
-    }
-    .m-done {
-      display: inline-flex; align-items: center; gap: 4px;
-      color: #2e7d32; font-size: 13px; font-weight: 600;
-    }
-    .m-done mat-icon { font-size: 18px; width: 18px; height: 18px; }
-
-    .empty-mini {
-      padding: 24px; background: #fafbfd;
-      border-radius: 12px; border: 1px dashed #e0e4ea;
-      text-align: center; color: #90a4ae;
-    }
-    .empty-mini mat-icon { font-size: 28px; width: 28px; height: 28px; }
-    .empty-mini p { margin: 6px 0 0; font-size: 13px; }
-
-    /* ===== Lab cards ===== */
-    .lab-card {
-      display: flex; gap: 14px; padding: 16px 18px;
-      border-radius: 14px; margin-bottom: 10px;
-      align-items: flex-start;
-      border: 1px solid transparent;
-    }
-    .lab-card:last-child { margin-bottom: 0; }
-    .lc-illo {
-      width: 48px; height: 48px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .lc-illo mat-icon { color: white; font-size: 24px; width: 24px; height: 24px; }
-    .lc-body { flex: 1; min-width: 0; }
-    .lc-body strong { display: block; font-size: 14px; color: #1b3a4b; margin-bottom: 4px; }
-    .lc-body p { font-size: 13px; color: #607d8b; margin: 0 0 10px; line-height: 1.5; }
-    .lc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .lc-btn {
-      font-size: 12px !important; padding: 0 14px !important;
-      height: 32px !important; line-height: 32px !important;
-      border-radius: 8px !important;
-    }
-    .lc-ready { background: #e0f2f1; border-color: #b2dfdb; }
-    .lc-ready .lc-illo { background: #00897b; }
-    .lc-prescribed { background: #fff3e0; border-color: #ffe0b2; }
-    .lc-prescribed .lc-illo { background: #ef6c00; }
-    .lc-pending { background: #f6f8fc; border-color: #e3e7f5; }
-    .lc-pending .lc-illo { background: #1565c0; }
-
-    /* ===== Quick Actions ===== */
+    /* ===== Quick Actions (top) ===== */
+    .quick-section h2 { margin-bottom: 12px; }
     .quick-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -695,6 +475,260 @@ interface LabCard {
     }
     .qp-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
     .quick-pill span { font-size: 12px; font-weight: 500; text-align: center; }
+
+    /* ===== Premium Appointment Card ===== */
+    .appt-premium {
+      display: flex; gap: 16px; padding: 20px;
+      background: linear-gradient(135deg, #f8f9ff 0%, #eef0fb 100%);
+      border: 1px solid #e3e7f5;
+      border-radius: 16px;
+    }
+    .ap-left { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+    .ap-avatar {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: linear-gradient(135deg, #1a237e, #3949ab);
+      color: white; font-weight: 600; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ap-status {
+      font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .aps-today { background: #fff3e0; color: #e65100; }
+    .aps-tomorrow { background: #e8f5e9; color: #2e7d32; }
+    .aps-upcoming { background: #e8eaf6; color: #3949ab; }
+    .ap-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .ap-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ap-name { font-size: 16px; color: #1b3a4b; font-weight: 600; }
+    .ap-type-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px;
+    }
+    .ap-type-chip mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .apt-in_person { background: #e8eaf6; color: #3949ab; }
+    .apt-telehealth { background: #e0f2f1; color: #00897b; }
+    .ap-spec { font-size: 13px; color: #607d8b; margin-bottom: 4px; }
+    .ap-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #546e7a; }
+    .ap-meta mat-icon { font-size: 15px; width: 15px; height: 15px; color: #90a4ae; }
+    .ap-actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .ap-icon-btn {
+      width: 36px !important; height: 36px !important;
+      line-height: 36px !important;
+      background: white !important;
+      border: 1px solid #e3e7f5 !important;
+      border-radius: 10px !important;
+    }
+    .ap-icon-btn mat-icon { color: #1a237e; font-size: 18px; width: 18px; height: 18px; }
+    .ap-manage {
+      margin-left: auto;
+      font-weight: 600 !important; border-radius: 10px !important;
+      height: 36px !important; padding: 0 18px !important;
+      font-size: 13px !important;
+    }
+
+    /* ===== Pending Labs ===== */
+    .lab-list { display: flex; flex-direction: column; gap: 10px; }
+    .lab-card {
+      display: flex; gap: 12px; padding: 14px 16px;
+      background: white; border: 1px solid #eceff1;
+      border-radius: 14px;
+    }
+    .lab-card.lc-ready { background: linear-gradient(135deg, #f0fdfb 0%, #ffffff 100%); border-color: #b2dfdb; }
+    .lab-card.lc-prescribed { background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%); border-color: #ffe0b2; }
+
+    .lc-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .lc-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
+    .cat-lab { background: #00897b; }
+    .cat-imaging { background: #1565c0; }
+    .cat-cardiac { background: #c62828; }
+    .cat-other { background: #5e35b1; }
+
+    .lc-body { flex: 1; min-width: 0; }
+    .lc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+    .lc-top strong { font-size: 14px; color: #1b3a4b; }
+    .lc-status {
+      font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .lc-st-prescribed { background: #fff3e0; color: #e65100; }
+    .lc-st-ready { background: #e0f2f1; color: #00695c; }
+
+    .lc-context { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+    .lc-context > span {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #607d8b;
+    }
+    .lc-context mat-icon { font-size: 14px; width: 14px; height: 14px; color: #90a4ae; }
+
+    .lc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lc-btn {
+      font-size: 12px !important; padding: 0 12px !important;
+      height: 30px !important; line-height: 30px !important;
+      border-radius: 8px !important;
+    }
+    .lc-btn mat-icon { font-size: 14px; width: 14px; height: 14px; margin-right: 2px; }
+
+    /* ===== Follow-ups (creative date tiles) ===== */
+    .followup-scroll { padding: 4px 2px 12px; }
+    .followup-card {
+      flex-shrink: 0; width: 300px;
+      display: flex; gap: 14px;
+      padding: 14px; background: white;
+      border: 1px solid #eceff1; border-radius: 16px;
+      text-align: left; font: inherit; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .followup-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      border-color: #c5cae9;
+    }
+    .fu-date-tile {
+      width: 60px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 0;
+      background: linear-gradient(180deg, #eef0fb 0%, #e8eaf6 100%);
+      border-radius: 12px;
+      border: 1px solid #c5cae9;
+    }
+    .fu-month { font-size: 11px; color: #1a237e; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+    .fu-day { font-size: 24px; color: #1a237e; line-height: 1.05; font-weight: 700; }
+    .fu-dow { font-size: 10px; color: #5c6bc0; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+
+    .fu-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .fu-avatar-row { display: flex; align-items: center; gap: 8px; }
+    .fu-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      color: white; font-weight: 600; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .av-cardio { background: linear-gradient(135deg, #c62828, #ef5350); }
+    .av-derm { background: linear-gradient(135deg, #ad1457, #ec407a); }
+    .av-endo { background: linear-gradient(135deg, #6a1b9a, #ab47bc); }
+    .av-general { background: linear-gradient(135deg, #2e7d32, #66bb6a); }
+    .av-ortho { background: linear-gradient(135deg, #1565c0, #42a5f5); }
+    .av-ent { background: linear-gradient(135deg, #00897b, #26a69a); }
+    .av-other { background: linear-gradient(135deg, #455a64, #78909c); }
+    .fu-name-block { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+    .fu-name-block strong { font-size: 13px; color: #1b3a4b; }
+    .fu-name-block span { font-size: 11px; color: #90a4ae; }
+    .fu-reason {
+      font-size: 12px; color: #455a64; line-height: 1.45; margin: 0;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .fu-trace {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; color: #90a4ae;
+    }
+    .fu-trace mat-icon { font-size: 13px; width: 13px; height: 13px; }
+
+    /* ===== Vital cards ===== */
+    .vitals-scroll { padding: 4px 2px 12px; }
+    .vital-card {
+      flex-shrink: 0; width: 180px;
+      padding: 16px; border-radius: 14px;
+      background: white; border: 1px solid #eceff1;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: box-shadow 0.15s;
+    }
+    .vital-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .v-top { display: flex; align-items: center; justify-content: space-between; }
+    .v-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .v-icon mat-icon { color: white; font-size: 18px; width: 18px; height: 18px; }
+    .vbg-normal { background: #43a047; }
+    .vbg-warning { background: #f57c00; }
+    .vbg-critical { background: #d32f2f; }
+    .v-trend-chip {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .v-trend-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .tc-normal { background: #e8f5e9; color: #2e7d32; }
+    .tc-warning { background: #fff3e0; color: #ef6c00; }
+    .tc-critical { background: #fdecea; color: #c62828; }
+    .v-label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #607d8b; font-weight: 600; }
+    .v-value-row { display: flex; align-items: baseline; gap: 4px; }
+    .v-value { font-size: 24px; font-weight: 700; color: #1b3a4b; line-height: 1; }
+    .v-unit { font-size: 12px; color: #90a4ae; }
+    .v-time { font-size: 11px; color: #b0bec5; }
+
+    /* ===== Medications link card ===== */
+    .meds-link-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 18px; margin-bottom: 28px;
+      background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);
+      border: 1px solid #ffe0b2; border-radius: 14px;
+      text-decoration: none; color: inherit;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .meds-link-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+    .ml-illo {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: linear-gradient(135deg, #ef6c00, #f57c00);
+      color: white;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ml-illo mat-icon { font-size: 22px; width: 22px; height: 22px; }
+    .ml-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .ml-body strong { font-size: 14px; color: #1b3a4b; }
+    .ml-body span { font-size: 12px; color: #607d8b; }
+    .ml-progress {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      width: 70px; flex-shrink: 0;
+    }
+    .ml-progress {
+      position: relative;
+      width: 70px; height: 6px; background: #fff3e0;
+      border-radius: 3px; overflow: hidden;
+    }
+    .ml-bar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: linear-gradient(90deg, #ef6c00, #f57c00);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .ml-adh {
+      position: absolute; top: -18px; right: 0;
+      font-size: 11px; font-weight: 700; color: #ef6c00;
+    }
+    .ml-arrow { color: #90a4ae; flex-shrink: 0; }
+
+    /* ===== Consult by Specialty ===== */
+    .specialty-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 10px;
+    }
+    .specialty-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 18px 10px;
+      background: white; border: 1px solid #eceff1; border-radius: 14px;
+      text-decoration: none; color: inherit;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .specialty-tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      border-color: #c5cae9;
+    }
+    .sp-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sp-icon mat-icon { color: white; font-size: 24px; width: 24px; height: 24px; }
+    .sp-name { font-size: 13px; color: #1b3a4b; text-align: center; }
+    .sp-meta { font-size: 11px; color: #90a4ae; }
 
     /* ===== CSAT (subtle) ===== */
     .csat-section {
@@ -749,8 +783,7 @@ interface LabCard {
       display: flex; align-items: center; gap: 12px;
       padding: 14px; background: white;
       border: 1px solid #eceff1; border-radius: 12px;
-      cursor: pointer; text-align: left; font: inherit;
-      transition: all 0.15s;
+      cursor: pointer; text-align: left; font: inherit; transition: all 0.15s;
     }
     .mb-action:hover { border-color: #c5cae9; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .mb-action.mb-primary { background: linear-gradient(135deg, #e0f2f1 0%, #ffffff 100%); border-color: #b2dfdb; }
@@ -773,14 +806,13 @@ interface LabCard {
     /* ===== Responsive ===== */
     @media (max-width: 720px) {
       .greeting h1 { font-size: 20px; }
-      .activity-card { width: 240px; padding: 14px; }
-      .vital-card { width: 150px; padding: 12px; }
-      .v-value { font-size: 20px; }
+      .quick-grid { grid-template-columns: repeat(3, 1fr); }
       .appt-premium { flex-direction: column; padding: 16px; gap: 12px; }
       .ap-left { flex-direction: row; }
       .ap-actions { gap: 6px; }
       .ap-manage { flex: 1; margin-left: 0; }
-      .quick-grid { grid-template-columns: repeat(3, 1fr); }
+      .followup-card { width: 260px; }
+      .specialty-grid { grid-template-columns: repeat(3, 1fr); }
       .csat-row { flex-direction: column; align-items: flex-start; }
 
       /* Mobile bottom sheet */
@@ -795,6 +827,7 @@ interface LabCard {
     @media (max-width: 480px) {
       .skeleton-grid { grid-template-columns: 1fr 1fr; }
       .quick-grid { grid-template-columns: repeat(3, 1fr); }
+      .specialty-grid { grid-template-columns: repeat(2, 1fr); }
     }
   `]
 })
@@ -805,25 +838,39 @@ export class DashboardComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly data = signal<DashboardSummary | null>(null);
+  readonly consultations = signal<Consultation[]>([]);
   readonly feedbackDismissed = signal(false);
   readonly feedbackRating = signal(0);
-  readonly medChecked = signal(new Set<string>());
-  readonly medsTab = signal<'ongoing' | 'all'>('ongoing');
   readonly manageOpen = signal(false);
 
+  // Order: most-likely tap targets first
   readonly actionChips = [
     { label: 'Book Appointment', icon: 'event_available', route: '/appointments', color: '#3949ab' },
+    { label: 'Consultations', icon: 'medical_information', route: '/consultations', color: '#5e35b1' },
     { label: 'Medications', icon: 'medication', route: '/medications', color: '#ef6c00' },
-    { label: 'Lab Results', icon: 'science', route: '/timeline', color: '#00897b' },
-    { label: 'Records', icon: 'folder_shared', route: '/timeline', color: '#5e35b1' },
+    { label: 'Records', icon: 'folder_shared', route: '/timeline', color: '#00897b' },
     { label: 'Payments', icon: 'payments', route: '/payments', color: '#43a047' },
     { label: 'Telehealth', icon: 'videocam', route: '/appointments', color: '#1565c0' }
+  ];
+
+  readonly specialtyTiles: SpecialtyTile[] = [
+    { name: 'Cardiology', icon: 'favorite', color: '#c62828', doctors: 2 },
+    { name: 'Dermatology', icon: 'spa', color: '#ad1457', doctors: 1 },
+    { name: 'General Medicine', icon: 'medical_services', color: '#2e7d32', doctors: 1 },
+    { name: 'Endocrinology', icon: 'water_drop', color: '#6a1b9a', doctors: 1 },
+    { name: 'Orthopedics', icon: 'accessibility_new', color: '#1565c0', doctors: 1 },
+    { name: 'ENT', icon: 'hearing', color: '#00897b', doctors: 1 },
+    { name: 'Pediatrics', icon: 'child_care', color: '#ef6c00', doctors: 0 },
+    { name: 'Pulmonology', icon: 'air', color: '#0277bd', doctors: 0 }
   ];
 
   ngOnInit(): void {
     this.api.getDashboard().subscribe(summary => {
       this.data.set(summary);
       this.loading.set(false);
+    });
+    this.api.getConsultations().subscribe(list => {
+      this.consultations.set(list);
     });
   }
 
@@ -840,155 +887,84 @@ export class DashboardComponent implements OnInit {
       .filter((v): v is VitalSign => !!v);
   });
 
-  /** Synthesized "Ongoing Activities" cards from dashboard data + plausible defaults. */
-  readonly ongoingActivities = computed<OngoingActivity[]>(() => {
-    const d = this.data();
-    if (!d) return [];
-    const list: OngoingActivity[] = [];
-
-    const labAlert = d.alerts.find(a => a.title.toLowerCase().includes('lab'));
-    if (labAlert) {
-      list.push({
-        id: 'oa-lab',
-        theme: 'lab',
-        icon: 'science',
-        title: 'Lab results are ready',
-        description: labAlert.message,
-        cta: 'View Report',
-        route: '/timeline'
-      });
-    }
-
-    list.push({
-      id: 'oa-tests',
-      theme: 'tests',
-      icon: 'biotech',
-      title: 'Tests prescribed',
-      description: 'Book your MRI Brain Scan and CBC before May 16.',
-      cta: 'Book Now',
-      route: '/appointments'
-    });
-
-    list.push({
-      id: 'oa-wallet',
-      theme: 'wallet',
-      icon: 'account_balance_wallet',
-      title: 'Advance balance available',
-      description: 'AED 750 ready to use across your next visits.',
-      cta: 'View Balance',
-      route: '/payments'
-    });
-
-    const refillAlert = d.alerts.find(a => a.title.toLowerCase().includes('refill'));
-    if (refillAlert) {
-      list.push({
-        id: 'oa-refill',
-        theme: 'refill',
-        icon: 'medication_liquid',
-        title: 'Refill needed',
-        description: refillAlert.message,
-        cta: 'Request Refill',
-        route: '/medications'
-      });
-    }
-
-    const next = d.upcomingAppointments[0];
-    if (next?.type === 'telehealth') {
-      list.push({
-        id: 'oa-video',
-        theme: 'video',
-        icon: 'videocam',
-        title: 'Video consultation scheduled',
-        description: `${next.doctorName} on ${this.formatShortDate(next.date)} at ${next.time}.`,
-        cta: 'Join Call',
-        action: () => this.openManage()
-      });
-    }
-
-    list.push({
-      id: 'oa-followup',
-      theme: 'followup',
-      icon: 'event_repeat',
-      title: 'Follow-up due',
-      description: 'Cardiology follow-up recommended after your last visit.',
-      cta: 'Schedule',
-      route: '/appointments'
-    });
-
-    return list;
-  });
-
-  readonly medTimeSlots = computed<MedTimeSlot[]>(() => {
-    const meds = this.data()?.activeMedications ?? [];
-    const morning: Medication[] = [];
-    const afternoon: Medication[] = [];
-    const evening: Medication[] = [];
-
-    for (const m of meds) {
-      const freq = m.frequency.toLowerCase();
-      if (freq.includes('twice')) {
-        morning.push(m);
-        evening.push(m);
-      } else if (m.instructions?.toLowerCase().includes('night') || m.instructions?.toLowerCase().includes('evening')) {
-        evening.push(m);
-      } else if (m.instructions?.toLowerCase().includes('afternoon')) {
-        afternoon.push(m);
-      } else {
-        morning.push(m);
+  /** Lab requests + ready results, pulled from consultation investigations. */
+  readonly labActivities = computed<LabActivity[]>(() => {
+    const cons = this.consultations();
+    const list: LabActivity[] = [];
+    // Sort consultations newest-first so the most relevant labs surface
+    const sorted = cons.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    for (const c of sorted) {
+      for (const inv of c.investigations) {
+        if (inv.status === 'pending') {
+          list.push({
+            id: `${c.id}:${inv.name}:pending`,
+            type: 'prescribed',
+            labName: inv.name,
+            category: inv.category,
+            doctorName: c.doctorName,
+            doctorSpecialty: c.doctorSpecialty,
+            consultationDate: c.date,
+            consultationId: c.id
+          });
+        } else if (inv.status === 'completed') {
+          // "Completed" but not yet reviewed by patient = result ready
+          list.push({
+            id: `${c.id}:${inv.name}:ready`,
+            type: 'ready',
+            labName: inv.name,
+            category: inv.category,
+            doctorName: c.doctorName,
+            doctorSpecialty: c.doctorSpecialty,
+            consultationDate: c.date,
+            consultationId: c.id
+          });
+        }
       }
     }
-
-    const slots: MedTimeSlot[] = [];
-    if (morning.length) slots.push({ label: 'Morning', icon: 'wb_sunny', meds: morning });
-    if (afternoon.length) slots.push({ label: 'Afternoon', icon: 'wb_twilight', meds: afternoon });
-    if (evening.length) slots.push({ label: 'Evening', icon: 'nightlight', meds: evening });
-    return slots;
+    return list.slice(0, 4);
   });
 
-  readonly labCards = computed<LabCard[]>(() => {
-    const d = this.data();
-    if (!d) return [];
-    const cards: LabCard[] = [];
-
-    const labAlert = d.alerts.find(a => a.title.toLowerCase().includes('lab'));
-    if (labAlert) {
-      cards.push({
-        id: 'lab-ready',
-        theme: 'ready',
-        icon: 'science',
-        title: 'Lab Results Ready',
-        description: labAlert.message,
-        actions: [
-          { label: 'View Report', primary: true, route: '/timeline' },
-          { label: 'Share with Doctor', route: '/timeline' }
-        ]
+  /** Future follow-ups derived from consultations. */
+  readonly followUps = computed<FollowUpItem[]>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const list: FollowUpItem[] = [];
+    for (const c of this.consultations()) {
+      if (!c.followUp) continue;
+      const fuDate = new Date(c.followUp.date);
+      if (fuDate < today) continue;
+      list.push({
+        id: c.id + ':followup',
+        doctorName: c.doctorName,
+        doctorSpecialty: c.doctorSpecialty,
+        consultationDate: c.date,
+        followUpDate: c.followUp.date,
+        reason: c.followUp.reason
       });
     }
+    return list.sort((a, b) => new Date(a.followUpDate).getTime() - new Date(b.followUpDate).getTime());
+  });
 
-    cards.push({
-      id: 'lab-prescribed',
-      theme: 'prescribed',
-      icon: 'biotech',
-      title: 'Tests Prescribed',
-      description: 'Your doctor prescribed CBC and Lipid Profile. Settle the fee in advance to skip the counter.',
-      actions: [
-        { label: 'Book Test', primary: true, route: '/appointments' },
-        { label: 'Pay Now', route: '/payments' }
-      ]
-    });
+  readonly medsTakenToday = computed(() => {
+    const meds = this.data()?.activeMedications ?? [];
+    let taken = 0;
+    for (const m of meds) {
+      const last = m.taken[m.taken.length - 1];
+      if (last) taken++;
+    }
+    return taken;
+  });
 
-    cards.push({
-      id: 'lab-pending',
-      theme: 'pending',
-      icon: 'pending_actions',
-      title: 'Awaiting Report',
-      description: 'Your ECG report from April 9 is being reviewed by the cardiology team.',
-      actions: [
-        { label: 'Track Status', route: '/timeline' }
-      ]
-    });
-
-    return cards;
+  readonly medsAdherence = computed(() => {
+    const meds = this.data()?.activeMedications ?? [];
+    if (!meds.length) return 0;
+    let total = 0;
+    let taken = 0;
+    for (const m of meds) {
+      total += m.taken.length;
+      taken += m.taken.filter(Boolean).length;
+    }
+    return total ? Math.round((taken / total) * 100) : 0;
   });
 
   // ===== Helpers =====
@@ -1000,13 +976,7 @@ export class DashboardComponent implements OnInit {
   }
 
   doctorInitials(name: string): string {
-    return name
-      .replace(/Dr\.?\s*/i, '')
-      .split(/\s+/)
-      .map(s => s.charAt(0))
-      .slice(0, 2)
-      .join('')
-      .toUpperCase();
+    return name.replace(/Dr\.?\s*/i, '').split(/\s+/).map(s => s.charAt(0)).slice(0, 2).join('').toUpperCase();
   }
 
   apptWhen(appt: Appointment): 'today' | 'tomorrow' | 'upcoming' {
@@ -1022,6 +992,17 @@ export class DashboardComponent implements OnInit {
 
   apptWhenLabel(appt: Appointment): string {
     return ({ today: 'Today', tomorrow: 'Tomorrow', upcoming: 'Upcoming' })[this.apptWhen(appt)];
+  }
+
+  specialtyTheme(specialty: string): string {
+    const s = specialty.toLowerCase();
+    if (s.includes('cardio')) return 'cardio';
+    if (s.includes('derm')) return 'derm';
+    if (s.includes('endo')) return 'endo';
+    if (s.includes('general')) return 'general';
+    if (s.includes('ortho')) return 'ortho';
+    if (s.includes('ent')) return 'ent';
+    return 'other';
   }
 
   getVitalIcon(vital: VitalSign): string {
@@ -1063,40 +1044,31 @@ export class DashboardComponent implements OnInit {
     return Math.round((taken.filter(Boolean).length / taken.length) * 100);
   }
 
-  private formatShortDate(date: string): string {
-    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  labIcon(lab: LabActivity): string {
+    const m: Record<string, string> = {
+      lab: 'science', imaging: 'image_search', cardiac: 'monitor_heart', other: 'assignment'
+    };
+    return m[lab.category] ?? 'science';
   }
 
   // ===== Actions =====
-  setMedsTab(tab: 'ongoing' | 'all'): void {
-    if (tab === 'all') {
-      this.router.navigate(['/medications']);
-      return;
-    }
-    this.medsTab.set(tab);
+  navigate(route: string): void {
+    this.router.navigate([route]);
   }
 
-  toggleMedCheck(medId: string): void {
-    this.medChecked.update(set => {
-      const next = new Set(set);
-      if (next.has(medId)) next.delete(medId);
-      else next.add(medId);
-      return next;
+  openConsultation(consultationId: string): void {
+    this.router.navigate(['/consultations'], { queryParams: { id: consultationId } });
+  }
+
+  bookFollowUp(fu: FollowUpItem): void {
+    this.router.navigate(['/appointments'], {
+      queryParams: {
+        followUp: '1',
+        doctor: fu.doctorName,
+        specialty: fu.doctorSpecialty,
+        date: fu.followUpDate
+      }
     });
-  }
-
-  runActivity(activity: OngoingActivity): void {
-    if (activity.action) {
-      activity.action();
-      return;
-    }
-    if (activity.route) {
-      this.router.navigate([activity.route]);
-    }
-  }
-
-  navigate(route: string | undefined): void {
-    if (route) this.router.navigate([route]);
   }
 
   openManage(): void { this.manageOpen.set(true); }

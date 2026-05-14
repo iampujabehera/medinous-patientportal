@@ -42,8 +42,9 @@ describe('DashboardComponent', () => {
   let apiService: jasmine.SpyObj<ApiService>;
 
   beforeEach(async () => {
-    const apiSpy = jasmine.createSpyObj('ApiService', ['getDashboard']);
+    const apiSpy = jasmine.createSpyObj('ApiService', ['getDashboard', 'getConsultations']);
     apiSpy.getDashboard.and.returnValue(of(MOCK_SUMMARY));
+    apiSpy.getConsultations.and.returnValue(of([]));
 
     await TestBed.configureTestingModule({
       imports: [
