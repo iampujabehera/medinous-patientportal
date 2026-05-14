@@ -179,6 +179,20 @@ export interface ConsultationInvestigation {
   category: 'lab' | 'imaging' | 'cardiac' | 'other';
   status: 'pending' | 'completed' | 'reviewed';
   resultDate?: string;
+  result?: ConsultationInvestigationResult;
+}
+
+export interface ConsultationInvestigationResult {
+  parameters: ResultParameter[];
+  summary?: string;
+}
+
+export interface ResultParameter {
+  name: string;
+  value: string;
+  unit?: string;
+  range?: string;
+  flag: 'normal' | 'high' | 'low' | 'critical';
 }
 
 export interface ConsultationProcedure {

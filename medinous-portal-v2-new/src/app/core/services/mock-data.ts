@@ -335,10 +335,54 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
       { description: 'Mild left ventricular hypertrophy', code: 'I51.7', type: 'secondary' }
     ],
     investigations: [
-      { name: 'Electrocardiogram (ECG)', category: 'cardiac', status: 'completed', resultDate: '2026-04-09T11:15:00' },
-      { name: 'Echocardiogram', category: 'cardiac', status: 'completed', resultDate: '2026-04-10T09:00:00' },
-      { name: 'Lipid Panel', category: 'lab', status: 'reviewed', resultDate: '2026-04-11T08:30:00' },
-      { name: 'HbA1c', category: 'lab', status: 'reviewed', resultDate: '2026-04-11T08:30:00' }
+      {
+        name: 'Electrocardiogram (ECG)', category: 'cardiac', status: 'completed',
+        resultDate: '2026-04-09T11:15:00',
+        result: {
+          summary: 'Sinus rhythm, rate 78 bpm. No acute ischaemic changes. Normal axis. T-wave inversion in lead V1 (non-specific).',
+          parameters: [
+            { name: 'Heart rate', value: '78', unit: 'bpm', range: '60–100', flag: 'normal' },
+            { name: 'PR interval', value: '160', unit: 'ms', range: '120–200', flag: 'normal' },
+            { name: 'QRS duration', value: '92', unit: 'ms', range: '<120', flag: 'normal' },
+            { name: 'QTc', value: '420', unit: 'ms', range: '<440', flag: 'normal' }
+          ]
+        }
+      },
+      {
+        name: 'Echocardiogram', category: 'cardiac', status: 'completed',
+        resultDate: '2026-04-10T09:00:00',
+        result: {
+          summary: 'Mild left ventricular hypertrophy with preserved systolic function. No regional wall motion abnormalities. Trivial mitral regurgitation.',
+          parameters: [
+            { name: 'Ejection Fraction', value: '58', unit: '%', range: '55–70', flag: 'normal' },
+            { name: 'LV Mass Index', value: '118', unit: 'g/m²', range: '<115 (male)', flag: 'high' },
+            { name: 'LA Diameter', value: '38', unit: 'mm', range: '<40', flag: 'normal' }
+          ]
+        }
+      },
+      {
+        name: 'Lipid Panel', category: 'lab', status: 'reviewed',
+        resultDate: '2026-04-11T08:30:00',
+        result: {
+          summary: 'Mildly elevated LDL. Continue dietary advice and re-check in 3 months.',
+          parameters: [
+            { name: 'Total Cholesterol', value: '215', unit: 'mg/dL', range: '<200', flag: 'high' },
+            { name: 'HDL', value: '48', unit: 'mg/dL', range: '>40 (male)', flag: 'normal' },
+            { name: 'LDL', value: '142', unit: 'mg/dL', range: '<130', flag: 'high' },
+            { name: 'Triglycerides', value: '128', unit: 'mg/dL', range: '<150', flag: 'normal' }
+          ]
+        }
+      },
+      {
+        name: 'HbA1c', category: 'lab', status: 'reviewed',
+        resultDate: '2026-04-11T08:30:00',
+        result: {
+          summary: 'Pre-diabetic range. Lifestyle modification advised; consider repeat in 3 months.',
+          parameters: [
+            { name: 'HbA1c', value: '6.1', unit: '%', range: '<5.7 (normal)', flag: 'high' }
+          ]
+        }
+      }
     ],
     procedures: [
       { name: 'In-clinic blood pressure monitoring (3 readings)', outcome: 'Mean BP 148/92 mmHg' }
@@ -391,10 +435,43 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
       { description: 'Type 2 diabetes mellitus, sub-optimally controlled', code: 'E11.65', type: 'primary' }
     ],
     investigations: [
-      { name: 'HbA1c', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
-      { name: 'Fasting Plasma Glucose', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
-      { name: 'Urine Microalbumin', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
-      { name: 'Diabetic Retinopathy Screening', category: 'other', status: 'completed', resultDate: '2026-02-18T12:00:00' }
+      {
+        name: 'HbA1c', category: 'lab', status: 'reviewed',
+        resultDate: '2026-02-15T09:00:00',
+        result: {
+          summary: 'Slightly above target. Reinforce dietary advice and review in 3 months.',
+          parameters: [
+            { name: 'HbA1c', value: '7.4', unit: '%', range: '<7.0 (target)', flag: 'high' }
+          ]
+        }
+      },
+      {
+        name: 'Fasting Plasma Glucose', category: 'lab', status: 'reviewed',
+        resultDate: '2026-02-15T09:00:00',
+        result: {
+          parameters: [
+            { name: 'Fasting Glucose', value: '142', unit: 'mg/dL', range: '70–100', flag: 'high' }
+          ]
+        }
+      },
+      {
+        name: 'Urine Microalbumin', category: 'lab', status: 'reviewed',
+        resultDate: '2026-02-15T09:00:00',
+        result: {
+          summary: 'Within normal limits. No evidence of early nephropathy.',
+          parameters: [
+            { name: 'Microalbumin', value: '18', unit: 'mg/g Cr', range: '<30', flag: 'normal' }
+          ]
+        }
+      },
+      {
+        name: 'Diabetic Retinopathy Screening', category: 'other', status: 'completed',
+        resultDate: '2026-02-18T12:00:00',
+        result: {
+          summary: 'No diabetic retinopathy detected in either eye. Repeat in 12 months.',
+          parameters: []
+        }
+      }
     ],
     procedures: [
       { name: 'Diabetic foot examination', outcome: 'Sensation intact, no ulceration' }

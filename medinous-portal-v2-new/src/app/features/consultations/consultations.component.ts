@@ -12,7 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
-import { Consultation } from '../../core/models/patient.model';
+import { Consultation, VitalSign } from '../../core/models/patient.model';
 
 interface ConsultationGroup {
   label: string;
@@ -37,8 +37,8 @@ interface ConsultationGroup {
       <!-- Header -->
       <header class="page-header">
         <div>
-          <h1>My Consultations</h1>
-          <p class="subtitle">Every doctor visit, with the full clinical picture</p>
+          <h1>My Health</h1>
+          <p class="subtitle">Latest vitals and every doctor visit, with the full clinical picture</p>
         </div>
         <div class="header-stats">
           <span class="hs-pill">
@@ -47,6 +47,38 @@ interface ConsultationGroup {
           </span>
         </div>
       </header>
+
+      <!-- ============================================ -->
+      <!-- HEALTH SNAPSHOT (vitals)                     -->
+      <!-- ============================================ -->
+      @if (dashboardVitals().length > 0) {
+        <section class="vitals-section">
+          <div class="vs-head">
+            <h2>Health Snapshot</h2>
+            <p class="vs-sub">Latest recorded vitals · {{ latestVitalDate() | date:'mediumDate' }}</p>
+          </div>
+          <div class="vitals-scroll">
+            @for (vital of dashboardVitals(); track vital.type) {
+              <article class="vital-card" [class]="'v-' + vital.status">
+                <div class="v-top">
+                  <div class="v-icon" [class]="'vbg-' + vital.status">
+                    <mat-icon>{{ getVitalIcon(vital) }}</mat-icon>
+                  </div>
+                  <span class="v-trend-chip" [class]="'tc-' + vital.status">
+                    <mat-icon>{{ trendIcon(vital) }}</mat-icon>
+                    {{ trendLabel(vital) }}
+                  </span>
+                </div>
+                <span class="v-label">{{ getVitalLabel(vital) }}</span>
+                <div class="v-value-row">
+                  <span class="v-value">{{ vital.value }}</span>
+                  <span class="v-unit">{{ vital.unit }}</span>
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
 
       <!-- Filters -->
       <div class="filter-row">
@@ -423,6 +455,48 @@ interface ConsultationGroup {
     .specialty-select ::ng-deep .mat-mdc-text-field-wrapper { background: white; }
     .specialty-select ::ng-deep .mat-mdc-form-field-infix { min-height: 40px; padding-top: 10px !important; padding-bottom: 10px !important; }
 
+    /* ===== Health Snapshot ===== */
+    .vitals-section { margin-bottom: 24px; }
+    .vs-head { margin-bottom: 12px; }
+    .vs-head h2 { font-size: 16px; font-weight: 600; color: #1b3a4b; margin: 0; }
+    .vs-sub { font-size: 12px; color: #90a4ae; margin: 2px 0 0; }
+    .vitals-scroll {
+      display: flex; gap: 12px; overflow-x: auto;
+      padding: 4px 2px 8px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .vitals-scroll::-webkit-scrollbar { display: none; }
+    .vital-card {
+      flex-shrink: 0; width: 170px;
+      padding: 14px; border-radius: 14px;
+      background: white; border: 1px solid #eceff1;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: box-shadow 0.15s;
+    }
+    .vital-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .v-top { display: flex; align-items: center; justify-content: space-between; }
+    .v-icon {
+      width: 32px; height: 32px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .v-icon mat-icon { color: white; font-size: 16px; width: 16px; height: 16px; }
+    .vbg-normal { background: #43a047; }
+    .vbg-warning { background: #f57c00; }
+    .vbg-critical { background: #d32f2f; }
+    .v-trend-chip {
+      display: inline-flex; align-items: center; gap: 2px;
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 600;
+    }
+    .v-trend-chip mat-icon { font-size: 11px; width: 11px; height: 11px; }
+    .tc-normal { background: #e8f5e9; color: #2e7d32; }
+    .tc-warning { background: #fff3e0; color: #ef6c00; }
+    .tc-critical { background: #fdecea; color: #c62828; }
+    .v-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #607d8b; font-weight: 600; }
+    .v-value-row { display: flex; align-items: baseline; gap: 4px; }
+    .v-value { font-size: 22px; font-weight: 700; color: #1b3a4b; line-height: 1; }
+    .v-unit { font-size: 11px; color: #90a4ae; }
+
     .quick-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
     .qp {
       padding: 5px 14px; border-radius: 18px; border: 1.5px solid #ddd;
@@ -764,6 +838,7 @@ export class ConsultationsComponent implements OnInit {
 
   readonly loading = signal(true);
   readonly consultations = signal<Consultation[]>([]);
+  readonly vitals = signal<VitalSign[]>([]);
   readonly selectedId = signal<string | null>(null);
   readonly searchQuery = signal('');
   readonly specialtyFilter = signal<string>('all');
@@ -775,6 +850,52 @@ export class ConsultationsComponent implements OnInit {
       );
       this.loading.set(false);
     });
+    this.api.getDashboard().subscribe(s => this.vitals.set(s.recentVitals));
+  }
+
+  readonly dashboardVitals = computed<VitalSign[]>(() => {
+    const vitals = this.vitals();
+    const order = ['blood_pressure', 'glucose', 'heart_rate', 'oxygen', 'temperature', 'weight'];
+    return order
+      .map(t => vitals.find(v => v.type === t))
+      .filter((v): v is VitalSign => !!v);
+  });
+
+  readonly latestVitalDate = computed<string>(() => {
+    const v = this.vitals();
+    if (!v.length) return '';
+    return v
+      .slice()
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+      .timestamp;
+  });
+
+  getVitalIcon(vital: VitalSign): string {
+    const m: Record<string, string> = {
+      blood_pressure: 'speed', heart_rate: 'favorite', temperature: 'thermostat',
+      oxygen: 'air', weight: 'monitor_weight', glucose: 'water_drop'
+    };
+    return m[vital.type] ?? 'info';
+  }
+
+  getVitalLabel(vital: VitalSign): string {
+    const m: Record<string, string> = {
+      blood_pressure: 'Blood Pressure', heart_rate: 'Heart Rate',
+      temperature: 'Temperature', oxygen: 'SpO₂', weight: 'Weight', glucose: 'Glucose'
+    };
+    return m[vital.type] ?? vital.type;
+  }
+
+  trendIcon(vital: VitalSign): string {
+    if (vital.status === 'normal') return 'trending_flat';
+    if (vital.status === 'warning') return 'trending_up';
+    return 'priority_high';
+  }
+
+  trendLabel(vital: VitalSign): string {
+    if (vital.status === 'normal') return 'Stable';
+    if (vital.status === 'warning') return 'Watch';
+    return 'Action';
   }
 
   readonly specialties = computed(() => {

@@ -12,7 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
-import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation } from '../../core/models/patient.model';
+import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation, ConsultationInvestigation } from '../../core/models/patient.model';
 
 type CareItemKind = 'lab-ready' | 'lab-prescribed' | 'followup';
 
@@ -20,7 +20,6 @@ interface CareItem {
   id: string;
   kind: CareItemKind;
   title: string;            // e.g. "HbA1c results ready"
-  detail: string;           // reason or lab subtype
   doctorName: string;
   doctorSpecialty: string;
   consultationId: string;
@@ -31,6 +30,13 @@ interface CareItem {
   category?: 'lab' | 'imaging' | 'cardiac' | 'other';
   /** What the calendar tile labels itself as ("Result", "Follow-up", "Since"). */
   tileLabel: string;
+  /** Exact investigation name (for labs) — used to look up the report. */
+  labName?: string;
+}
+
+interface ReportContext {
+  consultation: Consultation;
+  investigation: ConsultationInvestigation;
 }
 
 interface SpecialtyTile {
@@ -68,24 +74,7 @@ interface SpecialtyTile {
           </header>
 
           <!-- ============================================ -->
-          <!-- 1. QUICK ACTIONS (top — primary actions)     -->
-          <!-- ============================================ -->
-          <section class="section quick-section">
-            <h2 class="visually-bold">Quick Actions</h2>
-            <div class="quick-grid">
-              @for (chip of actionChips; track chip.label) {
-                <a class="quick-pill" [routerLink]="chip.route">
-                  <div class="qp-icon" [style.background]="chip.color">
-                    <mat-icon>{{ chip.icon }}</mat-icon>
-                  </div>
-                  <span>{{ chip.label }}</span>
-                </a>
-              }
-            </div>
-          </section>
-
-          <!-- ============================================ -->
-          <!-- 2. UPCOMING APPOINTMENT (only if exists)     -->
+          <!-- 1. UPCOMING APPOINTMENT (top if exists)      -->
           <!-- ============================================ -->
           @if (nextAppt(); as appt) {
             <section class="section appt-section">
@@ -131,7 +120,24 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 3. WHAT'S NEXT (labs + follow-ups merged)    -->
+          <!-- 2. QUICK ACTIONS                             -->
+          <!-- ============================================ -->
+          <section class="section quick-section">
+            <h2 class="visually-bold">Quick Actions</h2>
+            <div class="quick-grid">
+              @for (chip of actionChips; track chip.label) {
+                <a class="quick-pill" [routerLink]="chip.route">
+                  <div class="qp-icon" [style.background]="chip.color">
+                    <mat-icon>{{ chip.icon }}</mat-icon>
+                  </div>
+                  <span>{{ chip.label }}</span>
+                </a>
+              }
+            </div>
+          </section>
+
+          <!-- ============================================ -->
+          <!-- 3. WHAT'S NEXT (concise — labs + follow-ups) -->
           <!-- ============================================ -->
           @if (careItems().length > 0) {
             <section class="section whats-next-section">
@@ -152,25 +158,16 @@ interface SpecialtyTile {
                       <span class="cd-label">{{ item.tileLabel }}</span>
                       <span class="cd-month">{{ item.actionDate | date:'MMM' }}</span>
                       <strong class="cd-day">{{ item.actionDate | date:'d' }}</strong>
-                      <span class="cd-dow">{{ item.actionDate | date:'EEE' }}</span>
                     </div>
                     <div class="care-body">
-                      <div class="cb-head">
-                        <strong class="cb-title">{{ item.title }}</strong>
-                        <span class="cb-kind-chip" [class]="'chip-' + item.kind">
-                          <mat-icon>{{ kindIcon(item.kind) }}</mat-icon>
-                          {{ kindLabel(item.kind) }}
-                        </span>
-                      </div>
-                      <p class="cb-detail">{{ item.detail }}</p>
-                      <div class="cb-doctor">
+                      <strong class="cb-title">{{ item.title }}</strong>
+                      <div class="cb-doctor-row">
                         <div class="cb-avatar" [class]="'av-' + specialtyTheme(item.doctorSpecialty)">
                           {{ doctorInitials(item.doctorName) }}
                         </div>
-                        <div class="cb-doc-info">
-                          <strong>{{ item.doctorName }}</strong>
-                          <span>{{ item.doctorSpecialty }} · Consulted {{ item.consultationDate | date:'mediumDate' }}</span>
-                        </div>
+                        <span class="cb-doc-text">
+                          {{ item.doctorName }} · {{ item.consultationDate | date:'MMM d' }}
+                        </span>
                       </div>
                       <span class="cb-cta">
                         {{ kindCta(item.kind) }}
@@ -184,43 +181,8 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 5. HEALTH SNAPSHOT (vitals)                  -->
+          <!-- 4. MEDICATIONS LINK CARD (compact)           -->
           <!-- ============================================ -->
-          <section class="section vitals-section">
-            <div class="sec-head">
-              <div class="sec-titles">
-                <h2>Health Snapshot</h2>
-                <p class="sec-sub">Latest recorded vitals</p>
-              </div>
-              <a class="sec-link" routerLink="/timeline">
-                View All <mat-icon>arrow_forward</mat-icon>
-              </a>
-            </div>
-            <div class="hscroll vitals-scroll">
-              @for (vital of dashboardVitals(); track vital.type) {
-                <article class="vital-card" [class]="'v-' + vital.status">
-                  <div class="v-top">
-                    <div class="v-icon" [class]="'vbg-' + vital.status">
-                      <mat-icon>{{ getVitalIcon(vital) }}</mat-icon>
-                    </div>
-                    <span class="v-trend-chip" [class]="'tc-' + vital.status">
-                      <mat-icon>{{ trendIcon(vital) }}</mat-icon>
-                      {{ trendLabel(vital) }}
-                    </span>
-                  </div>
-                  <span class="v-label">{{ getVitalLabel(vital) }}</span>
-                  <div class="v-value-row">
-                    <span class="v-value">{{ vital.value }}</span>
-                    <span class="v-unit">{{ vital.unit }}</span>
-                  </div>
-                  <span class="v-time">Updated {{ vital.timestamp | date:'mediumDate' }}</span>
-                </article>
-              }
-            </div>
-          </section>
-
-          <!-- ============================================ -->
-          <!-- 6. MEDICATIONS LINK CARD (compact)           -->
           <!-- ============================================ -->
           <a class="meds-link-card" routerLink="/medications">
             <div class="ml-illo">
@@ -295,6 +257,97 @@ interface SpecialtyTile {
         }
       }
     </div>
+
+    <!-- ============================================ -->
+    <!-- LAB REPORT SIDE SHEET                        -->
+    <!-- ============================================ -->
+    @if (reportContext()) {
+      <div class="sheet-backdrop" (click)="closeReport()"></div>
+    }
+    <aside class="side-sheet report-sheet" [class.open]="!!reportContext()" aria-label="Lab report">
+      @if (reportContext(); as ctx) {
+        <header class="ss-head">
+          <div class="ss-head-title">
+            <mat-icon>{{ ctx.investigation.category === 'imaging' ? 'image_search' : (ctx.investigation.category === 'cardiac' ? 'monitor_heart' : 'science') }}</mat-icon>
+            <div class="ss-head-info">
+              <h3>{{ ctx.investigation.name }}</h3>
+              <p>Result {{ ctx.investigation.resultDate | date:'mediumDate' }}</p>
+            </div>
+          </div>
+          <button mat-icon-button class="ss-close" (click)="closeReport()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="ss-body">
+          <!-- Source consultation block -->
+          <button class="report-source" (click)="goToConsultation(ctx.consultation.id)">
+            <div class="rs-avatar" [class]="'av-' + specialtyTheme(ctx.consultation.doctorSpecialty)">
+              {{ doctorInitials(ctx.consultation.doctorName) }}
+            </div>
+            <div class="rs-text">
+              <strong>{{ ctx.consultation.doctorName }}</strong>
+              <span>{{ ctx.consultation.doctorSpecialty }} · Requested at consultation on {{ ctx.consultation.date | date:'mediumDate' }}</span>
+            </div>
+            <mat-icon class="rs-arrow">arrow_forward</mat-icon>
+          </button>
+
+          <!-- Summary -->
+          @if (ctx.investigation.result?.summary) {
+            <section class="report-block">
+              <div class="rb-head">
+                <mat-icon>summarize</mat-icon>
+                <h4>Summary</h4>
+              </div>
+              <p class="rb-text">{{ ctx.investigation.result?.summary }}</p>
+            </section>
+          }
+
+          <!-- Result parameters -->
+          @if ((ctx.investigation.result?.parameters?.length ?? 0) > 0) {
+            <section class="report-block">
+              <div class="rb-head">
+                <mat-icon>biotech</mat-icon>
+                <h4>Results</h4>
+              </div>
+              <div class="param-table">
+                <div class="pt-row pt-head">
+                  <span>Parameter</span>
+                  <span>Value</span>
+                  <span>Reference</span>
+                </div>
+                @for (p of ctx.investigation.result?.parameters; track p.name) {
+                  <div class="pt-row">
+                    <span class="pt-name">{{ p.name }}</span>
+                    <span class="pt-value">
+                      <strong [class]="'flag-' + p.flag">{{ p.value }}</strong>
+                      @if (p.unit) { <small>{{ p.unit }}</small> }
+                      @if (p.flag !== 'normal') {
+                        <span class="flag-chip" [class]="'flag-chip-' + p.flag">{{ flagLabel(p.flag) }}</span>
+                      }
+                    </span>
+                    <span class="pt-range">{{ p.range }}</span>
+                  </div>
+                }
+              </div>
+            </section>
+          } @else if (!ctx.investigation.result?.summary) {
+            <section class="report-block">
+              <p class="rb-text">A detailed report is being prepared. Check back shortly.</p>
+            </section>
+          }
+        </div>
+
+        <footer class="ss-footer">
+          <button mat-stroked-button (click)="actionPlaceholder('Downloading PDF')">
+            <mat-icon>download</mat-icon> Download PDF
+          </button>
+          <button mat-flat-button color="primary" (click)="openInRecords(ctx.investigation.name)">
+            <mat-icon>folder_open</mat-icon> Open in My Records
+          </button>
+        </footer>
+      }
+    </aside>
 
     <!-- ============================================ -->
     <!-- MANAGE BOOKING SIDE SHEET                    -->
@@ -473,36 +526,35 @@ interface SpecialtyTile {
       font-size: 13px !important;
     }
 
-    /* ===== What's Next (unified care cards) ===== */
+    /* ===== What's Next (concise unified cards) ===== */
     .care-scroll { padding: 4px 2px 12px; }
     .care-card {
-      flex-shrink: 0; width: 320px;
-      display: flex; gap: 14px;
-      padding: 14px; background: white;
-      border: 1px solid #eceff1; border-radius: 16px;
+      flex-shrink: 0; width: 240px;
+      display: flex; gap: 12px;
+      padding: 12px; background: white;
+      border: 1px solid #eceff1; border-radius: 14px;
       text-align: left; font: inherit; cursor: pointer; color: inherit;
       transition: all 0.15s;
     }
     .care-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
       border-color: #c5cae9;
     }
 
     /* Calendar tile (left) — colored per kind */
     .care-date-tile {
-      width: 64px; flex-shrink: 0;
+      width: 56px; flex-shrink: 0;
       display: flex; flex-direction: column; align-items: center;
-      padding: 8px 4px 10px;
-      border-radius: 12px; border: 1px solid transparent;
+      padding: 6px 4px 8px;
+      border-radius: 10px; border: 1px solid transparent;
     }
     .cd-label {
-      font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+      font-size: 8px; text-transform: uppercase; letter-spacing: .06em;
       font-weight: 700; padding-bottom: 2px;
     }
     .cd-month { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
-    .cd-day { font-size: 22px; line-height: 1.05; font-weight: 700; }
-    .cd-dow { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; opacity: .8; }
+    .cd-day { font-size: 20px; line-height: 1.05; font-weight: 700; }
 
     .tile-lab-ready {
       background: linear-gradient(180deg, #e0f2f1 0%, #f0fdfb 100%);
@@ -521,33 +573,18 @@ interface SpecialtyTile {
     }
 
     /* Body */
-    .care-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .cb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-    .cb-title { font-size: 14px; color: #1b3a4b; font-weight: 600; line-height: 1.3; }
-    .cb-kind-chip {
-      display: inline-flex; align-items: center; gap: 3px;
-      padding: 2px 8px; border-radius: 10px;
-      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-      flex-shrink: 0;
-    }
-    .cb-kind-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }
-    .chip-lab-ready { background: #e0f2f1; color: #00695c; }
-    .chip-lab-prescribed { background: #fff3e0; color: #e65100; }
-    .chip-followup { background: #eef0fb; color: #1a237e; }
-
-    .cb-detail {
-      font-size: 12px; color: #607d8b; line-height: 1.45; margin: 0;
+    .care-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: space-between; }
+    .cb-title {
+      font-size: 13px; color: #1b3a4b; font-weight: 600; line-height: 1.3;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
-
-    .cb-doctor {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; background: #fafbfd;
-      border-radius: 8px; margin-top: 2px;
+    .cb-doctor-row {
+      display: flex; align-items: center; gap: 6px;
+      min-width: 0;
     }
     .cb-avatar {
-      width: 30px; height: 30px; border-radius: 50%;
-      color: white; font-weight: 600; font-size: 11px;
+      width: 22px; height: 22px; border-radius: 50%;
+      color: white; font-weight: 700; font-size: 9px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
@@ -558,17 +595,16 @@ interface SpecialtyTile {
     .av-ortho { background: linear-gradient(135deg, #1565c0, #42a5f5); }
     .av-ent { background: linear-gradient(135deg, #00897b, #26a69a); }
     .av-other { background: linear-gradient(135deg, #455a64, #78909c); }
-
-    .cb-doc-info { display: flex; flex-direction: column; gap: 0; min-width: 0; }
-    .cb-doc-info strong { font-size: 12px; color: #1b3a4b; }
-    .cb-doc-info span { font-size: 10px; color: #90a4ae; }
+    .cb-doc-text {
+      font-size: 11px; color: #607d8b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
 
     .cb-cta {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 12px; color: #1a237e; font-weight: 600;
-      margin-top: 4px;
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 11px; color: #1a237e; font-weight: 600;
     }
-    .cb-cta mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .cb-cta mat-icon { font-size: 13px; width: 13px; height: 13px; }
 
     /* ===== Vital cards ===== */
     .vitals-scroll { padding: 4px 2px 12px; }
@@ -723,6 +759,86 @@ interface SpecialtyTile {
     .ss-close { flex-shrink: 0; }
     .ss-body { padding: 16px 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 
+    /* Report sheet */
+    .report-sheet .ss-body { padding: 18px 20px 6px; gap: 16px; }
+    .report-sheet .ss-head { background: linear-gradient(180deg, #f8f9ff 0%, white 100%); }
+
+    .report-source {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: #fafbfd;
+      border: 1px solid #eceff1; border-radius: 12px;
+      text-align: left; font: inherit; cursor: pointer; color: inherit;
+      transition: all 0.15s;
+    }
+    .report-source:hover { border-color: #c5cae9; background: #f3f5fb; }
+    .rs-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      color: white; font-weight: 600; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .rs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .rs-text strong { font-size: 13px; color: #1b3a4b; }
+    .rs-text span { font-size: 11px; color: #90a4ae; }
+    .rs-arrow { color: #90a4ae; flex-shrink: 0; }
+
+    .report-block { display: flex; flex-direction: column; gap: 8px; }
+    .rb-head { display: flex; align-items: center; gap: 8px; }
+    .rb-head mat-icon { color: #1a237e; font-size: 18px; width: 18px; height: 18px; }
+    .rb-head h4 {
+      margin: 0; font-size: 13px; color: #1b3a4b; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .rb-text {
+      margin: 0; font-size: 13px; color: #455a64; line-height: 1.55;
+      background: #fafbfd; padding: 12px 14px; border-radius: 10px;
+    }
+
+    .param-table { display: flex; flex-direction: column; gap: 0; border: 1px solid #eceff1; border-radius: 10px; overflow: hidden; }
+    .pt-row {
+      display: grid; grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 10px; padding: 10px 12px;
+      font-size: 13px; align-items: center;
+      border-bottom: 1px solid #eceff1;
+    }
+    .pt-row:last-child { border-bottom: none; }
+    .pt-row.pt-head {
+      background: #f6f8fc;
+      font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+      color: #607d8b; font-weight: 700;
+    }
+    .pt-name { color: #1b3a4b; font-weight: 500; }
+    .pt-value { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .pt-value strong { font-size: 14px; }
+    .pt-value small { font-size: 11px; color: #90a4ae; }
+    .pt-range { color: #90a4ae; font-size: 12px; }
+
+    .flag-normal { color: #2e7d32; }
+    .flag-high { color: #ef6c00; }
+    .flag-low { color: #1565c0; }
+    .flag-critical { color: #c62828; }
+
+    .flag-chip {
+      display: inline-flex; align-items: center;
+      padding: 1px 7px; border-radius: 8px;
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    }
+    .flag-chip-high { background: #fff3e0; color: #ef6c00; }
+    .flag-chip-low { background: #e3f2fd; color: #1565c0; }
+    .flag-chip-critical { background: #fdecea; color: #c62828; }
+
+    .ss-footer {
+      padding: 14px 20px; display: flex; gap: 10px;
+      border-top: 1px solid #eceff1; background: #fafafa;
+      flex-shrink: 0;
+    }
+    .ss-footer button {
+      flex: 1;
+      font-size: 13px !important; height: 40px !important;
+      border-radius: 10px !important;
+    }
+    .ss-footer button mat-icon { font-size: 18px; width: 18px; height: 18px; margin-right: 4px; }
+
     .mb-action {
       display: flex; align-items: center; gap: 12px;
       padding: 14px; background: white;
@@ -786,11 +902,12 @@ export class DashboardComponent implements OnInit {
   readonly feedbackDismissed = signal(false);
   readonly feedbackRating = signal(0);
   readonly manageOpen = signal(false);
+  readonly reportContext = signal<ReportContext | null>(null);
 
   // Order: most-likely tap targets first
   readonly actionChips = [
     { label: 'Book Appointment', icon: 'event_available', route: '/appointments', color: '#3949ab' },
-    { label: 'Consultations', icon: 'medical_information', route: '/consultations', color: '#5e35b1' },
+    { label: 'My Health', icon: 'health_and_safety', route: '/consultations', color: '#5e35b1' },
     { label: 'Medications', icon: 'medication', route: '/medications', color: '#ef6c00' },
     { label: 'Records', icon: 'folder_shared', route: '/timeline', color: '#00897b' },
     { label: 'Payments', icon: 'payments', route: '/payments', color: '#43a047' },
@@ -848,29 +965,29 @@ export class DashboardComponent implements OnInit {
           ready.push({
             id: `${c.id}:${inv.name}:ready`,
             kind: 'lab-ready',
-            title: `${inv.name} — results ready`,
-            detail: `Reviewed report from ${inv.resultDate ? new Date(inv.resultDate).toLocaleDateString() : 'recent visit'}`,
+            title: `${inv.name} — ready`,
             doctorName: c.doctorName,
             doctorSpecialty: c.doctorSpecialty,
             consultationId: c.id,
             consultationDate: c.date,
             actionDate: inv.resultDate ?? c.date,
             category: inv.category,
-            tileLabel: 'Result'
+            tileLabel: 'Result',
+            labName: inv.name
           });
         } else if (inv.status === 'pending') {
           prescribed.push({
             id: `${c.id}:${inv.name}:pending`,
             kind: 'lab-prescribed',
             title: `${inv.name} prescribed`,
-            detail: 'Book a slot, pay in advance, and walk in.',
             doctorName: c.doctorName,
             doctorSpecialty: c.doctorSpecialty,
             consultationId: c.id,
             consultationDate: c.date,
             actionDate: c.date,
             category: inv.category,
-            tileLabel: 'Since'
+            tileLabel: 'Since',
+            labName: inv.name
           });
         }
       }
@@ -882,7 +999,6 @@ export class DashboardComponent implements OnInit {
             id: c.id + ':followup',
             kind: 'followup',
             title: `${c.doctorSpecialty} follow-up`,
-            detail: c.followUp.reason,
             doctorName: c.doctorName,
             doctorSpecialty: c.doctorSpecialty,
             consultationId: c.id,
@@ -896,7 +1012,8 @@ export class DashboardComponent implements OnInit {
 
     // Priority: ready (act now) → follow-ups (chronological) → prescribed (least urgent)
     followups.sort((a, b) => new Date(a.actionDate).getTime() - new Date(b.actionDate).getTime());
-    return [...ready, ...followups, ...prescribed].slice(0, 6);
+    // Cap to 3 to reduce visual choice overload
+    return [...ready, ...followups, ...prescribed].slice(0, 3);
   });
 
   readonly medsTakenToday = computed(() => {
@@ -1017,11 +1134,11 @@ export class DashboardComponent implements OnInit {
 
   runCareItem(item: CareItem): void {
     if (item.kind === 'lab-ready') {
-      // Deep-link to My Records with the lab name as highlight; timeline filters and pulses the row
-      this.router.navigate(['/timeline'], { queryParams: { highlight: item.title.replace(' — results ready', '') } });
+      // Open the report directly on the dashboard
+      this.openReport(item);
     } else if (item.kind === 'lab-prescribed') {
       this.router.navigate(['/appointments'], {
-        queryParams: { lab: item.title.replace(' prescribed', '') }
+        queryParams: { lab: item.labName }
       });
     } else {
       this.router.navigate(['/appointments'], {
@@ -1033,6 +1150,33 @@ export class DashboardComponent implements OnInit {
         }
       });
     }
+  }
+
+  openReport(item: CareItem): void {
+    if (!item.labName) return;
+    const consultation = this.consultations().find(c => c.id === item.consultationId);
+    if (!consultation) return;
+    const investigation = consultation.investigations.find(i => i.name === item.labName);
+    if (!investigation) return;
+    this.reportContext.set({ consultation, investigation });
+  }
+
+  closeReport(): void {
+    this.reportContext.set(null);
+  }
+
+  goToConsultation(consultationId: string): void {
+    this.router.navigate(['/consultations'], { queryParams: { id: consultationId } });
+    this.closeReport();
+  }
+
+  openInRecords(labName: string): void {
+    this.router.navigate(['/timeline'], { queryParams: { highlight: labName } });
+    this.closeReport();
+  }
+
+  flagLabel(flag: string): string {
+    return ({ high: 'High', low: 'Low', critical: 'Critical', normal: 'Normal' } as Record<string, string>)[flag] ?? flag;
   }
 
   openManage(): void { this.manageOpen.set(true); }

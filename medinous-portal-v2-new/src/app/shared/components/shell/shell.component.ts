@@ -719,8 +719,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               </a>
               <a mat-list-item routerLink="/consultations" routerLinkActive="active-link"
                  (click)="closeSidenavOnMobile()">
-                <mat-icon matListItemIcon>medical_information</mat-icon>
-                <span matListItemTitle>My Consultations</span>
+                <mat-icon matListItemIcon>health_and_safety</mat-icon>
+                <span matListItemTitle>My Health</span>
               </a>
               <a mat-list-item routerLink="/timeline" routerLinkActive="active-link"
                  (click)="closeSidenavOnMobile()">
