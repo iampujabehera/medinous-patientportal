@@ -1,5 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed, ViewChild, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -149,7 +150,9 @@ interface CategoryFilter {
       } @else {
         <div class="rec-list">
           @for (event of filteredEvents(); track event.id) {
-            <div class="rec-row" [ngClass]="'type-' + event.type">
+            <div class="rec-row" [ngClass]="'type-' + event.type"
+                 [class.highlighted]="event.id === highlightId()"
+                 [attr.data-event-id]="event.id">
               <div class="rec-icon" [ngClass]="'icon-' + event.type">
                 <mat-icon>{{ getEventIcon(event) }}</mat-icon>
               </div>
@@ -448,6 +451,26 @@ interface CategoryFilter {
       font-size: 18px; width: 18px; height: 18px; vertical-align: middle; margin-right: 4px;
     }
 
+    /* ===== Highlighted record (deep-link from dashboard) ===== */
+    .rec-row.highlighted {
+      animation: pulseHighlight 1.4s ease-in-out 3;
+      border-radius: 12px;
+      position: relative;
+    }
+    .rec-row.highlighted::before {
+      content: 'JUST UPDATED';
+      position: absolute; top: -10px; left: 12px;
+      background: #1a237e; color: white;
+      font-size: 9px; font-weight: 700;
+      padding: 2px 8px; border-radius: 8px;
+      letter-spacing: .05em;
+    }
+    @keyframes pulseHighlight {
+      0%   { box-shadow: 0 0 0 0 rgba(26,35,126,0.35); background: white; }
+      50%  { box-shadow: 0 0 0 8px rgba(26,35,126,0); background: #f3f5fb; }
+      100% { box-shadow: 0 0 0 0 rgba(26,35,126,0); background: white; }
+    }
+
     @media (min-width: 769px) { .fab { display: none; } }
     @media (max-width: 768px) {
       .upload-btn { display: none; }
@@ -464,6 +487,7 @@ export class TimelineComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly route = inject(ActivatedRoute);
 
   @ViewChild('deleteDialog', { static: true }) deleteDialogRef!: TemplateRef<unknown>;
 
@@ -475,6 +499,7 @@ export class TimelineComponent implements OnInit {
   readonly showUpload = signal(false);
   readonly uploadFileName = signal('');
   readonly uploadType = signal('');
+  readonly highlightId = signal<string | null>(null);
 
   readonly timePeriods: TimePeriod[] = [
     { label: 'Last 7 days',  short: '7 days',  days: 7 },
@@ -519,10 +544,35 @@ export class TimelineComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const highlight = this.route.snapshot.queryParamMap.get('highlight');
+    // Reset to "All time" + "All categories" so a deep-linked highlight isn't filtered out
+    if (highlight) {
+      this.selectedPeriod.set(9999);
+      this.activeFilter.set('all');
+      // Use the search to also narrow visually
+      this.searchQuery.set(highlight);
+    }
+
     this.api.getTimeline(0, 100).subscribe(events => {
       this.allEvents.set(events);
       this.loading.set(false);
+      if (highlight) {
+        // After paint, find the first matching event row and scroll + pulse
+        setTimeout(() => this.applyHighlight(highlight), 80);
+      }
     });
+  }
+
+  private applyHighlight(query: string): void {
+    const match = this.filteredEvents()[0];
+    if (!match) return;
+    this.highlightId.set(match.id);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-event-id="${match.id}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    // Clear the highlight class after the pulse animation finishes (~4.5s)
+    setTimeout(() => this.highlightId.set(null), 4500);
   }
 
   getEventIcon(event: TimelineEvent): string {

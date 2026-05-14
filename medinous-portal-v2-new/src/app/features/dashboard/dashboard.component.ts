@@ -14,24 +14,23 @@ import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/s
 import { ApiService } from '../../core/services/api.service';
 import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation } from '../../core/models/patient.model';
 
-interface LabActivity {
-  id: string;
-  type: 'prescribed' | 'ready';
-  labName: string;
-  category: 'lab' | 'imaging' | 'cardiac' | 'other';
-  doctorName: string;
-  doctorSpecialty: string;
-  consultationDate: string;
-  consultationId: string;
-}
+type CareItemKind = 'lab-ready' | 'lab-prescribed' | 'followup';
 
-interface FollowUpItem {
+interface CareItem {
   id: string;
+  kind: CareItemKind;
+  title: string;            // e.g. "HbA1c results ready"
+  detail: string;           // reason or lab subtype
   doctorName: string;
   doctorSpecialty: string;
+  consultationId: string;
   consultationDate: string;
-  followUpDate: string;
-  reason: string;
+  /** Date driving the calendar tile (result date / follow-up date / consultation date as fallback). */
+  actionDate: string;
+  /** Lab category for icon color (undefined for follow-ups). */
+  category?: 'lab' | 'imaging' | 'cardiac' | 'other';
+  /** What the calendar tile labels itself as ("Result", "Follow-up", "Since"). */
+  tileLabel: string;
 }
 
 interface SpecialtyTile {
@@ -132,103 +131,51 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 3. PENDING LABS (prescribed + ready)         -->
+          <!-- 3. WHAT'S NEXT (labs + follow-ups merged)    -->
           <!-- ============================================ -->
-          @if (labActivities().length > 0) {
-            <section class="section labs-section">
+          @if (careItems().length > 0) {
+            <section class="section whats-next-section">
               <div class="sec-head">
                 <div class="sec-titles">
-                  <h2>Pending Labs</h2>
-                  <p class="sec-sub">Tests requested or results awaiting your review</p>
+                  <h2>What's Next</h2>
+                  <p class="sec-sub">Open results, requested tests and upcoming follow-ups</p>
                 </div>
                 <a class="sec-link" routerLink="/consultations">
                   See all <mat-icon>arrow_forward</mat-icon>
                 </a>
               </div>
 
-              <div class="lab-list">
-                @for (lab of labActivities(); track lab.id) {
-                  <article class="lab-card" [class]="'lc-' + lab.type">
-                    <div class="lc-icon" [class]="'cat-' + lab.category">
-                      <mat-icon>{{ labIcon(lab) }}</mat-icon>
+              <div class="hscroll care-scroll">
+                @for (item of careItems(); track item.id) {
+                  <button class="care-card" [class]="'kind-' + item.kind" (click)="runCareItem(item)">
+                    <div class="care-date-tile" [class]="'tile-' + item.kind">
+                      <span class="cd-label">{{ item.tileLabel }}</span>
+                      <span class="cd-month">{{ item.actionDate | date:'MMM' }}</span>
+                      <strong class="cd-day">{{ item.actionDate | date:'d' }}</strong>
+                      <span class="cd-dow">{{ item.actionDate | date:'EEE' }}</span>
                     </div>
-                    <div class="lc-body">
-                      <div class="lc-top">
-                        <strong>{{ lab.labName }}</strong>
-                        <span class="lc-status" [class]="'lc-st-' + lab.type">
-                          {{ lab.type === 'prescribed' ? 'Prescribed' : 'Results ready' }}
+                    <div class="care-body">
+                      <div class="cb-head">
+                        <strong class="cb-title">{{ item.title }}</strong>
+                        <span class="cb-kind-chip" [class]="'chip-' + item.kind">
+                          <mat-icon>{{ kindIcon(item.kind) }}</mat-icon>
+                          {{ kindLabel(item.kind) }}
                         </span>
                       </div>
-                      <div class="lc-context">
-                        <span class="lc-dr">
-                          <mat-icon>person</mat-icon>
-                          {{ lab.doctorName }} · {{ lab.doctorSpecialty }}
-                        </span>
-                        <span class="lc-date">
-                          <mat-icon>event</mat-icon>
-                          Consulted {{ lab.consultationDate | date:'mediumDate' }}
-                        </span>
-                      </div>
-                      <div class="lc-actions">
-                        @if (lab.type === 'prescribed') {
-                          <button mat-stroked-button class="lc-btn" routerLink="/appointments">
-                            <mat-icon>event</mat-icon> Book Test
-                          </button>
-                          <button mat-stroked-button class="lc-btn" routerLink="/payments">
-                            <mat-icon>payments</mat-icon> Pay
-                          </button>
-                        } @else {
-                          <button mat-flat-button color="primary" class="lc-btn"
-                                  (click)="openConsultation(lab.consultationId)">
-                            <mat-icon>description</mat-icon> View Report
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  </article>
-                }
-              </div>
-            </section>
-          }
-
-          <!-- ============================================ -->
-          <!-- 4. FOLLOW-UPS (concise + creative)           -->
-          <!-- ============================================ -->
-          @if (followUps().length > 0) {
-            <section class="section followups-section">
-              <div class="sec-head">
-                <div class="sec-titles">
-                  <h2>Follow-ups</h2>
-                  <p class="sec-sub">Doctors waiting to see you again</p>
-                </div>
-                <a class="sec-link" routerLink="/consultations">
-                  See all <mat-icon>arrow_forward</mat-icon>
-                </a>
-              </div>
-
-              <div class="hscroll followup-scroll">
-                @for (fu of followUps(); track fu.id) {
-                  <button class="followup-card" (click)="bookFollowUp(fu)">
-                    <div class="fu-date-tile">
-                      <span class="fu-month">{{ fu.followUpDate | date:'MMM' }}</span>
-                      <strong class="fu-day">{{ fu.followUpDate | date:'d' }}</strong>
-                      <span class="fu-dow">{{ fu.followUpDate | date:'EEE' }}</span>
-                    </div>
-                    <div class="fu-body">
-                      <div class="fu-avatar-row">
-                        <div class="fu-avatar" [class]="'av-' + specialtyTheme(fu.doctorSpecialty)">
-                          {{ doctorInitials(fu.doctorName) }}
+                      <p class="cb-detail">{{ item.detail }}</p>
+                      <div class="cb-doctor">
+                        <div class="cb-avatar" [class]="'av-' + specialtyTheme(item.doctorSpecialty)">
+                          {{ doctorInitials(item.doctorName) }}
                         </div>
-                        <div class="fu-name-block">
-                          <strong>{{ fu.doctorName }}</strong>
-                          <span>{{ fu.doctorSpecialty }}</span>
+                        <div class="cb-doc-info">
+                          <strong>{{ item.doctorName }}</strong>
+                          <span>{{ item.doctorSpecialty }} · Consulted {{ item.consultationDate | date:'mediumDate' }}</span>
                         </div>
                       </div>
-                      <p class="fu-reason">{{ fu.reason }}</p>
-                      <div class="fu-trace">
-                        <mat-icon>history</mat-icon>
-                        <span>Last seen {{ fu.consultationDate | date:'mediumDate' }}</span>
-                      </div>
+                      <span class="cb-cta">
+                        {{ kindCta(item.kind) }}
+                        <mat-icon>arrow_forward</mat-icon>
+                      </span>
                     </div>
                   </button>
                 }
@@ -526,83 +473,81 @@ interface SpecialtyTile {
       font-size: 13px !important;
     }
 
-    /* ===== Pending Labs ===== */
-    .lab-list { display: flex; flex-direction: column; gap: 10px; }
-    .lab-card {
-      display: flex; gap: 12px; padding: 14px 16px;
-      background: white; border: 1px solid #eceff1;
-      border-radius: 14px;
-    }
-    .lab-card.lc-ready { background: linear-gradient(135deg, #f0fdfb 0%, #ffffff 100%); border-color: #b2dfdb; }
-    .lab-card.lc-prescribed { background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%); border-color: #ffe0b2; }
-
-    .lc-icon {
-      width: 42px; height: 42px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .lc-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
-    .cat-lab { background: #00897b; }
-    .cat-imaging { background: #1565c0; }
-    .cat-cardiac { background: #c62828; }
-    .cat-other { background: #5e35b1; }
-
-    .lc-body { flex: 1; min-width: 0; }
-    .lc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
-    .lc-top strong { font-size: 14px; color: #1b3a4b; }
-    .lc-status {
-      font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 10px;
-      text-transform: uppercase; letter-spacing: .04em;
-    }
-    .lc-st-prescribed { background: #fff3e0; color: #e65100; }
-    .lc-st-ready { background: #e0f2f1; color: #00695c; }
-
-    .lc-context { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
-    .lc-context > span {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 12px; color: #607d8b;
-    }
-    .lc-context mat-icon { font-size: 14px; width: 14px; height: 14px; color: #90a4ae; }
-
-    .lc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .lc-btn {
-      font-size: 12px !important; padding: 0 12px !important;
-      height: 30px !important; line-height: 30px !important;
-      border-radius: 8px !important;
-    }
-    .lc-btn mat-icon { font-size: 14px; width: 14px; height: 14px; margin-right: 2px; }
-
-    /* ===== Follow-ups (creative date tiles) ===== */
-    .followup-scroll { padding: 4px 2px 12px; }
-    .followup-card {
-      flex-shrink: 0; width: 300px;
+    /* ===== What's Next (unified care cards) ===== */
+    .care-scroll { padding: 4px 2px 12px; }
+    .care-card {
+      flex-shrink: 0; width: 320px;
       display: flex; gap: 14px;
       padding: 14px; background: white;
       border: 1px solid #eceff1; border-radius: 16px;
-      text-align: left; font: inherit; cursor: pointer;
+      text-align: left; font: inherit; cursor: pointer; color: inherit;
       transition: all 0.15s;
     }
-    .followup-card:hover {
+    .care-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
       border-color: #c5cae9;
     }
-    .fu-date-tile {
-      width: 60px; flex-shrink: 0;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 8px 0;
-      background: linear-gradient(180deg, #eef0fb 0%, #e8eaf6 100%);
-      border-radius: 12px;
-      border: 1px solid #c5cae9;
-    }
-    .fu-month { font-size: 11px; color: #1a237e; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
-    .fu-day { font-size: 24px; color: #1a237e; line-height: 1.05; font-weight: 700; }
-    .fu-dow { font-size: 10px; color: #5c6bc0; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
 
-    .fu-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    .fu-avatar-row { display: flex; align-items: center; gap: 8px; }
-    .fu-avatar {
-      width: 32px; height: 32px; border-radius: 50%;
-      color: white; font-weight: 600; font-size: 12px;
+    /* Calendar tile (left) — colored per kind */
+    .care-date-tile {
+      width: 64px; flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8px 4px 10px;
+      border-radius: 12px; border: 1px solid transparent;
+    }
+    .cd-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+      font-weight: 700; padding-bottom: 2px;
+    }
+    .cd-month { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+    .cd-day { font-size: 22px; line-height: 1.05; font-weight: 700; }
+    .cd-dow { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; opacity: .8; }
+
+    .tile-lab-ready {
+      background: linear-gradient(180deg, #e0f2f1 0%, #f0fdfb 100%);
+      border-color: #b2dfdb;
+      color: #00695c;
+    }
+    .tile-lab-prescribed {
+      background: linear-gradient(180deg, #fff3e0 0%, #fffaf0 100%);
+      border-color: #ffe0b2;
+      color: #e65100;
+    }
+    .tile-followup {
+      background: linear-gradient(180deg, #eef0fb 0%, #f8f9ff 100%);
+      border-color: #c5cae9;
+      color: #1a237e;
+    }
+
+    /* Body */
+    .care-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .cb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .cb-title { font-size: 14px; color: #1b3a4b; font-weight: 600; line-height: 1.3; }
+    .cb-kind-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      flex-shrink: 0;
+    }
+    .cb-kind-chip mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .chip-lab-ready { background: #e0f2f1; color: #00695c; }
+    .chip-lab-prescribed { background: #fff3e0; color: #e65100; }
+    .chip-followup { background: #eef0fb; color: #1a237e; }
+
+    .cb-detail {
+      font-size: 12px; color: #607d8b; line-height: 1.45; margin: 0;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    .cb-doctor {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: #fafbfd;
+      border-radius: 8px; margin-top: 2px;
+    }
+    .cb-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      color: white; font-weight: 600; font-size: 11px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
@@ -613,18 +558,17 @@ interface SpecialtyTile {
     .av-ortho { background: linear-gradient(135deg, #1565c0, #42a5f5); }
     .av-ent { background: linear-gradient(135deg, #00897b, #26a69a); }
     .av-other { background: linear-gradient(135deg, #455a64, #78909c); }
-    .fu-name-block { display: flex; flex-direction: column; gap: 0; min-width: 0; }
-    .fu-name-block strong { font-size: 13px; color: #1b3a4b; }
-    .fu-name-block span { font-size: 11px; color: #90a4ae; }
-    .fu-reason {
-      font-size: 12px; color: #455a64; line-height: 1.45; margin: 0;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .fu-trace {
+
+    .cb-doc-info { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+    .cb-doc-info strong { font-size: 12px; color: #1b3a4b; }
+    .cb-doc-info span { font-size: 10px; color: #90a4ae; }
+
+    .cb-cta {
       display: inline-flex; align-items: center; gap: 4px;
-      font-size: 11px; color: #90a4ae;
+      font-size: 12px; color: #1a237e; font-weight: 600;
+      margin-top: 4px;
     }
-    .fu-trace mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .cb-cta mat-icon { font-size: 14px; width: 14px; height: 14px; }
 
     /* ===== Vital cards ===== */
     .vitals-scroll { padding: 4px 2px 12px; }
@@ -811,7 +755,7 @@ interface SpecialtyTile {
       .ap-left { flex-direction: row; }
       .ap-actions { gap: 6px; }
       .ap-manage { flex: 1; margin-left: 0; }
-      .followup-card { width: 260px; }
+      .care-card { width: 280px; }
       .specialty-grid { grid-template-columns: repeat(3, 1fr); }
       .csat-row { flex-direction: column; align-items: flex-start; }
 
@@ -887,62 +831,72 @@ export class DashboardComponent implements OnInit {
       .filter((v): v is VitalSign => !!v);
   });
 
-  /** Lab requests + ready results, pulled from consultation investigations. */
-  readonly labActivities = computed<LabActivity[]>(() => {
+  /** Unified "what's next" feed: lab results ready + prescribed labs + upcoming follow-ups. */
+  readonly careItems = computed<CareItem[]>(() => {
     const cons = this.consultations();
-    const list: LabActivity[] = [];
-    // Sort consultations newest-first so the most relevant labs surface
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const ready: CareItem[] = [];
+    const prescribed: CareItem[] = [];
+    const followups: CareItem[] = [];
+
     const sorted = cons.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     for (const c of sorted) {
+      // Investigations
       for (const inv of c.investigations) {
-        if (inv.status === 'pending') {
-          list.push({
-            id: `${c.id}:${inv.name}:pending`,
-            type: 'prescribed',
-            labName: inv.name,
-            category: inv.category,
-            doctorName: c.doctorName,
-            doctorSpecialty: c.doctorSpecialty,
-            consultationDate: c.date,
-            consultationId: c.id
-          });
-        } else if (inv.status === 'completed') {
-          // "Completed" but not yet reviewed by patient = result ready
-          list.push({
+        if (inv.status === 'completed') {
+          ready.push({
             id: `${c.id}:${inv.name}:ready`,
-            type: 'ready',
-            labName: inv.name,
-            category: inv.category,
+            kind: 'lab-ready',
+            title: `${inv.name} — results ready`,
+            detail: `Reviewed report from ${inv.resultDate ? new Date(inv.resultDate).toLocaleDateString() : 'recent visit'}`,
             doctorName: c.doctorName,
             doctorSpecialty: c.doctorSpecialty,
+            consultationId: c.id,
             consultationDate: c.date,
-            consultationId: c.id
+            actionDate: inv.resultDate ?? c.date,
+            category: inv.category,
+            tileLabel: 'Result'
+          });
+        } else if (inv.status === 'pending') {
+          prescribed.push({
+            id: `${c.id}:${inv.name}:pending`,
+            kind: 'lab-prescribed',
+            title: `${inv.name} prescribed`,
+            detail: 'Book a slot, pay in advance, and walk in.',
+            doctorName: c.doctorName,
+            doctorSpecialty: c.doctorSpecialty,
+            consultationId: c.id,
+            consultationDate: c.date,
+            actionDate: c.date,
+            category: inv.category,
+            tileLabel: 'Since'
+          });
+        }
+      }
+      // Follow-up
+      if (c.followUp) {
+        const fuDate = new Date(c.followUp.date);
+        if (fuDate >= today) {
+          followups.push({
+            id: c.id + ':followup',
+            kind: 'followup',
+            title: `${c.doctorSpecialty} follow-up`,
+            detail: c.followUp.reason,
+            doctorName: c.doctorName,
+            doctorSpecialty: c.doctorSpecialty,
+            consultationId: c.id,
+            consultationDate: c.date,
+            actionDate: c.followUp.date,
+            tileLabel: 'Follow-up'
           });
         }
       }
     }
-    return list.slice(0, 4);
-  });
 
-  /** Future follow-ups derived from consultations. */
-  readonly followUps = computed<FollowUpItem[]>(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const list: FollowUpItem[] = [];
-    for (const c of this.consultations()) {
-      if (!c.followUp) continue;
-      const fuDate = new Date(c.followUp.date);
-      if (fuDate < today) continue;
-      list.push({
-        id: c.id + ':followup',
-        doctorName: c.doctorName,
-        doctorSpecialty: c.doctorSpecialty,
-        consultationDate: c.date,
-        followUpDate: c.followUp.date,
-        reason: c.followUp.reason
-      });
-    }
-    return list.sort((a, b) => new Date(a.followUpDate).getTime() - new Date(b.followUpDate).getTime());
+    // Priority: ready (act now) → follow-ups (chronological) → prescribed (least urgent)
+    followups.sort((a, b) => new Date(a.actionDate).getTime() - new Date(b.actionDate).getTime());
+    return [...ready, ...followups, ...prescribed].slice(0, 6);
   });
 
   readonly medsTakenToday = computed(() => {
@@ -1044,11 +998,16 @@ export class DashboardComponent implements OnInit {
     return Math.round((taken.filter(Boolean).length / taken.length) * 100);
   }
 
-  labIcon(lab: LabActivity): string {
-    const m: Record<string, string> = {
-      lab: 'science', imaging: 'image_search', cardiac: 'monitor_heart', other: 'assignment'
-    };
-    return m[lab.category] ?? 'science';
+  kindIcon(kind: CareItemKind): string {
+    return ({ 'lab-ready': 'description', 'lab-prescribed': 'science', 'followup': 'event_repeat' })[kind];
+  }
+
+  kindLabel(kind: CareItemKind): string {
+    return ({ 'lab-ready': 'Result Ready', 'lab-prescribed': 'Requested', 'followup': 'Follow-up' })[kind];
+  }
+
+  kindCta(kind: CareItemKind): string {
+    return ({ 'lab-ready': 'View Report', 'lab-prescribed': 'Book Test', 'followup': 'Book Visit' })[kind];
   }
 
   // ===== Actions =====
@@ -1056,19 +1015,24 @@ export class DashboardComponent implements OnInit {
     this.router.navigate([route]);
   }
 
-  openConsultation(consultationId: string): void {
-    this.router.navigate(['/consultations'], { queryParams: { id: consultationId } });
-  }
-
-  bookFollowUp(fu: FollowUpItem): void {
-    this.router.navigate(['/appointments'], {
-      queryParams: {
-        followUp: '1',
-        doctor: fu.doctorName,
-        specialty: fu.doctorSpecialty,
-        date: fu.followUpDate
-      }
-    });
+  runCareItem(item: CareItem): void {
+    if (item.kind === 'lab-ready') {
+      // Deep-link to My Records with the lab name as highlight; timeline filters and pulses the row
+      this.router.navigate(['/timeline'], { queryParams: { highlight: item.title.replace(' — results ready', '') } });
+    } else if (item.kind === 'lab-prescribed') {
+      this.router.navigate(['/appointments'], {
+        queryParams: { lab: item.title.replace(' prescribed', '') }
+      });
+    } else {
+      this.router.navigate(['/appointments'], {
+        queryParams: {
+          followUp: '1',
+          doctor: item.doctorName,
+          specialty: item.doctorSpecialty,
+          date: item.actionDate
+        }
+      });
+    }
   }
 
   openManage(): void { this.manageOpen.set(true); }
