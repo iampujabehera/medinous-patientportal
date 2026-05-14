@@ -8,7 +8,11 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { FormsModule } from '@angular/forms';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
@@ -50,9 +54,10 @@ interface SpecialtyTile {
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    CommonModule, RouterModule,
+    CommonModule, RouterModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
     MatProgressBarModule, MatDividerModule, MatTooltipModule, MatSnackBarModule,
+    MatFormFieldModule, MatInputModule, MatSelectModule,
     SkeletonLoaderComponent, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -231,31 +236,109 @@ interface SpecialtyTile {
             </div>
           </section>
 
-          <!-- CSAT (subtle bottom feedback) -->
-          @if (!feedbackDismissed()) {
-            <section class="csat-section">
-              <button mat-icon-button class="csat-x" (click)="feedbackDismissed.set(true)">
-                <mat-icon>close</mat-icon>
-              </button>
-              <div class="csat-row">
-                <span class="csat-text">How was your experience today?</span>
-                <div class="csat-stars">
-                  @for (s of [1,2,3,4,5]; track s) {
-                    <button mat-icon-button class="csat-star" [class.on]="feedbackRating() >= s"
-                            (click)="submitFeedback(s)">
-                      <mat-icon>{{ feedbackRating() >= s ? 'star' : 'star_border' }}</mat-icon>
-                    </button>
-                  }
-                </div>
-              </div>
-              @if (feedbackRating()) {
-                <div class="csat-ty"><mat-icon>check_circle</mat-icon> Thanks for your feedback!</div>
-              }
-            </section>
-          }
-
         }
       }
+
+      <!-- ============================================ -->
+      <!-- STICKY CSAT STRIP (bottom)                   -->
+      <!-- ============================================ -->
+      @if (!feedbackDismissed()) {
+        <div class="csat-strip" role="region" aria-label="Quick feedback">
+          <div class="csat-inner">
+            <span class="csat-text">How was your experience today?</span>
+            <div class="csat-stars">
+              @for (s of [1,2,3,4,5]; track s) {
+                <button mat-icon-button class="csat-star" [class.on]="feedbackRating() >= s"
+                        (click)="startFeedback(s)" [attr.aria-label]="s + ' star'">
+                  <mat-icon>{{ feedbackRating() >= s ? 'star' : 'star_border' }}</mat-icon>
+                </button>
+              }
+            </div>
+            <button mat-icon-button class="csat-x" (click)="feedbackDismissed.set(true)"
+                    aria-label="Dismiss feedback">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- ============================================ -->
+    <!-- FEEDBACK FORM (slides down from top)         -->
+    <!-- ============================================ -->
+    @if (feedbackFormOpen()) {
+      <div class="form-backdrop" (click)="closeFeedbackForm()"></div>
+    }
+    <div class="feedback-form" [class.open]="feedbackFormOpen()" role="dialog" aria-modal="true">
+      <header class="ff-head">
+        <div class="ff-head-text">
+          <h3>How was your overall experience at the hospital?</h3>
+          <p>Your feedback helps us improve care for everyone.</p>
+        </div>
+        <button mat-icon-button class="ff-close" (click)="closeFeedbackForm()" aria-label="Close">
+          <mat-icon>close</mat-icon>
+        </button>
+      </header>
+
+      <div class="ff-body">
+        <!-- Rating -->
+        <label class="ff-label">Your rating</label>
+        <div class="ff-stars">
+          @for (s of [1,2,3,4,5]; track s) {
+            <button mat-icon-button class="ff-star" [class.on]="feedbackRating() >= s"
+                    (click)="feedbackRating.set(s)" [attr.aria-label]="s + ' star'">
+              <mat-icon>{{ feedbackRating() >= s ? 'star' : 'star_border' }}</mat-icon>
+            </button>
+          }
+          <span class="ff-rating-label">{{ ratingWord(feedbackRating()) }}</span>
+        </div>
+
+        <!-- Which visit -->
+        <label class="ff-label">Which visit are you rating?</label>
+        <mat-form-field appearance="outline" class="ff-full" subscriptSizing="dynamic">
+          <mat-select [ngModel]="ffVisit()" (ngModelChange)="ffVisit.set($event)"
+                      placeholder="Select a visit">
+            <mat-option value="general">General hospital experience</mat-option>
+            @for (c of recentVisitOptions(); track c.id) {
+              <mat-option [value]="c.id">
+                {{ c.doctorName }} · {{ c.doctorSpecialty }} · {{ c.date | date:'mediumDate' }}
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <!-- What went well -->
+        <label class="ff-label">What went well?</label>
+        <div class="ff-tag-grid">
+          @for (tag of positiveTags; track tag) {
+            <button class="ff-tag" [class.on]="ffPositives().has(tag)"
+                    (click)="togglePositive(tag)">{{ tag }}</button>
+          }
+        </div>
+
+        <!-- What could be better -->
+        <label class="ff-label">What could be better?</label>
+        <div class="ff-tag-grid">
+          @for (tag of negativeTags; track tag) {
+            <button class="ff-tag" [class.on]="ffNegatives().has(tag)"
+                    (click)="toggleNegative(tag)">{{ tag }}</button>
+          }
+        </div>
+
+        <!-- Comments -->
+        <label class="ff-label">Any specific comments? <span class="ff-optional">(optional)</span></label>
+        <textarea class="ff-textarea" rows="3" placeholder="Tell us more — anonymous and confidential"
+                  [ngModel]="ffComments()" (ngModelChange)="ffComments.set($event)"></textarea>
+      </div>
+
+      <footer class="ff-footer">
+        <button mat-stroked-button (click)="closeFeedbackForm()">Cancel</button>
+        <button mat-flat-button color="primary"
+                [disabled]="!feedbackRating()"
+                (click)="submitFullFeedback()">
+          Submit Feedback
+        </button>
+      </footer>
     </div>
 
     <!-- ============================================ -->
@@ -419,7 +502,11 @@ interface SpecialtyTile {
   `,
   styles: [`
     :host { display: block; }
-    .dash { max-width: 920px; margin: 0 auto; padding-bottom: 60px; }
+    .dash {
+      max-width: 920px; margin: 0 auto;
+      /* leave room for the sticky CSAT strip + safe-area */
+      padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    }
     .skeleton-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
 
     /* ===== Greeting ===== */
@@ -710,25 +797,153 @@ interface SpecialtyTile {
     .sp-name { font-size: 13px; color: #1b3a4b; text-align: center; }
     .sp-meta { font-size: 11px; color: #90a4ae; }
 
-    /* ===== CSAT (subtle) ===== */
-    .csat-section {
-      margin-top: 24px; padding: 14px 16px;
-      background: #fafbfd; border: 1px solid #eceff1;
-      border-radius: 12px; position: relative;
+    /* ===== Sticky CSAT strip (bottom) ===== */
+    .csat-strip {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 50;
+      padding: 10px 16px env(safe-area-inset-bottom, 10px);
+      pointer-events: none; /* let inner element handle clicks */
     }
-    .csat-x { position: absolute; top: 4px; right: 4px; width: 28px !important; height: 28px !important; line-height: 28px !important; }
-    .csat-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    .csat-inner {
+      pointer-events: auto;
+      max-width: 920px; margin: 0 auto;
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 14px;
+      background: white;
+      border: 1px solid #e3e7f5;
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(26, 35, 126, 0.08);
     }
-    .csat-text { font-size: 13px; color: #455a64; }
-    .csat-stars { display: flex; gap: 0; }
-    .csat-star { width: 32px !important; height: 32px !important; line-height: 32px !important; color: #cfd8dc; }
-    .csat-star.on { color: #ffc107; }
-    .csat-ty {
-      display: flex; align-items: center; gap: 6px; margin-top: 8px;
-      font-size: 13px; color: #2e7d32;
+    .csat-text { flex: 1; font-size: 13px; color: #1b3a4b; font-weight: 500; min-width: 0; }
+    .csat-stars { display: flex; gap: 0; flex-shrink: 0; }
+    .csat-star {
+      width: 32px !important; height: 32px !important; line-height: 32px !important;
+      color: #cfd8dc !important;
     }
-    .csat-ty mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .csat-star.on { color: #ffc107 !important; }
+    .csat-star mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .csat-x {
+      width: 28px !important; height: 28px !important; line-height: 28px !important;
+      flex-shrink: 0; color: #90a4ae !important;
+    }
+    .csat-x mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+    /* ===== Feedback Form (slides from top) ===== */
+    .form-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 1100;
+      animation: fadeIn 0.2s ease;
+    }
+    .feedback-form {
+      position: fixed;
+      top: 0; left: 50%;
+      transform: translate(-50%, -110%);
+      width: min(560px, calc(100vw - 24px));
+      max-height: calc(100vh - 24px);
+      margin-top: 12px;
+      background: white;
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+      z-index: 1101;
+      display: flex; flex-direction: column;
+      visibility: hidden;
+      transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  visibility 0.32s linear;
+    }
+    .feedback-form.open {
+      transform: translate(-50%, 0);
+      visibility: visible;
+    }
+
+    .ff-head {
+      padding: 18px 20px 14px;
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+      border-bottom: 1px solid #eceff1;
+      flex-shrink: 0;
+    }
+    .ff-head-text { flex: 1; min-width: 0; }
+    .ff-head h3 {
+      margin: 0; font-size: 17px; font-weight: 600; color: #1b3a4b;
+      line-height: 1.3;
+    }
+    .ff-head p { margin: 4px 0 0; font-size: 13px; color: #607d8b; }
+    .ff-close { flex-shrink: 0; }
+
+    .ff-body {
+      padding: 16px 20px 4px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    .ff-label {
+      display: block;
+      font-size: 12px; font-weight: 600; color: #455a64;
+      text-transform: uppercase; letter-spacing: .04em;
+      margin: 12px 0 6px;
+    }
+    .ff-optional {
+      text-transform: none; letter-spacing: 0;
+      color: #b0bec5; font-weight: 500;
+    }
+    .ff-full { width: 100%; }
+    .ff-full ::ng-deep .mat-mdc-text-field-wrapper { background: white; }
+    .ff-full ::ng-deep .mat-mdc-form-field-infix {
+      min-height: 40px; padding-top: 10px !important; padding-bottom: 10px !important;
+    }
+
+    .ff-stars {
+      display: flex; align-items: center; gap: 4px;
+      margin: 2px 0 4px;
+    }
+    .ff-star {
+      width: 40px !important; height: 40px !important; line-height: 40px !important;
+      color: #cfd8dc !important;
+    }
+    .ff-star.on { color: #ffc107 !important; }
+    .ff-star mat-icon { font-size: 28px; width: 28px; height: 28px; }
+    .ff-rating-label {
+      margin-left: 8px; font-size: 13px; color: #607d8b; font-weight: 600;
+    }
+
+    .ff-tag-grid {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 4px;
+    }
+    .ff-tag {
+      padding: 6px 12px; border-radius: 18px;
+      border: 1.5px solid #e0e4ea; background: white;
+      color: #455a64; font-size: 12px; font-family: inherit; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .ff-tag:hover { border-color: #c5cae9; color: #1a237e; }
+    .ff-tag.on { background: #eef0fb; border-color: #1a237e; color: #1a237e; font-weight: 600; }
+
+    .ff-textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 10px 12px;
+      border: 1px solid #e0e4ea; border-radius: 10px;
+      font: inherit; font-size: 13px; color: #1b3a4b;
+      background: white; resize: vertical;
+      min-height: 64px;
+    }
+    .ff-textarea:focus { outline: none; border-color: #1a237e; }
+    .ff-textarea::placeholder { color: #b0bec5; }
+
+    .ff-footer {
+      padding: 14px 20px;
+      display: flex; gap: 10px; justify-content: flex-end;
+      border-top: 1px solid #eceff1;
+      background: #fafafa;
+      flex-shrink: 0;
+    }
+    .ff-footer button {
+      height: 40px !important;
+      font-size: 13px !important; font-weight: 600 !important;
+      border-radius: 10px !important;
+      padding: 0 18px !important;
+    }
 
     /* ===== Side Sheet ===== */
     .sheet-backdrop {
@@ -873,7 +1088,21 @@ interface SpecialtyTile {
       .ap-manage { flex: 1; margin-left: 0; }
       .care-card { width: 280px; }
       .specialty-grid { grid-template-columns: repeat(3, 1fr); }
-      .csat-row { flex-direction: column; align-items: flex-start; }
+
+      /* CSAT strip — mobile */
+      .csat-strip { padding: 8px 10px env(safe-area-inset-bottom, 8px); }
+      .csat-inner { padding: 6px 10px; gap: 6px; border-radius: 12px; }
+      .csat-text { font-size: 12px; }
+      .csat-star { width: 30px !important; height: 30px !important; line-height: 30px !important; }
+      .csat-star mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+      /* Feedback form — full-width mobile */
+      .feedback-form {
+        width: 100%; max-width: 100%;
+        max-height: 100vh; height: 100vh;
+        margin: 0; border-radius: 0;
+      }
+      .feedback-form.open { transform: translate(-50%, 0); }
 
       /* Mobile bottom sheet */
       .side-sheet {
@@ -888,6 +1117,7 @@ interface SpecialtyTile {
       .skeleton-grid { grid-template-columns: 1fr 1fr; }
       .quick-grid { grid-template-columns: repeat(3, 1fr); }
       .specialty-grid { grid-template-columns: repeat(2, 1fr); }
+      .csat-text { font-size: 11px; }
     }
   `]
 })
@@ -901,8 +1131,24 @@ export class DashboardComponent implements OnInit {
   readonly consultations = signal<Consultation[]>([]);
   readonly feedbackDismissed = signal(false);
   readonly feedbackRating = signal(0);
+  readonly feedbackFormOpen = signal(false);
   readonly manageOpen = signal(false);
   readonly reportContext = signal<ReportContext | null>(null);
+
+  // Feedback form fields
+  readonly ffVisit = signal<string>('general');
+  readonly ffPositives = signal<Set<string>>(new Set());
+  readonly ffNegatives = signal<Set<string>>(new Set());
+  readonly ffComments = signal<string>('');
+
+  readonly positiveTags = [
+    'Friendly staff', 'Clean facility', 'Short wait time',
+    'Clear explanation', 'Easy booking', 'Professional care'
+  ];
+  readonly negativeTags = [
+    'Long wait time', 'Billing clarity', 'Parking',
+    'Communication', 'Facility upkeep', 'Booking availability'
+  ];
 
   // Order: most-likely tap targets first
   readonly actionChips = [
@@ -1187,10 +1433,64 @@ export class DashboardComponent implements OnInit {
     this.closeManage();
   }
 
+  /** Called from the sticky strip — sets rating and opens the full feedback form. */
+  startFeedback(rating: number): void {
+    this.submitFeedback(rating);
+    this.feedbackFormOpen.set(true);
+  }
+
+  /** Sets the rating. Kept as a public method for spec/back-compat. */
   submitFeedback(rating: number): void {
     this.feedbackRating.set(rating);
-    setTimeout(() => this.feedbackDismissed.set(true), 2000);
   }
+
+  closeFeedbackForm(): void {
+    this.feedbackFormOpen.set(false);
+  }
+
+  togglePositive(tag: string): void {
+    this.ffPositives.update(s => {
+      const next = new Set(s);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  }
+
+  toggleNegative(tag: string): void {
+    this.ffNegatives.update(s => {
+      const next = new Set(s);
+      next.has(tag) ? next.delete(tag) : next.add(tag);
+      return next;
+    });
+  }
+
+  submitFullFeedback(): void {
+    // In a real build, POST to feedback endpoint. For demo, just log + thank-you.
+    this.snackBar.open(
+      `Thanks for your feedback (${this.feedbackRating()}★) — your responses help us improve`,
+      'Close',
+      { duration: 4000 }
+    );
+    this.feedbackFormOpen.set(false);
+    this.feedbackDismissed.set(true);
+    // Reset form so re-opening starts fresh next time
+    this.ffPositives.set(new Set());
+    this.ffNegatives.set(new Set());
+    this.ffComments.set('');
+    this.ffVisit.set('general');
+  }
+
+  ratingWord(rating: number): string {
+    if (!rating) return 'Tap a star';
+    return ({ 1: 'Poor', 2: 'Fair', 3: 'Okay', 4: 'Good', 5: 'Excellent' } as Record<number, string>)[rating] ?? '';
+  }
+
+  readonly recentVisitOptions = computed(() =>
+    this.consultations()
+      .slice()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5)
+  );
 
   dismissAlert(id: string): void {
     const d = this.data();

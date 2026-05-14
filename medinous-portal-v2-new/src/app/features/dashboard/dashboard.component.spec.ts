@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { RouterTestingModule } from '@angular/router/testing';
@@ -128,12 +128,19 @@ describe('DashboardComponent', () => {
     expect(component.feedbackRating()).toBe(4);
   });
 
-  it('should auto-dismiss feedback after rating', fakeAsync(() => {
-    component.submitFeedback(5);
-    expect(component.feedbackDismissed()).toBeFalse();
-    tick(2000);
+  it('should open the full feedback form when a star is tapped', () => {
+    expect(component.feedbackFormOpen()).toBeFalse();
+    component.startFeedback(5);
+    expect(component.feedbackRating()).toBe(5);
+    expect(component.feedbackFormOpen()).toBeTrue();
+  });
+
+  it('should dismiss strip after submitting the full form', () => {
+    component.startFeedback(4);
+    component.submitFullFeedback();
+    expect(component.feedbackFormOpen()).toBeFalse();
     expect(component.feedbackDismissed()).toBeTrue();
-  }));
+  });
 
   it('should not fail dismissAlert when data is null', () => {
     component.dismissAlert('any-id');
