@@ -186,8 +186,45 @@ interface SpecialtyTile {
           }
 
           <!-- ============================================ -->
-          <!-- 4. MEDICATIONS LINK CARD (compact)           -->
+          <!-- 4. HEALTH SNAPSHOT (vitals)                  -->
           <!-- ============================================ -->
+          @if (dashboardVitals().length > 0) {
+            <section class="section vitals-section">
+              <div class="sec-head">
+                <div class="sec-titles">
+                  <h2>Health Snapshot</h2>
+                  <p class="sec-sub">Latest recorded vitals</p>
+                </div>
+                <a class="sec-link" routerLink="/consultations">
+                  My Health <mat-icon>arrow_forward</mat-icon>
+                </a>
+              </div>
+              <div class="hscroll vitals-scroll">
+                @for (vital of dashboardVitals(); track vital.type) {
+                  <article class="vital-card" [class]="'v-' + vital.status">
+                    <div class="v-top">
+                      <div class="v-icon" [class]="'vbg-' + vital.status">
+                        <mat-icon>{{ getVitalIcon(vital) }}</mat-icon>
+                      </div>
+                      <span class="v-trend-chip" [class]="'tc-' + vital.status">
+                        <mat-icon>{{ trendIcon(vital) }}</mat-icon>
+                        {{ trendLabel(vital) }}
+                      </span>
+                    </div>
+                    <span class="v-label">{{ getVitalLabel(vital) }}</span>
+                    <div class="v-value-row">
+                      <span class="v-value">{{ vital.value }}</span>
+                      <span class="v-unit">{{ vital.unit }}</span>
+                    </div>
+                    <span class="v-time">Updated {{ vital.timestamp | date:'mediumDate' }}</span>
+                  </article>
+                }
+              </div>
+            </section>
+          }
+
+          <!-- ============================================ -->
+          <!-- 5. MEDICATIONS LINK CARD (compact)           -->
           <!-- ============================================ -->
           <a class="meds-link-card" routerLink="/medications">
             <div class="ml-illo">
