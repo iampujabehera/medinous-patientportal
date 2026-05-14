@@ -149,6 +149,57 @@ export interface ClinicLocation {
   isActive: boolean;
 }
 
+// Consultation history models
+export interface Consultation {
+  id: string;
+  date: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  doctorAvatarUrl?: string;
+  location: string;
+  type: 'in_person' | 'telehealth';
+  chiefComplaint: string;
+  diagnosis: ConsultationDiagnosis[];
+  investigations: ConsultationInvestigation[];
+  procedures: ConsultationProcedure[];
+  medications: ConsultationMedication[];
+  vitalsRecorded: ConsultationVital[];
+  notes?: string;
+  followUp?: { date: string; reason: string } | null;
+}
+
+export interface ConsultationDiagnosis {
+  description: string;
+  code?: string;
+  type: 'primary' | 'secondary';
+}
+
+export interface ConsultationInvestigation {
+  name: string;
+  category: 'lab' | 'imaging' | 'cardiac' | 'other';
+  status: 'pending' | 'completed' | 'reviewed';
+  resultDate?: string;
+}
+
+export interface ConsultationProcedure {
+  name: string;
+  outcome?: string;
+}
+
+export interface ConsultationMedication {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  instructions?: string;
+}
+
+export interface ConsultationVital {
+  label: string;
+  value: string;
+  unit?: string;
+}
+
 // Guest booking models
 export interface GuestPatient {
   firstName: string;

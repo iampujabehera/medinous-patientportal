@@ -717,6 +717,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <mat-icon matListItemIcon>event</mat-icon>
                 <span matListItemTitle>{{ 'nav.appointments' | translate }}</span>
               </a>
+              <a mat-list-item routerLink="/consultations" routerLinkActive="active-link"
+                 (click)="closeSidenavOnMobile()">
+                <mat-icon matListItemIcon>medical_information</mat-icon>
+                <span matListItemTitle>My Consultations</span>
+              </a>
               <a mat-list-item routerLink="/timeline" routerLinkActive="active-link"
                  (click)="closeSidenavOnMobile()">
                 <mat-icon matListItemIcon>folder_shared</mat-icon>

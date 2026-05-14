@@ -1,6 +1,7 @@
 import {
   DashboardSummary, TimelineEvent, Doctor,
-  BookingSlot, Medication, Payment, PatientDocument
+  BookingSlot, Medication, Payment, PatientDocument,
+  Consultation
 } from '../models/patient.model';
 
 export const MOCK_DASHBOARD: DashboardSummary = {
@@ -317,5 +318,213 @@ export const MOCK_DOCUMENTS: PatientDocument[] = [
     category: 'Biochemistry', fileType: 'pdf', fileSize: 210000,
     uploadDate: '2026-04-02T16:00:00', uploadedBy: 'Lab System',
     url: '/documents/doc-008.pdf', tags: ['lipid', 'cholesterol', 'routine']
+  }
+];
+
+export const MOCK_CONSULTATIONS: Consultation[] = [
+  {
+    id: 'con-001',
+    date: '2026-04-09T10:30:00',
+    doctorName: 'Dr. Rajesh Kumar',
+    doctorSpecialty: 'Cardiology',
+    location: 'BSH Juffair · Block A',
+    type: 'in_person',
+    chiefComplaint: 'Intermittent chest tightness and palpitations on exertion for the past 2 weeks.',
+    diagnosis: [
+      { description: 'Essential (primary) hypertension', code: 'I10', type: 'primary' },
+      { description: 'Mild left ventricular hypertrophy', code: 'I51.7', type: 'secondary' }
+    ],
+    investigations: [
+      { name: 'Electrocardiogram (ECG)', category: 'cardiac', status: 'completed', resultDate: '2026-04-09T11:15:00' },
+      { name: 'Echocardiogram', category: 'cardiac', status: 'completed', resultDate: '2026-04-10T09:00:00' },
+      { name: 'Lipid Panel', category: 'lab', status: 'reviewed', resultDate: '2026-04-11T08:30:00' },
+      { name: 'HbA1c', category: 'lab', status: 'reviewed', resultDate: '2026-04-11T08:30:00' }
+    ],
+    procedures: [
+      { name: 'In-clinic blood pressure monitoring (3 readings)', outcome: 'Mean BP 148/92 mmHg' }
+    ],
+    medications: [
+      { name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily', duration: '90 days', instructions: 'Take in the morning with water' },
+      { name: 'Aspirin', dosage: '75mg', frequency: 'Once daily', duration: '90 days', instructions: 'Take after food' }
+    ],
+    vitalsRecorded: [
+      { label: 'Blood Pressure', value: '148/92', unit: 'mmHg' },
+      { label: 'Heart Rate', value: '88', unit: 'bpm' },
+      { label: 'Weight', value: '74', unit: 'kg' },
+      { label: 'SpO₂', value: '98', unit: '%' }
+    ],
+    notes: 'Patient advised on DASH diet and 30 min daily aerobic activity. Reduce sodium intake. Follow-up in 4 weeks to reassess BP and discuss titration if needed.',
+    followUp: { date: '2026-05-07', reason: 'BP reassessment and medication review' }
+  },
+  {
+    id: 'con-002',
+    date: '2026-03-22T15:30:00',
+    doctorName: 'Dr. Sarah Chen',
+    doctorSpecialty: 'Dermatology',
+    location: 'Telehealth',
+    type: 'telehealth',
+    chiefComplaint: 'Recurrent itching and red patches on both forearms for 3 weeks. Worsening with stress.',
+    diagnosis: [
+      { description: 'Atopic dermatitis, mild–moderate, bilateral forearms', code: 'L20.9', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'Skin patch allergy test', category: 'lab', status: 'pending' }
+    ],
+    procedures: [],
+    medications: [
+      { name: 'Mometasone furoate cream', dosage: '0.1%', frequency: 'Twice daily', duration: '14 days', instructions: 'Apply thin layer to affected areas' },
+      { name: 'Cetirizine', dosage: '10mg', frequency: 'Once daily at night', duration: '14 days', instructions: 'For itching; may cause drowsiness' }
+    ],
+    vitalsRecorded: [],
+    notes: 'Advised to use fragrance-free moisturiser twice daily and avoid hot showers. If no improvement in 2 weeks, return for review.',
+    followUp: { date: '2026-04-05', reason: 'Treatment response review' }
+  },
+  {
+    id: 'con-003',
+    date: '2026-02-18T11:00:00',
+    doctorName: 'Dr. Lisa Wong',
+    doctorSpecialty: 'Endocrinology',
+    location: 'BSH Juffair · Block C',
+    type: 'in_person',
+    chiefComplaint: 'Quarterly diabetes follow-up. Self-reported fasting glucose has been creeping up.',
+    diagnosis: [
+      { description: 'Type 2 diabetes mellitus, sub-optimally controlled', code: 'E11.65', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'HbA1c', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
+      { name: 'Fasting Plasma Glucose', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
+      { name: 'Urine Microalbumin', category: 'lab', status: 'reviewed', resultDate: '2026-02-15T09:00:00' },
+      { name: 'Diabetic Retinopathy Screening', category: 'other', status: 'completed', resultDate: '2026-02-18T12:00:00' }
+    ],
+    procedures: [
+      { name: 'Diabetic foot examination', outcome: 'Sensation intact, no ulceration' }
+    ],
+    medications: [
+      { name: 'Metformin', dosage: '500mg', frequency: 'Twice daily', duration: '90 days', instructions: 'Take with meals' },
+      { name: 'Vitamin D3', dosage: '1000 IU', frequency: 'Once daily', duration: '90 days' }
+    ],
+    vitalsRecorded: [
+      { label: 'Blood Pressure', value: '132/84', unit: 'mmHg' },
+      { label: 'Weight', value: '76', unit: 'kg' },
+      { label: 'HbA1c', value: '7.4', unit: '%' }
+    ],
+    notes: 'HbA1c slightly above target (7.4 vs target <7.0). Reinforced dietary advice — carbohydrate portion control. Continue current dose; reassess at next visit.',
+    followUp: { date: '2026-05-18', reason: 'Quarterly HbA1c and medication review' }
+  },
+  {
+    id: 'con-004',
+    date: '2026-01-30T09:00:00',
+    doctorName: 'Dr. Ahmed Hassan',
+    doctorSpecialty: 'General Medicine',
+    location: 'BSH Juffair · Block A',
+    type: 'in_person',
+    chiefComplaint: 'Annual comprehensive health check-up. No active complaints.',
+    diagnosis: [
+      { description: 'Adult health check — no abnormalities detected on examination', code: 'Z00.0', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'Complete Blood Count', category: 'lab', status: 'reviewed', resultDate: '2026-01-30T14:00:00' },
+      { name: 'Comprehensive Metabolic Panel', category: 'lab', status: 'reviewed', resultDate: '2026-01-30T14:00:00' },
+      { name: 'Chest X-Ray', category: 'imaging', status: 'reviewed', resultDate: '2026-01-30T15:30:00' },
+      { name: 'Resting ECG', category: 'cardiac', status: 'reviewed', resultDate: '2026-01-30T10:30:00' }
+    ],
+    procedures: [
+      { name: 'General physical examination', outcome: 'Unremarkable' },
+      { name: 'Body composition analysis', outcome: 'BMI 24.6 — normal range' }
+    ],
+    medications: [],
+    vitalsRecorded: [
+      { label: 'Blood Pressure', value: '124/78', unit: 'mmHg' },
+      { label: 'Heart Rate', value: '70', unit: 'bpm' },
+      { label: 'Temperature', value: '36.7', unit: '°C' },
+      { label: 'SpO₂', value: '99', unit: '%' },
+      { label: 'Weight', value: '73', unit: 'kg' }
+    ],
+    notes: 'Overall in good health. Recommended to continue regular exercise and consider repeating annual check-up in 12 months.',
+    followUp: null
+  },
+  {
+    id: 'con-005',
+    date: '2025-11-12T14:00:00',
+    doctorName: 'Dr. Vikram Patel',
+    doctorSpecialty: 'Orthopedics',
+    location: 'BSH Juffair · Block B',
+    type: 'in_person',
+    chiefComplaint: 'Left knee pain on stairs and after long walks for the past 6 weeks. No trauma.',
+    diagnosis: [
+      { description: 'Patellofemoral pain syndrome, left knee', code: 'M22.2', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'MRI Left Knee', category: 'imaging', status: 'reviewed', resultDate: '2025-11-15T10:00:00' },
+      { name: 'X-Ray Bilateral Knees (AP/Lateral)', category: 'imaging', status: 'reviewed', resultDate: '2025-11-12T15:00:00' }
+    ],
+    procedures: [
+      { name: 'Special tests: McMurray, Lachman, anterior drawer', outcome: 'All negative' },
+      { name: 'Joint range of motion assessment', outcome: 'Full ROM, mild crepitus' }
+    ],
+    medications: [
+      { name: 'Diclofenac sodium', dosage: '50mg', frequency: 'Twice daily after food', duration: '10 days', instructions: 'Stop if any gastric discomfort' },
+      { name: 'Diclofenac gel', dosage: '1%', frequency: 'Apply 3 times daily', duration: '14 days' }
+    ],
+    vitalsRecorded: [
+      { label: 'Blood Pressure', value: '130/82', unit: 'mmHg' },
+      { label: 'Weight', value: '75', unit: 'kg' }
+    ],
+    notes: 'Referred to physiotherapy — 6 sessions focusing on quadriceps strengthening. Avoid high-impact activity for 2 weeks. Ice for 15 min after activity.',
+    followUp: { date: '2025-12-10', reason: 'Reassessment post physiotherapy' }
+  },
+  {
+    id: 'con-006',
+    date: '2025-09-04T16:30:00',
+    doctorName: 'Dr. Fatima Al-Rashid',
+    doctorSpecialty: 'ENT',
+    location: 'BSH Juffair · Block A',
+    type: 'in_person',
+    chiefComplaint: 'Recurrent nasal congestion, facial pressure and headache. Third episode this year.',
+    diagnosis: [
+      { description: 'Chronic rhinosinusitis with nasal polyps', code: 'J33.0', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'CT Paranasal Sinuses', category: 'imaging', status: 'reviewed', resultDate: '2025-09-06T11:00:00' },
+      { name: 'Nasal endoscopy', category: 'other', status: 'completed', resultDate: '2025-09-04T17:00:00' }
+    ],
+    procedures: [
+      { name: 'Nasal endoscopy (in-clinic)', outcome: 'Small polyps in both middle meatuses' }
+    ],
+    medications: [
+      { name: 'Mometasone nasal spray', dosage: '50 mcg/spray, 2 sprays each nostril', frequency: 'Once daily', duration: '60 days' },
+      { name: 'Amoxicillin-clavulanate', dosage: '625mg', frequency: 'Three times daily', duration: '10 days', instructions: 'Complete full course' },
+      { name: 'Saline nasal rinse', dosage: '—', frequency: 'Twice daily', duration: 'Ongoing' }
+    ],
+    vitalsRecorded: [
+      { label: 'Temperature', value: '37.4', unit: '°C' },
+      { label: 'Blood Pressure', value: '126/80', unit: 'mmHg' }
+    ],
+    notes: 'If symptoms persist beyond 4 weeks despite medical management, consider FESS (functional endoscopic sinus surgery) consultation.',
+    followUp: { date: '2025-10-02', reason: 'Sinus response review' }
+  },
+  {
+    id: 'con-007',
+    date: '2025-07-21T11:30:00',
+    doctorName: 'Dr. Rajesh Kumar',
+    doctorSpecialty: 'Cardiology',
+    location: 'Telehealth',
+    type: 'telehealth',
+    chiefComplaint: 'Telehealth follow-up after lifestyle changes. Symptoms resolved.',
+    diagnosis: [
+      { description: 'Essential hypertension — well controlled on therapy', code: 'I10', type: 'primary' }
+    ],
+    investigations: [
+      { name: 'Home BP log review', category: 'other', status: 'reviewed' }
+    ],
+    procedures: [],
+    medications: [
+      { name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily', duration: '180 days', instructions: 'Continue current regimen' }
+    ],
+    vitalsRecorded: [
+      { label: 'Average home BP (2 weeks)', value: '128/82', unit: 'mmHg' }
+    ],
+    notes: 'Excellent home BP control. Continue medication and lifestyle changes. Annual lipid review due.',
+    followUp: { date: '2026-01-21', reason: 'Annual cardiovascular review' }
   }
 ];

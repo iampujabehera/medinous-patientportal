@@ -5,11 +5,12 @@ import { GeographyService } from './geography.service';
 import {
   DashboardSummary, TimelineEvent, Appointment,
   Doctor, BookingSlot, Medication, Payment, PatientDocument,
-  GuestPatient, GuestBookingResult
+  GuestPatient, GuestBookingResult, Consultation
 } from '../models/patient.model';
 import {
   MOCK_DASHBOARD, MOCK_TIMELINE, MOCK_DOCTORS, MOCK_SLOTS,
-  MOCK_MEDICATIONS, MOCK_PAYMENTS, MOCK_DOCUMENTS
+  MOCK_MEDICATIONS, MOCK_PAYMENTS, MOCK_DOCUMENTS,
+  MOCK_CONSULTATIONS
 } from './mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -27,6 +28,20 @@ export class ApiService {
       return of(MOCK_DASHBOARD).pipe(delay(800));
     }
     return this.http.get<DashboardSummary>(`${this.baseUrl}/dashboard`);
+  }
+
+  getConsultations(): Observable<Consultation[]> {
+    if (this.useMocks) {
+      return of([...MOCK_CONSULTATIONS]).pipe(delay(500));
+    }
+    return this.http.get<Consultation[]>(`${this.baseUrl}/consultations`);
+  }
+
+  getConsultationById(id: string): Observable<Consultation | undefined> {
+    if (this.useMocks) {
+      return of(MOCK_CONSULTATIONS.find(c => c.id === id)).pipe(delay(300));
+    }
+    return this.http.get<Consultation>(`${this.baseUrl}/consultations/${id}`);
   }
 
   getTimeline(page: number, pageSize: number): Observable<TimelineEvent[]> {

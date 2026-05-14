@@ -19,6 +19,10 @@ export const routes: Routes = [
         loadChildren: () => import('./features/appointments/appointments.routes').then(m => m.APPOINTMENTS_ROUTES)
       },
       {
+        path: 'consultations',
+        loadChildren: () => import('./features/consultations/consultations.routes').then(m => m.CONSULTATIONS_ROUTES)
+      },
+      {
         path: 'medications',
         loadChildren: () => import('./features/medications/medications.routes').then(m => m.MEDICATIONS_ROUTES)
       },
