@@ -749,7 +749,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <div class="cp-head-icon"><mat-icon>lock_reset</mat-icon></div>
           <div class="cp-head-text">
             <h3>Change Password</h3>
-            <p>Verify it's you, then choose a new password.</p>
+            <p>Enter your current password and choose a new one.</p>
           </div>
           <button mat-icon-button class="cp-close" (click)="closeChangePassword()" aria-label="Close">
             <mat-icon>close</mat-icon>
@@ -757,137 +757,146 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         </header>
 
         <div class="cp-body">
-          <!-- Stepper -->
-          <div class="cp-stepper">
-            <div class="cp-step" [class.active]="cpStep() >= 1" [class.done]="cpStep() > 1">
-              <span class="cp-step-num">{{ cpStep() > 1 ? '✓' : '1' }}</span>
-              <span class="cp-step-label">Identify</span>
+
+          <!-- ====== CURRENT-PASSWORD SLOT (mode switches inside this slot) ====== -->
+          @if (cpRecoveryMode() === 'password') {
+            <div class="cp-label-row">
+              <label class="cp-label">Current Password</label>
+              <a class="cp-forgot-link" (click)="cpStartRecovery()">Forgot current password?</a>
             </div>
-            <div class="cp-step-line" [class.done]="cpStep() > 1"></div>
-            <div class="cp-step" [class.active]="cpStep() >= 2" [class.done]="cpStep() > 2">
-              <span class="cp-step-num">{{ cpStep() > 2 ? '✓' : '2' }}</span>
-              <span class="cp-step-label">Verify</span>
+            <div class="cp-field">
+              <input class="cp-input"
+                     [type]="showCurrent() ? 'text' : 'password'"
+                     placeholder="Enter your current password"
+                     autocomplete="current-password"
+                     [ngModel]="cpCurrent()" (ngModelChange)="cpCurrent.set($event)">
+              <button mat-icon-button class="cp-eye" (click)="showCurrent.set(!showCurrent())"
+                      aria-label="Show or hide current password">
+                <mat-icon>{{ showCurrent() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
             </div>
-            <div class="cp-step-line" [class.done]="cpStep() > 2"></div>
-            <div class="cp-step" [class.active]="cpStep() >= 3">
-              <span class="cp-step-num">3</span>
-              <span class="cp-step-label">New Password</span>
+          }
+
+          <!-- OTP recovery — Send OTP prompt -->
+          @if (cpRecoveryMode() === 'otp-send') {
+            <div class="cp-recovery-card">
+              <div class="cp-recovery-head">
+                <mat-icon>sms</mat-icon>
+                <span>Reset using OTP</span>
+                <a class="cp-back-link" (click)="cpCancelRecovery()">Use current password</a>
+              </div>
+              <p class="cp-recovery-text">
+                We'll send a 6-digit OTP to your registered mobile <strong>{{ cpMaskedPhone }}</strong>.
+              </p>
+              <button mat-flat-button color="primary" class="cp-otp-btn" (click)="cpSendOtp()">
+                <mat-icon>send</mat-icon> Send OTP
+              </button>
             </div>
+          }
+
+          <!-- OTP recovery — Enter OTP -->
+          @if (cpRecoveryMode() === 'otp-verify') {
+            <div class="cp-recovery-card">
+              <div class="cp-recovery-head">
+                <mat-icon>sms</mat-icon>
+                <span>Enter OTP</span>
+                <a class="cp-back-link" (click)="cpCancelRecovery()">Use current password</a>
+              </div>
+              <p class="cp-recovery-text">
+                Enter the 6-digit code sent to <strong>{{ cpMaskedPhone }}</strong>.
+              </p>
+              <div class="cp-otp-row">
+                <div class="cp-field cp-otp-input-field">
+                  <input class="cp-input"
+                         type="text" inputmode="numeric" maxlength="6"
+                         placeholder="6-digit code"
+                         autocomplete="one-time-code"
+                         [ngModel]="cpOtp()" (ngModelChange)="cpOtp.set($event)"
+                         (keyup.enter)="cpVerifyOtp()">
+                </div>
+                <button mat-flat-button color="primary" class="cp-otp-btn-inline"
+                        [disabled]="cpOtp().length !== 6" (click)="cpVerifyOtp()">
+                  Verify
+                </button>
+              </div>
+              <div class="cp-otp-meta">
+                <span class="cp-otp-hint">Demo OTP: <code>123456</code></span>
+                <a class="cp-resend" (click)="cpSendOtp()">Resend</a>
+              </div>
+            </div>
+          }
+
+          <!-- OTP recovery — Verified pill -->
+          @if (cpRecoveryMode() === 'otp-verified') {
+            <div class="cp-verified">
+              <mat-icon>verified</mat-icon>
+              <span>OTP verified — you can now set a new password.</span>
+              <a class="cp-back-link" (click)="cpCancelRecovery()">Use current password</a>
+            </div>
+          }
+
+          <!-- ====== NEW PASSWORD ====== -->
+          <label class="cp-label">New Password</label>
+          <div class="cp-field">
+            <input class="cp-input"
+                   [type]="showNew() ? 'text' : 'password'"
+                   placeholder="Enter a new password"
+                   autocomplete="new-password"
+                   [ngModel]="cpNew()" (ngModelChange)="cpNew.set($event)">
+            <button mat-icon-button class="cp-eye" (click)="showNew.set(!showNew())"
+                    aria-label="Show or hide new password">
+              <mat-icon>{{ showNew() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
           </div>
 
-          <!-- Step 1: Identify -->
-          @if (cpStep() === 1) {
-            <p class="cp-step-desc">
-              We'll send a 6-digit OTP to the mobile registered with your account.
-            </p>
-            <div class="cp-identity">
-              <div class="cp-identity-row">
-                <span class="cp-identity-label">Patient ID</span>
-                <strong>{{ cpPatientId }}</strong>
-              </div>
-              <div class="cp-identity-row">
-                <span class="cp-identity-label">Mobile</span>
-                <strong>{{ cpMaskedPhone }}</strong>
-              </div>
-            </div>
-            <button mat-flat-button color="primary" class="cp-step-btn" (click)="cpSendOtp()">
-              <mat-icon>send</mat-icon> Send OTP
-            </button>
+          @if (cpNew().length > 0) {
+            <ul class="cp-rules">
+              <li [class.met]="ruleLength()">
+                <mat-icon>{{ ruleLength() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                At least 8 characters
+              </li>
+              <li [class.met]="ruleNumber()">
+                <mat-icon>{{ ruleNumber() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                Contains a number
+              </li>
+              <li [class.met]="ruleUpper()">
+                <mat-icon>{{ ruleUpper() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                Contains an uppercase letter
+              </li>
+            </ul>
           }
 
-          <!-- Step 2: Verify -->
-          @if (cpStep() === 2) {
-            <p class="cp-step-desc">
-              Enter the 6-digit code we sent to <strong>{{ cpMaskedPhone }}</strong>.
-            </p>
-            <label class="cp-label">Verification Code</label>
-            <div class="cp-field">
-              <input class="cp-input"
-                     type="text" inputmode="numeric" maxlength="6"
-                     placeholder="6-digit code"
-                     autocomplete="one-time-code"
-                     [ngModel]="cpOtp()" (ngModelChange)="cpOtp.set($event)"
-                     (keyup.enter)="cpVerifyOtp()">
-            </div>
-            <p class="cp-otp-hint">Demo OTP: <code>123456</code></p>
-            <div class="cp-otp-meta">
-              <span>Didn't receive it?</span>
-              <a class="cp-resend" (click)="cpSendOtp()">Resend OTP</a>
-            </div>
-            <button mat-flat-button color="primary" class="cp-step-btn"
-                    [disabled]="cpOtp().length !== 6" (click)="cpVerifyOtp()">
-              <mat-icon>check</mat-icon> Verify
+          <!-- ====== CONFIRM ====== -->
+          <label class="cp-label">Re-confirm Password</label>
+          <div class="cp-field"
+               [class.cp-error]="cpConfirm().length > 0 && !ruleMatch()">
+            <input class="cp-input"
+                   [type]="showConfirm() ? 'text' : 'password'"
+                   placeholder="Re-enter the new password"
+                   autocomplete="new-password"
+                   [ngModel]="cpConfirm()" (ngModelChange)="cpConfirm.set($event)"
+                   (keyup.enter)="submitChangePassword()">
+            <button mat-icon-button class="cp-eye" (click)="showConfirm.set(!showConfirm())"
+                    aria-label="Show or hide confirm password">
+              <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
             </button>
-          }
-
-          <!-- Step 3: New password -->
-          @if (cpStep() === 3) {
-            <p class="cp-step-desc">Set a new password. Make it strong.</p>
-
-            <label class="cp-label">New Password</label>
-            <div class="cp-field">
-              <input class="cp-input"
-                     [type]="showNew() ? 'text' : 'password'"
-                     placeholder="Enter a new password"
-                     autocomplete="new-password"
-                     [ngModel]="cpNew()" (ngModelChange)="cpNew.set($event)">
-              <button mat-icon-button class="cp-eye" (click)="showNew.set(!showNew())"
-                      aria-label="Show or hide new password">
-                <mat-icon>{{ showNew() ? 'visibility_off' : 'visibility' }}</mat-icon>
-              </button>
-            </div>
-
-            @if (cpNew().length > 0) {
-              <ul class="cp-rules">
-                <li [class.met]="ruleLength()">
-                  <mat-icon>{{ ruleLength() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                  At least 8 characters
-                </li>
-                <li [class.met]="ruleNumber()">
-                  <mat-icon>{{ ruleNumber() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                  Contains a number
-                </li>
-                <li [class.met]="ruleUpper()">
-                  <mat-icon>{{ ruleUpper() ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-                  Contains an uppercase letter
-                </li>
-              </ul>
-            }
-
-            <label class="cp-label">Confirm New Password</label>
-            <div class="cp-field"
-                 [class.cp-error]="cpConfirm().length > 0 && !ruleMatch()">
-              <input class="cp-input"
-                     [type]="showConfirm() ? 'text' : 'password'"
-                     placeholder="Re-enter the new password"
-                     autocomplete="new-password"
-                     [ngModel]="cpConfirm()" (ngModelChange)="cpConfirm.set($event)"
-                     (keyup.enter)="submitChangePassword()">
-              <button mat-icon-button class="cp-eye" (click)="showConfirm.set(!showConfirm())"
-                      aria-label="Show or hide confirm password">
-                <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
-              </button>
-            </div>
-            @if (cpConfirm().length > 0 && !ruleMatch()) {
-              <span class="cp-error-text">
-                <mat-icon>error_outline</mat-icon>
-                Passwords do not match
-              </span>
-            }
-
-            <button mat-flat-button color="primary" class="cp-step-btn"
-                    [disabled]="!canSubmitChangePassword()"
-                    (click)="submitChangePassword()">
-              <mat-icon>check_circle</mat-icon> Update Password
-            </button>
+          </div>
+          @if (cpConfirm().length > 0 && !ruleMatch()) {
+            <span class="cp-error-text">
+              <mat-icon>error_outline</mat-icon>
+              Passwords do not match
+            </span>
           }
         </div>
 
-        @if (cpStep() < 3 || cpNew().length === 0) {
-          <footer class="cp-footer">
-            <button mat-stroked-button (click)="closeChangePassword()">Cancel</button>
-          </footer>
-        }
+        <footer class="cp-footer">
+          <button mat-stroked-button (click)="closeChangePassword()">Cancel</button>
+          <button mat-flat-button color="primary"
+                  [disabled]="!canSubmitChangePassword()"
+                  (click)="submitChangePassword()">
+            Update Password
+          </button>
+        </footer>
       </div>
     }
   `,
@@ -1788,89 +1797,90 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       display: flex; flex-direction: column; gap: 6px;
     }
 
-    /* Stepper */
-    .cp-stepper {
-      display: flex; align-items: center; gap: 6px;
-      margin: 4px 0 18px; padding: 0 4px;
+    /* Label row with inline "Forgot current password?" link */
+    .cp-label-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0 6px;
     }
-    .cp-step {
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      flex-shrink: 0;
+    .cp-label-row .cp-label { margin: 0; }
+    .cp-forgot-link {
+      font-size: 12px; color: #1a237e; font-weight: 600;
+      cursor: pointer; text-decoration: none;
     }
-    .cp-step-num {
-      width: 30px; height: 30px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 600;
-      background: #e8eaee; color: #999;
-      transition: all 0.25s;
-    }
-    .cp-step.active .cp-step-num {
-      background: #1a237e; color: white;
-      box-shadow: 0 2px 8px rgba(26,35,126,0.32);
-    }
-    .cp-step.done .cp-step-num { background: #7986cb; color: white; }
-    .cp-step-label {
-      font-size: 11px; color: #888; font-weight: 500; letter-spacing: 0.2px;
-    }
-    .cp-step.active .cp-step-label { color: #1a237e; font-weight: 600; }
-    .cp-step-line {
-      flex: 1; height: 2px; background: #e8eaee;
-      margin-bottom: 18px; transition: background 0.25s;
-    }
-    .cp-step-line.done { background: #7986cb; }
+    .cp-forgot-link:hover { text-decoration: underline; }
 
-    /* Step descriptions / step-level CTAs */
-    .cp-step-desc {
-      font-size: 13px; color: #455a64; line-height: 1.5;
-      margin: 4px 0 14px; text-align: center;
-    }
-    .cp-step-desc strong { color: #1b3a4b; }
-
-    .cp-identity {
+    /* OTP recovery mini-card */
+    .cp-recovery-card {
       background: #f6f8fc; border: 1px solid #e3e7f5;
-      border-radius: 10px; padding: 12px 16px;
-      display: flex; flex-direction: column; gap: 6px;
-      margin-bottom: 16px;
+      border-radius: 12px; padding: 14px 16px;
+      margin: 10px 0 8px;
+      display: flex; flex-direction: column; gap: 10px;
     }
-    .cp-identity-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      font-size: 13px;
+    .cp-recovery-head {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #1a237e; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .04em;
     }
-    .cp-identity-label {
-      color: #607d8b; text-transform: uppercase; letter-spacing: .04em;
+    .cp-recovery-head mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .cp-recovery-head .cp-back-link {
+      margin-left: auto;
       font-size: 11px; font-weight: 600;
+      text-transform: none; letter-spacing: 0;
+      color: #607d8b; cursor: pointer;
     }
-    .cp-identity-row strong { color: #1b3a4b; font-size: 14px; }
+    .cp-recovery-head .cp-back-link:hover { color: #1a237e; text-decoration: underline; }
+    .cp-recovery-text { margin: 0; font-size: 13px; color: #455a64; line-height: 1.5; }
+    .cp-recovery-text strong { color: #1b3a4b; }
 
-    .cp-step-btn {
-      width: 100%;
-      height: 44px !important;
-      border-radius: 10px !important;
+    .cp-otp-btn {
+      align-self: stretch;
+      height: 40px !important; border-radius: 8px !important;
       font-weight: 600 !important;
-      margin-top: 4px;
     }
-    .cp-step-btn mat-icon {
-      font-size: 18px; width: 18px; height: 18px;
+    .cp-otp-btn mat-icon {
+      font-size: 16px; width: 16px; height: 16px;
       vertical-align: middle; margin-right: 4px;
     }
 
-    .cp-otp-hint {
-      font-size: 11px; color: #999; text-align: center;
-      margin: -2px 0 6px;
+    .cp-otp-row {
+      display: flex; gap: 8px; align-items: stretch;
+    }
+    .cp-otp-input-field { flex: 1; }
+    .cp-otp-btn-inline {
+      height: 44px !important; border-radius: 8px !important;
+      padding: 0 16px !important; font-weight: 600 !important;
+      flex-shrink: 0;
+    }
+
+    .cp-otp-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: #888;
     }
     .cp-otp-hint code {
-      background: #f3f4f6; padding: 1px 6px; border-radius: 4px;
+      background: #ffffff; padding: 1px 6px; border-radius: 4px;
       font-family: 'Courier New', monospace; color: #1b3a4b; font-weight: 600;
-    }
-    .cp-otp-meta {
-      display: flex; justify-content: center; gap: 6px;
-      font-size: 12px; color: #888;
-      margin: 0 0 14px;
+      border: 1px solid #e0e4ea;
     }
     .cp-resend {
       color: #1a237e; font-weight: 600; cursor: pointer;
     }
     .cp-resend:hover { text-decoration: underline; }
+
+    /* OTP-verified success pill */
+    .cp-verified {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; margin: 10px 0 8px;
+      background: #e8f5e9; border: 1px solid #c8e6c9;
+      border-radius: 10px;
+      font-size: 13px; color: #1b5e20; font-weight: 500;
+    }
+    .cp-verified mat-icon { color: #2e7d32; font-size: 18px; width: 18px; height: 18px; }
+    .cp-verified .cp-back-link {
+      margin-left: auto; font-size: 11px; font-weight: 600;
+      color: #607d8b; cursor: pointer; text-transform: none; letter-spacing: 0;
+    }
+    .cp-verified .cp-back-link:hover { color: #1a237e; text-decoration: underline; }
 
     .cp-label {
       display: block;
@@ -1961,17 +1971,20 @@ export class ShellComponent {
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
 
-  // ===== Change Password (OTP-driven, mirrors forgot-password flow) =====
+  // ===== Change Password =====
+  // Default flow: current + new + confirm.
+  // Escape hatch: "Forgot current password?" replaces the current-password
+  // field with an inline OTP recovery mini-flow.
   readonly changePasswordOpen = signal(false);
-  readonly cpStep = signal<1 | 2 | 3>(1);
+  readonly cpRecoveryMode = signal<'password' | 'otp-send' | 'otp-verify' | 'otp-verified'>('password');
+  readonly cpCurrent = signal('');
   readonly cpOtp = signal('');
   readonly cpNew = signal('');
   readonly cpConfirm = signal('');
+  readonly showCurrent = signal(false);
   readonly showNew = signal(false);
   readonly showConfirm = signal(false);
 
-  // Patient identity surfaced on step 1
-  readonly cpPatientId = '12345678';
   readonly cpMaskedPhone = '+973 ••• ••55';
 
   readonly ruleLength = computed(() => this.cpNew().length >= 8);
@@ -1981,18 +1994,28 @@ export class ShellComponent {
     this.cpConfirm().length > 0 && this.cpConfirm() === this.cpNew()
   );
 
-  readonly canSubmitChangePassword = computed(() =>
-    this.ruleLength() &&
-    this.ruleNumber() &&
-    this.ruleUpper() &&
-    this.ruleMatch()
-  );
+  /**
+   * Submit is enabled when either the current password is provided
+   * OR the user has completed OTP recovery, AND the new-password
+   * rules + confirm match pass.
+   */
+  readonly canSubmitChangePassword = computed(() => {
+    const authProvided =
+      this.cpRecoveryMode() === 'otp-verified' || this.cpCurrent().length > 0;
+    return authProvided &&
+      this.ruleLength() &&
+      this.ruleNumber() &&
+      this.ruleUpper() &&
+      this.ruleMatch();
+  });
 
   openChangePassword(): void {
-    this.cpStep.set(1);
+    this.cpRecoveryMode.set('password');
+    this.cpCurrent.set('');
     this.cpOtp.set('');
     this.cpNew.set('');
     this.cpConfirm.set('');
+    this.showCurrent.set(false);
     this.showNew.set(false);
     this.showConfirm.set(false);
     this.changePasswordOpen.set(true);
@@ -2002,15 +2025,26 @@ export class ShellComponent {
     this.changePasswordOpen.set(false);
   }
 
+  cpStartRecovery(): void {
+    this.cpCurrent.set('');
+    this.cpRecoveryMode.set('otp-send');
+  }
+
+  cpCancelRecovery(): void {
+    this.cpOtp.set('');
+    this.cpRecoveryMode.set('password');
+  }
+
   cpSendOtp(): void {
     this.cpOtp.set('');
-    this.cpStep.set(2);
+    this.cpRecoveryMode.set('otp-verify');
     this.snackBar.open(`OTP sent to ${this.cpMaskedPhone}`, 'Close', { duration: 2500 });
   }
 
   cpVerifyOtp(): void {
     if (this.cpOtp() === '123456') {
-      this.cpStep.set(3);
+      this.cpRecoveryMode.set('otp-verified');
+      this.snackBar.open('OTP verified', 'Close', { duration: 2000 });
     } else {
       this.snackBar.open('Incorrect OTP. Please try again.', 'Close', { duration: 3000 });
     }
@@ -2018,9 +2052,12 @@ export class ShellComponent {
 
   submitChangePassword(): void {
     if (!this.canSubmitChangePassword()) return;
-    // In a real build, POST to /auth/change-password with the OTP.
+    // In a real build, POST to /auth/change-password.
+    // Server-side this branches on whether the OTP was used or
+    // the current password was supplied.
     this.changePasswordOpen.set(false);
     this.snackBar.open('Password updated successfully', 'Close', { duration: 3500 });
+    this.cpCurrent.set('');
     this.cpOtp.set('');
     this.cpNew.set('');
     this.cpConfirm.set('');
