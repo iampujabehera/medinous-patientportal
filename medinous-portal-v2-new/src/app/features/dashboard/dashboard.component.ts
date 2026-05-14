@@ -108,17 +108,15 @@ interface SpecialtyTile {
                     <mat-icon>place</mat-icon>
                     <span>{{ appt.location }}</span>
                   </div>
-                  <div class="ap-actions">
-                    <button mat-icon-button class="ap-icon-btn" matTooltip="Get directions">
-                      <mat-icon>directions</mat-icon>
-                    </button>
-                    <button mat-icon-button class="ap-icon-btn" matTooltip="Add to calendar">
-                      <mat-icon>event_available</mat-icon>
-                    </button>
-                    <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
-                      Manage Booking
-                    </button>
-                  </div>
+                </div>
+                <div class="ap-top-actions">
+                  <button mat-icon-button class="ap-icon-btn" matTooltip="Add to calendar"
+                          (click)="actionPlaceholder('Adding to calendar')">
+                    <mat-icon>event_available</mat-icon>
+                  </button>
+                  <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
+                    Manage Booking
+                  </button>
                 </div>
               </article>
             </section>
@@ -619,7 +617,10 @@ interface SpecialtyTile {
 
     /* ===== Premium Appointment Card ===== */
     .appt-premium {
-      display: flex; gap: 16px; padding: 20px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: flex-start;
+      gap: 16px; padding: 20px;
       background: linear-gradient(135deg, #f8f9ff 0%, #eef0fb 100%);
       border: 1px solid #e3e7f5;
       border-radius: 16px;
@@ -638,7 +639,7 @@ interface SpecialtyTile {
     .aps-today { background: #fff3e0; color: #e65100; }
     .aps-tomorrow { background: #e8f5e9; color: #2e7d32; }
     .aps-upcoming { background: #e8eaf6; color: #3949ab; }
-    .ap-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .ap-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .ap-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .ap-name { font-size: 16px; color: #1b3a4b; font-weight: 600; }
     .ap-type-chip {
@@ -651,7 +652,12 @@ interface SpecialtyTile {
     .ap-spec { font-size: 13px; color: #607d8b; margin-bottom: 4px; }
     .ap-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #546e7a; }
     .ap-meta mat-icon { font-size: 15px; width: 15px; height: 15px; color: #90a4ae; }
-    .ap-actions { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* Top-right action cluster — calendar icon + Manage Booking */
+    .ap-top-actions {
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
     .ap-icon-btn {
       width: 36px !important; height: 36px !important;
       line-height: 36px !important;
@@ -661,7 +667,6 @@ interface SpecialtyTile {
     }
     .ap-icon-btn mat-icon { color: #1a237e; font-size: 18px; width: 18px; height: 18px; }
     .ap-manage {
-      margin-left: auto;
       font-weight: 600 !important; border-radius: 10px !important;
       height: 36px !important; padding: 0 18px !important;
       font-size: 13px !important;
@@ -1170,10 +1175,19 @@ interface SpecialtyTile {
     @media (max-width: 720px) {
       .greeting h1 { font-size: 20px; }
       .quick-grid { grid-template-columns: repeat(3, 1fr); }
-      .appt-premium { flex-direction: column; padding: 16px; gap: 12px; }
-      .ap-left { flex-direction: row; }
-      .ap-actions { gap: 6px; }
-      .ap-manage { flex: 1; margin-left: 0; }
+      /* On phones: avatar + body stack normally on row 1, then a
+         full-width action row underneath with Manage Booking stretched */
+      .appt-premium {
+        grid-template-columns: auto 1fr;
+        grid-template-areas:
+          'left body'
+          'actions actions';
+        padding: 16px; gap: 12px;
+      }
+      .ap-left { grid-area: left; }
+      .ap-body { grid-area: body; }
+      .ap-top-actions { grid-area: actions; justify-content: stretch; }
+      .ap-manage { flex: 1; }
       .care-card { width: 280px; }
       .specialty-grid { grid-template-columns: repeat(3, 1fr); }
       .help-banner { padding: 12px 14px; }
