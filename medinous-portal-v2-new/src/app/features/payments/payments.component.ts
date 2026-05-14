@@ -98,35 +98,6 @@ type SheetMode = 'balance' | 'add' | null;
       </header>
 
       <!-- ============================================ -->
-      <!-- LIGHTWEIGHT SUMMARY BAR                      -->
-      <!-- ============================================ -->
-      <div class="summary-bar">
-        <div class="sb-stats">
-          <div class="sb-stat">
-            <span class="sb-label">Pending</span>
-            <strong class="sb-value">{{ formatCurrency(totalPendingAll()) }}</strong>
-          </div>
-          <div class="sb-divider"></div>
-          <div class="sb-stat">
-            <span class="sb-label">Advance Balance</span>
-            <strong class="sb-value">{{ formatCurrency(advanceBalance()) }}</strong>
-          </div>
-          <div class="sb-divider"></div>
-          <div class="sb-stat">
-            <span class="sb-label">Last Payment</span>
-            <strong class="sb-value">{{ formatCurrency(lastPaymentAmount()) }}</strong>
-          </div>
-        </div>
-        @if (totalPendingAll() > 0) {
-          <div class="sb-actions">
-            <button mat-flat-button color="primary" class="sb-btn" (click)="goToPending()">
-              Pay Pending
-            </button>
-          </div>
-        }
-      </div>
-
-      <!-- ============================================ -->
       <!-- PAYMENT HISTORY (primary content)            -->
       <!-- ============================================ -->
       <section class="section history-section">
@@ -468,28 +439,6 @@ type SheetMode = 'balance' | 'add' | null;
       font-size: 12px;
     }
 
-    /* ===== Summary Bar ===== */
-    .summary-bar {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; flex-wrap: wrap;
-      background: #f6f8fc; border: 1px solid #eef0f6;
-      border-radius: 12px; padding: 12px 18px;
-      margin-bottom: 22px;
-    }
-    .sb-stats {
-      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-      flex: 1; min-width: 0;
-    }
-    .sb-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .sb-label {
-      font-size: 11px; color: #607d8b;
-      text-transform: uppercase; letter-spacing: .04em; font-weight: 600;
-    }
-    .sb-value { font-size: 16px; color: #222; font-weight: 700; }
-    .sb-divider { width: 1px; height: 28px; background: #e0e4ea; }
-    .sb-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .sb-btn { font-size: 13px !important; border-radius: 8px !important; height: 36px !important; }
-
     /* ===== Section ===== */
     .section { margin-bottom: 22px; }
     h2 { font-size: 16px; font-weight: 600; color: #222; margin: 0 0 12px; }
@@ -784,10 +733,6 @@ type SheetMode = 'balance' | 'add' | null;
       .header-actions { width: 100%; }
       .header-btn { flex: 1; justify-content: center; }
       .hb-amount { display: none; }
-      .summary-bar { padding: 12px 14px; }
-      .sb-stats { gap: 12px; }
-      .sb-value { font-size: 14px; }
-      .sb-divider { display: none; }
       .history-controls { flex-direction: column; align-items: stretch; }
       .time-select { width: 100%; }
       .txn-actions { flex-wrap: wrap; }
@@ -1049,13 +994,6 @@ export class PaymentsComponent implements OnInit {
       .reduce((sum, p) => sum + p.amount, 0);
   });
 
-  readonly lastPaymentAmount = computed(() => {
-    const completed = this.payments()
-      .filter(p => p.status === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return completed[0]?.amount ?? 0;
-  });
-
   // -------- Lifecycle --------
   ngOnInit(): void {
     this.api.getPayments().subscribe(payments => {
@@ -1094,15 +1032,6 @@ export class PaymentsComponent implements OnInit {
   // -------- Filter/tab handlers --------
   onFilterChange(filter: string): void {
     this.activeFilter.set(filter);
-  }
-
-  goToPending(): void {
-    this.activeFilter.set('pending');
-    // Scroll to the section so users see the list update
-    setTimeout(() => {
-      const el = document.querySelector('.history-section');
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
   }
 
   // -------- Currency / methods --------
