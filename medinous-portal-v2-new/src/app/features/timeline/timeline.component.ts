@@ -54,6 +54,9 @@ interface CategoryFilter {
         <div class="search-wrap">
           <mat-icon class="s-icon">search</mat-icon>
           <input class="s-input"
+                 type="search"
+                 name="records-search"
+                 autocomplete="off"
                  [ngModel]="searchQuery()"
                  (ngModelChange)="searchQuery.set($event)"
                  placeholder="Search records, providers...">
@@ -512,7 +515,6 @@ export class TimelineComponent implements OnInit {
 
   readonly categories: CategoryFilter[] = [
     { value: 'all',            label: 'All',         icon: 'apps' },
-    { value: 'appointment',    label: 'Visits',      icon: 'event' },
     { value: 'lab_result',     label: 'Labs',        icon: 'science' },
     { value: 'prescription',   label: 'Rx',          icon: 'medication' },
     { value: 'imaging',        label: 'Radiology',   icon: 'image' },
@@ -522,7 +524,7 @@ export class TimelineComponent implements OnInit {
   ];
 
   readonly filteredEvents = computed(() => {
-    let events = this.allEvents();
+    let events = this.allEvents().filter(e => e.type !== 'appointment');
     const days = this.selectedPeriod();
     const filter = this.activeFilter();
     const q = this.searchQuery().toLowerCase().trim();

@@ -14,22 +14,21 @@ import { Medication } from '../../core/models/patient.model';
 import { firstValueFrom } from 'rxjs';
 
 type RoutinePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
-type MedFilter = 'all' | 'recent' | RoutinePeriod | 'active' | 'completed';
+type MedFilter = 'all' | 'recent' | 'active' | 'completed';
 
-interface RoutineSlot {
+interface SessionMed {
+  id: string;
+  name: string;
+  doseLine: string;
+  instructions: string;
+  isActive: boolean;
+}
+
+interface SessionRoutine {
   period: RoutinePeriod;
   icon: string;
   label: string;
-  active: boolean;
-  dose: string;
-}
-
-interface PrescriptionGroup {
-  id: string;
-  doctor: string;
-  specialty: string;
-  date: string;
-  medications: Medication[];
+  meds: SessionMed[];
 }
 
 @Component({
@@ -48,7 +47,7 @@ interface PrescriptionGroup {
       <div class="page-head">
         <div>
           <h1>My Medications</h1>
-          <p class="sub">Active prescriptions and routine</p>
+          <p class="sub">Organised by routine</p>
         </div>
         @if (isOffline()) {
           <span class="offline-pill"><mat-icon>cloud_off</mat-icon> Offline</span>
@@ -60,6 +59,9 @@ interface PrescriptionGroup {
         <div class="search-wrap">
           <mat-icon class="s-icon">search</mat-icon>
           <input class="s-input"
+                 type="search"
+                 name="medication-search"
+                 autocomplete="off"
                  [ngModel]="searchQuery()"
                  (ngModelChange)="searchQuery.set($event)"
                  placeholder="Search medication...">
@@ -69,11 +71,23 @@ interface PrescriptionGroup {
             </button>
           }
         </div>
-        <button mat-stroked-button class="doc-btn" [matMenuTriggerFor]="docMenu">
+
+        <!-- Desktop: full button with doctor label -->
+        <button mat-stroked-button class="doc-btn doc-btn-desktop" [matMenuTriggerFor]="docMenu">
           <mat-icon class="doc-icon">medical_services</mat-icon>
           <span class="doc-label">{{ selectedDoctor() === 'all' ? 'All doctors' : selectedDoctor() }}</span>
           <mat-icon class="doc-caret" iconPositionEnd>expand_more</mat-icon>
         </button>
+
+        <!-- Mobile: icon-only filter button -->
+        <button class="doc-btn-mobile"
+                [class.has-filter]="selectedDoctor() !== 'all'"
+                [matMenuTriggerFor]="docMenu"
+                aria-label="Filter by doctor">
+          <mat-icon>tune</mat-icon>
+          @if (selectedDoctor() !== 'all') { <span class="doc-dot"></span> }
+        </button>
+
         <mat-menu #docMenu="matMenu">
           <button mat-menu-item (click)="selectedDoctor.set('all')">
             <mat-icon [class.invisible]="selectedDoctor() !== 'all'">check</mat-icon>
@@ -88,25 +102,13 @@ interface PrescriptionGroup {
         </mat-menu>
       </div>
 
-      <!-- Filter chips -->
+      <!-- Filter chips (no time-period chips — sessions are visible by default) -->
       <div class="med-filters">
         <button class="filter-chip" [class.active]="activeFilter() === 'all'" (click)="activeFilter.set('all')">
           All
         </button>
         <button class="filter-chip" [class.active]="activeFilter() === 'recent'" (click)="activeFilter.set('recent')">
           <mat-icon>schedule</mat-icon> Recent
-        </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'morning'" (click)="activeFilter.set('morning')">
-          <mat-icon class="ic-morning">wb_sunny</mat-icon> Morning
-        </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'afternoon'" (click)="activeFilter.set('afternoon')">
-          <mat-icon class="ic-afternoon">wb_twilight</mat-icon> Afternoon
-        </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'evening'" (click)="activeFilter.set('evening')">
-          <mat-icon class="ic-evening">brightness_3</mat-icon> Evening
-        </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'night'" (click)="activeFilter.set('night')">
-          <mat-icon class="ic-night">dark_mode</mat-icon> Night
         </button>
         <button class="filter-chip" [class.active]="activeFilter() === 'active'" (click)="activeFilter.set('active')">
           <span class="dot active-dot"></span> Active
@@ -116,101 +118,70 @@ interface PrescriptionGroup {
         </button>
       </div>
 
-      @if (!loading()) {
-        <p class="result-count">
-          {{ totalShownMeds() }} medication{{ totalShownMeds() === 1 ? '' : 's' }}
-          @if (filteredGroups().length > 1) {
-            · {{ filteredGroups().length }} prescriptions
-          }
-        </p>
-      }
-
       <!-- Loading -->
       @if (loading()) {
-        @for (i of [1,2,3]; track i) {
-          <app-skeleton-card [lines]="3" [showAvatar]="true" />
+        @for (i of [1,2,3,4]; track i) {
+          <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
         }
-      }
+      } @else {
 
-      <!-- Empty -->
-      @else if (!filteredGroups().length) {
-        <div class="empty">
-          <mat-icon>medication</mat-icon>
-          <h3>No medications found</h3>
-          <p>
-            @if (searchQuery() || selectedDoctor() !== 'all' || activeFilter() !== 'all') {
-              Try clearing the search or filter
-            } @else {
-              Your active prescriptions will appear here
-            }
-          </p>
-        </div>
-      }
-
-      <!-- Prescription groups -->
-      @else {
-        @for (group of filteredGroups(); track group.id) {
-          <section class="rx-group">
-            <header class="rx-head">
-              <div class="rx-doc">
-                <div class="rx-doc-avatar"><mat-icon>medical_services</mat-icon></div>
-                <div class="rx-doc-info">
-                  <strong>{{ group.doctor }}</strong>
-                  <span class="rx-doc-spec">{{ group.specialty }}</span>
-                </div>
-              </div>
-              <div class="rx-date-block">
-                <span class="rx-date-label">Prescribed</span>
-                <span class="rx-date">{{ formatDate(group.date) }}</span>
-              </div>
-            </header>
-
-            @for (med of group.medications; track med.id) {
-              <article class="med-card">
-                <div class="med-head">
-                  <div class="med-title-block">
-                    <strong class="med-name">{{ med.name }}</strong>
-                    <span class="med-dose">{{ med.dosage }}</span>
-                  </div>
-                  <span class="status-chip"
-                        [class.completed]="!isActive(med)">
-                    {{ isActive(med) ? 'Active' : 'Completed' }}
-                  </span>
-                </div>
-
-                <div class="routine-grid">
-                  @for (slot of getRoutineSlots(med); track slot.period) {
-                    <div class="routine-slot"
-                         [class.active]="slot.active"
-                         [class]="'rs-' + slot.period + (slot.active ? ' active' : '')">
-                      <mat-icon class="rs-icon">{{ slot.icon }}</mat-icon>
-                      <span class="rs-label">{{ slot.label }}</span>
-                      <span class="rs-value">{{ slot.active ? slot.dose : '-' }}</span>
-                    </div>
-                  }
-                </div>
-
-                <div class="routine-info">
-                  <mat-icon>info_outline</mat-icon>
-                  <span>{{ getScheduleLine(med) }}</span>
-                </div>
-
-                @if (med.instructions) {
-                  <div class="med-note">
-                    <mat-icon>lightbulb</mat-icon>
-                    <span>{{ med.instructions }}</span>
-                  </div>
+        <!-- Today's Routine: 4 collapsible session cards -->
+        <section class="routine-section" aria-label="Today's routine">
+          @for (s of sessionRoutines(); track s.period) {
+            <article class="session-card" [class]="'sc-' + s.period"
+                     [class.is-empty]="s.meds.length === 0"
+                     [class.is-collapsed]="isCollapsed(s.period)">
+              <button class="session-head" type="button"
+                      (click)="toggleSession(s.period)"
+                      [attr.aria-expanded]="!isCollapsed(s.period) && s.meds.length > 0"
+                      [disabled]="s.meds.length === 0">
+                <span class="sh-icon" [class]="'sh-icon-' + s.period">
+                  <mat-icon>{{ s.icon }}</mat-icon>
+                </span>
+                <span class="sh-text">
+                  <strong>{{ s.label }}</strong>
+                  <span class="sh-meta">{{ summaryLine(s) }}</span>
+                </span>
+                @if (s.meds.length > 0) {
+                  <mat-icon class="sh-caret">expand_more</mat-icon>
                 }
-              </article>
-            }
-          </section>
-        }
+              </button>
+
+              <div class="session-body">
+                @if (s.meds.length > 0) {
+                  <ul class="sb-list">
+                    @for (m of s.meds; track m.id) {
+                      <li class="sb-item">
+                        <span class="sb-bullet" [class]="'sb-bullet-' + s.period"></span>
+                        <div class="sb-info">
+                          <span class="sb-name">{{ m.name }}</span>
+                          @if (m.instructions) {
+                            <span class="sb-instr">{{ m.instructions }}</span>
+                          }
+                        </div>
+                        <span class="sb-dose">{{ m.doseLine }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </article>
+          }
+        </section>
+
+        <!-- Footer summary -->
+        <p class="result-count">
+          {{ totalActiveMeds() }} active medication{{ totalActiveMeds() === 1 ? '' : 's' }}
+          @if (selectedDoctor() !== 'all') {
+            · {{ selectedDoctor() }}
+          }
+        </p>
       }
     </div>
   `,
   styles: [`
     .meds-page {
-      max-width: 800px; margin: 0 auto; padding-bottom: 60px;
+      max-width: 720px; margin: 0 auto; padding-bottom: 60px;
     }
 
     /* ===== HEADER ===== */
@@ -228,7 +199,7 @@ interface PrescriptionGroup {
     }
     .offline-pill mat-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; }
 
-    /* ===== FILTER ROW (search + doctor) ===== */
+    /* ===== FILTER ROW ===== */
     .filter-row {
       display: flex; gap: 10px; align-items: center;
       margin-bottom: 10px;
@@ -244,13 +215,13 @@ interface PrescriptionGroup {
       border-color: #0d8a8a;
       box-shadow: 0 0 0 3px rgba(13,138,138,0.08);
     }
-    .s-icon { color: #999; font-size: 20px; width: 20px; height: 20px; }
+    .s-icon { color: #5f6b7a; font-size: 20px; width: 20px; height: 20px; }
     .s-input {
       flex: 1; min-width: 0;
       border: none; outline: none; background: transparent;
-      font-size: 14px; font-family: inherit; color: #333;
+      font-size: 14px; font-family: inherit; color: #1b3a4b;
     }
-    .s-input::placeholder { color: #aaa; }
+    .s-input::placeholder { color: #6b7884; opacity: 1; }
     .s-clear {
       width: 28px !important; height: 28px !important;
       line-height: 28px !important; color: #999;
@@ -277,6 +248,25 @@ interface PrescriptionGroup {
     .doc-label {
       max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+
+    .doc-btn-mobile {
+      display: none;
+      flex-shrink: 0;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: white; border: 1px solid #d8e3e3;
+      align-items: center; justify-content: center;
+      cursor: pointer; position: relative;
+      color: #1b3a4b;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .doc-btn-mobile:hover { border-color: #0d8a8a; }
+    .doc-btn-mobile.has-filter { background: #e8f5f3; border-color: #0d8a8a; color: #0d8a8a; }
+    .doc-btn-mobile mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .doc-btn-mobile .doc-dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ef6c00; border: 2px solid white;
+    }
     .invisible { visibility: hidden; }
 
     /* ===== FILTER CHIPS ===== */
@@ -284,7 +274,7 @@ interface PrescriptionGroup {
       display: flex; gap: 6px;
       overflow-x: auto;
       padding: 4px 2px 8px;
-      margin-bottom: 8px;
+      margin-bottom: 14px;
       scrollbar-width: thin;
     }
     .med-filters::-webkit-scrollbar { height: 4px; }
@@ -308,10 +298,6 @@ interface PrescriptionGroup {
       box-shadow: 0 2px 6px rgba(13,138,138,0.22);
     }
     .filter-chip.active mat-icon { color: white; }
-    .filter-chip .ic-morning { color: #f6a821; }
-    .filter-chip .ic-afternoon { color: #ef6c00; }
-    .filter-chip .ic-evening { color: #5e35b1; }
-    .filter-chip .ic-night { color: #3949ab; }
     .filter-chip .dot {
       width: 7px; height: 7px; border-radius: 50%; display: inline-block;
     }
@@ -319,188 +305,132 @@ interface PrescriptionGroup {
     .filter-chip .done-dot { background: #c0c8d0; }
     .filter-chip.active .dot { background: white; }
 
-    .result-count {
-      font-size: 12px; color: #98a2ab; margin: 0 4px 14px;
+    /* ===== TODAY'S ROUTINE — SESSION CARDS ===== */
+    .routine-section {
+      display: flex; flex-direction: column; gap: 10px;
     }
-
-    /* ===== PRESCRIPTION GROUP ===== */
-    .rx-group {
-      margin-bottom: 18px;
+    .session-card {
       background: white;
-      border: 1px solid #e8eded;
+      border: 1px solid #eef2f3;
       border-radius: 14px;
       overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .rx-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding: 14px 18px;
-      background: linear-gradient(135deg, #f8fafa 0%, #eef5f5 100%);
-      border-bottom: 1px solid #e3ecec;
-    }
-    .rx-doc {
-      display: flex; align-items: center; gap: 12px; min-width: 0;
-    }
-    .rx-doc-avatar {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: linear-gradient(135deg, #0d8a8a 0%, #1b3a4b 100%);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .rx-doc-avatar mat-icon {
-      color: white; font-size: 20px; width: 20px; height: 20px;
-    }
-    .rx-doc-info { display: flex; flex-direction: column; min-width: 0; }
-    .rx-doc-info strong {
-      font-size: 14px; color: #1b3a4b; font-weight: 700;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .rx-doc-spec {
-      font-size: 12px; color: #6b7884; font-weight: 500;
-    }
-    .rx-date-block {
-      display: flex; flex-direction: column; align-items: flex-end;
-      flex-shrink: 0;
-    }
-    .rx-date-label {
-      font-size: 10px; color: #98a2ab; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .rx-date {
-      font-size: 13px; color: #1b3a4b; font-weight: 600;
-      margin-top: 2px;
+    .session-card:not(.is-empty):hover {
+      border-color: #d8e8e6;
     }
 
-    /* ===== MED CARD ===== */
-    .med-card {
-      padding: 16px 18px;
-      border-bottom: 1px solid #f0f4f4;
+    /* Header row (always visible) */
+    .session-head {
+      width: 100%;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: transparent; border: none;
+      cursor: pointer;
+      text-align: left; font-family: inherit;
+      transition: background 0.15s;
     }
-    .med-card:last-child { border-bottom: none; }
+    .session-head:hover:not(:disabled) { background: #fafcfc; }
+    .session-head:disabled { cursor: default; opacity: 0.9; }
+    .session-head:focus-visible {
+      outline: 2px solid #0d8a8a; outline-offset: -2px;
+    }
 
-    .med-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 10px; margin-bottom: 10px;
+    .sh-icon {
+      flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    .med-title-block {
-      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-      min-width: 0;
+    .sh-icon mat-icon {
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
     }
-    .med-name {
-      font-size: 16px; color: #1b3a4b; font-weight: 700;
+    .sh-icon-morning   { background: #fff2dc; color: #ef6c00; }
+    .sh-icon-afternoon { background: #fff7d6; color: #b07900; }
+    .sh-icon-evening   { background: #ede7f6; color: #5e35b1; }
+    .sh-icon-night     { background: #e3e7f7; color: #3949ab; }
+
+    .sh-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+    .sh-text strong {
+      font-size: 15px; color: #1b3a4b; font-weight: 700;
     }
-    .med-dose {
-      font-size: 12px; color: #0d8a8a; font-weight: 700;
-      padding: 2px 8px; border-radius: 6px; background: #e8f5f3;
+    .sh-meta { font-size: 12.5px; color: #6b7884; }
+
+    .is-empty .sh-text strong { color: #6b7884; font-weight: 600; }
+    .is-empty .sh-meta { color: #98a2ab; font-style: italic; }
+    .is-empty .sh-icon { opacity: 0.55; }
+
+    .sh-caret {
+      flex-shrink: 0; color: #98a2ab;
+      transition: transform 0.25s ease;
+      font-size: 22px !important; width: 22px !important; height: 22px !important;
+    }
+    .is-collapsed .sh-caret { transform: rotate(-90deg); }
+
+    /* Body (expandable) */
+    .session-body {
+      display: grid;
+      grid-template-rows: 1fr;
+      transition: grid-template-rows 0.28s ease;
+    }
+    .is-collapsed .session-body { grid-template-rows: 0fr; }
+    .session-body > * {
+      overflow: hidden;
+      min-height: 0;
+    }
+    .sb-list {
+      list-style: none; margin: 0;
+      padding: 4px 14px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .sb-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      background: #f9fbfb;
+      border-radius: 10px;
+    }
+    .sb-bullet {
+      flex-shrink: 0;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #c0c8d0;
+    }
+    .sb-bullet-morning   { background: #ef6c00; }
+    .sb-bullet-afternoon { background: #f9a825; }
+    .sb-bullet-evening   { background: #5e35b1; }
+    .sb-bullet-night     { background: #3949ab; }
+    .sb-info { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+    .sb-name { font-size: 14px; color: #1b3a4b; font-weight: 600; }
+    .sb-instr { font-size: 11.5px; color: #98a2ab; line-height: 1.3; }
+    .sb-dose {
+      flex-shrink: 0;
+      font-size: 12px; font-weight: 700; color: #0d8a8a;
+      background: #e8f5f3; padding: 4px 10px; border-radius: 8px;
       letter-spacing: 0.2px;
     }
-    .status-chip {
-      display: inline-flex; align-items: center;
-      padding: 3px 10px; border-radius: 10px;
-      background: #e6f5e9; color: #2e7d32;
-      font-size: 11px; font-weight: 700;
-      flex-shrink: 0;
-    }
-    .status-chip.completed { background: #eceff1; color: #607d8b; }
 
-    /* 4-column routine grid (Morning · Afternoon · Evening · Night) */
-    .routine-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      background: white;
-      border: 1px solid #e8eded;
-      border-radius: 12px;
-      overflow: hidden;
-      margin: 4px 0 10px;
-    }
-    .routine-slot {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 4px; padding: 10px 6px;
-      background: white;
-      border-right: 1px solid #f0f4f4;
+    /* ===== FOOTER COUNT ===== */
+    .result-count {
+      font-size: 12px; color: #98a2ab; margin: 16px 4px 0;
       text-align: center;
     }
-    .routine-slot:last-child { border-right: none; }
-    .routine-slot .rs-icon {
-      font-size: 22px !important; width: 22px !important; height: 22px !important;
-      color: #c0c8d0;
-    }
-    .routine-slot .rs-label {
-      font-size: 12px; color: #98a2ab; font-weight: 600;
-    }
-    .routine-slot .rs-value {
-      font-size: 13px; color: #c0c8d0; font-weight: 700;
-      margin-top: 2px;
-    }
-    .routine-slot.active .rs-label { color: #1b3a4b; }
-    .routine-slot.active .rs-value { color: #1b3a4b; }
-
-    /* Period-specific active tints */
-    .routine-slot.rs-morning.active { background: #ffe9d6; }
-    .routine-slot.rs-morning.active .rs-icon { color: #ef6c00; }
-    .routine-slot.rs-afternoon.active { background: #fff7d6; }
-    .routine-slot.rs-afternoon.active .rs-icon { color: #f9a825; }
-    .routine-slot.rs-evening.active { background: #ede7f6; }
-    .routine-slot.rs-evening.active .rs-icon { color: #5e35b1; }
-    .routine-slot.rs-night.active { background: #e8eaf6; }
-    .routine-slot.rs-night.active .rs-icon { color: #3949ab; }
-
-    /* Schedule info line below the grid */
-    .routine-info {
-      display: flex; align-items: flex-start; gap: 6px;
-      padding: 8px 12px;
-      background: #f3f5f7;
-      border-radius: 8px;
-      font-size: 12px; color: #6b7884;
-      margin-bottom: 10px;
-      line-height: 1.4;
-    }
-    .routine-info mat-icon {
-      font-size: 14px !important; width: 14px !important; height: 14px !important;
-      color: #98a2ab;
-      margin-top: 1px;
-      flex-shrink: 0;
-    }
-
-    /* Insight / instruction note */
-    .med-note {
-      display: flex; align-items: flex-start; gap: 8px;
-      padding: 10px 12px;
-      background: #fffaf0; border: 1px solid #f0e3c4; border-radius: 8px;
-      font-size: 12.5px; color: #6d4d00; line-height: 1.45;
-    }
-    .med-note mat-icon {
-      color: #c79100;
-      font-size: 16px !important; width: 16px !important; height: 16px !important;
-      flex-shrink: 0; margin-top: 1px;
-    }
-
-    /* ===== EMPTY ===== */
-    .empty {
-      text-align: center; padding: 50px 20px;
-      background: white; border: 1px solid #e8eded; border-radius: 14px;
-    }
-    .empty mat-icon {
-      font-size: 44px; width: 44px; height: 44px; color: #d0d8de;
-      margin-bottom: 8px;
-    }
-    .empty h3 { margin: 4px 0 4px; font-size: 15px; color: #1b3a4b; }
-    .empty p { margin: 0; font-size: 13px; color: #98a2ab; }
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 600px) {
       h1 { font-size: 20px; }
-      .filter-row { flex-direction: column; gap: 8px; }
-      .search-wrap, .doc-btn { width: 100%; }
-      .doc-btn { justify-content: space-between !important; }
-      .rx-head { padding: 12px 14px; }
-      .med-card { padding: 14px; }
-      .med-name { font-size: 15px; }
-      .routine-slot { padding: 8px 4px; }
-      .routine-slot .rs-icon {
-        font-size: 20px !important; width: 20px !important; height: 20px !important;
+      .doc-btn-desktop { display: none !important; }
+      .doc-btn-mobile { display: inline-flex; }
+      .filter-row { gap: 8px; }
+      .session-head { padding: 11px 12px; gap: 10px; }
+      .sh-icon { width: 34px; height: 34px; border-radius: 10px; }
+      .sh-icon mat-icon {
+        font-size: 18px !important; width: 18px !important; height: 18px !important;
       }
-      .routine-slot .rs-label { font-size: 11px; }
-      .routine-slot .rs-value { font-size: 12px; }
-      .routine-info { font-size: 11.5px; padding: 7px 10px; }
+      .sh-text strong { font-size: 14px; }
+      .sh-meta { font-size: 12px; }
+      .sb-list { padding: 2px 12px 12px; }
+      .sb-item { padding: 9px 10px; gap: 10px; }
+      .sb-name { font-size: 13.5px; }
+      .sb-instr { font-size: 11px; }
+      .sb-dose { font-size: 11.5px; padding: 3px 8px; }
       .filter-chip { font-size: 12px; padding: 5px 10px; height: 30px; }
     }
   `]
@@ -516,14 +446,16 @@ export class MedicationsComponent implements OnInit {
   readonly activeFilter = signal<MedFilter>('all');
   readonly isOffline = signal(typeof navigator !== 'undefined' ? !navigator.onLine : false);
 
-  // Map doctor name → specialty (for the prescription group header).
-  private readonly doctorSpecialties: Record<string, string> = {
-    'Dr. Rajesh Kumar':    'Cardiology',
-    'Dr. Sarah Chen':      'Dermatology',
-    'Dr. Ahmed Hassan':    'General Medicine',
-    'Dr. Lisa Wong':       'Endocrinology',
-    'Dr. Vikram Patel':    'Orthopedics',
-    'Dr. Fatima Al-Rashid': 'Cardiology'
+  // Sessions collapsed by user. Default: all expanded (empty set).
+  readonly collapsedSessions = signal<ReadonlySet<RoutinePeriod>>(new Set());
+
+  private readonly periods: RoutinePeriod[] = ['morning', 'afternoon', 'evening', 'night'];
+
+  private readonly periodLabels: Record<RoutinePeriod, string> = {
+    morning: 'Morning',
+    afternoon: 'Afternoon',
+    evening: 'Evening',
+    night: 'Night'
   };
 
   readonly allDoctors = computed<string[]>(() => {
@@ -532,63 +464,45 @@ export class MedicationsComponent implements OnInit {
     return Array.from(set).sort();
   });
 
-  // Group medications by (doctor + start date) → one prescription per group.
-  readonly prescriptionGroups = computed<PrescriptionGroup[]>(() => {
-    const groups = new Map<string, PrescriptionGroup>();
-    for (const med of this.medications()) {
-      const key = `${med.prescribedBy}|${med.startDate}`;
-      const existing = groups.get(key);
-      if (existing) {
-        existing.medications.push(med);
-      } else {
-        groups.set(key, {
-          id: key,
-          doctor: med.prescribedBy,
-          specialty: this.doctorSpecialties[med.prescribedBy] ?? 'Physician',
-          date: med.startDate,
-          medications: [med]
-        });
-      }
-    }
-    // Newest prescriptions first.
-    return Array.from(groups.values()).sort((a, b) => b.date.localeCompare(a.date));
-  });
-
-  readonly filteredGroups = computed<PrescriptionGroup[]>(() => {
+  /** Meds visible after applying search, doctor, and active-filter (recent/active/completed). */
+  private readonly visibleMeds = computed<Medication[]>(() => {
     const q = this.searchQuery().trim().toLowerCase();
     const doc = this.selectedDoctor();
     const filter = this.activeFilter();
-
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30);
 
-    return this.prescriptionGroups()
-      .filter(g => {
-        if (filter === 'recent') {
-          return new Date(g.date) >= thirtyDaysAgo;
-        }
-        return true;
-      })
-      .map(g => {
-        const meds = g.medications.filter(m => {
-          if (doc !== 'all' && g.doctor !== doc) return false;
-          if (q && !m.name.toLowerCase().includes(q) &&
-              !m.dosage.toLowerCase().includes(q)) return false;
-          if (filter === 'morning' || filter === 'afternoon' ||
-              filter === 'evening' || filter === 'night') {
-            if (!this.getTimeBlocksFor(m).includes(filter)) return false;
-          }
-          if (filter === 'active' && !this.isActive(m)) return false;
-          if (filter === 'completed' && this.isActive(m)) return false;
-          return true;
-        });
-        return { ...g, medications: meds };
-      })
-      .filter(g => g.medications.length > 0);
+    return this.medications().filter(m => {
+      if (doc !== 'all' && m.prescribedBy !== doc) return false;
+      if (q && !m.name.toLowerCase().includes(q) && !m.dosage.toLowerCase().includes(q)) return false;
+      if (filter === 'active' && !this.isActive(m)) return false;
+      if (filter === 'completed' && this.isActive(m)) return false;
+      if (filter === 'recent' && new Date(m.startDate) < thirtyDaysAgo) return false;
+      return true;
+    });
   });
 
-  readonly totalShownMeds = computed(() =>
-    this.filteredGroups().reduce((sum, g) => sum + g.medications.length, 0)
+  /** Today's Routine: 4 sessions, each with its meds. */
+  readonly sessionRoutines = computed<SessionRoutine[]>(() => {
+    const meds = this.visibleMeds();
+    return this.periods.map(p => ({
+      period: p,
+      icon: this.periodIcon(p),
+      label: this.periodLabels[p],
+      meds: meds
+        .filter(m => this.getTimeBlocksFor(m).includes(p))
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          doseLine: this.getDoseLine(m),
+          instructions: m.instructions ?? '',
+          isActive: this.isActive(m)
+        }))
+    }));
+  });
+
+  readonly totalActiveMeds = computed<number>(() =>
+    this.visibleMeds().filter(m => this.isActive(m)).length
   );
 
   ngOnInit(): void {
@@ -623,53 +537,29 @@ export class MedicationsComponent implements OnInit {
     return new Date(med.endDate) >= new Date();
   }
 
-  getIntakeInstruction(med: Medication): string {
-    const inst = (med.instructions || '').toLowerCase();
-    if (inst.includes('with meal') || inst.includes('with food')) return 'With meals';
-    if (inst.includes('after meal') || inst.includes('after food')) return 'After food';
-    if (inst.includes('before meal') || inst.includes('before food')) return 'Before food';
-    if (inst.includes('empty stomach')) return 'Empty stomach';
-    if (inst.includes('bedtime') || inst.includes('before sleep')) return 'Before bed';
-    return 'Anytime';
+  isCollapsed(p: RoutinePeriod): boolean {
+    return this.collapsedSessions().has(p);
   }
 
-  formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric'
+  toggleSession(p: RoutinePeriod): void {
+    this.collapsedSessions.update(s => {
+      const next = new Set(s);
+      if (next.has(p)) next.delete(p); else next.add(p);
+      return next;
     });
   }
 
-  getRoutineSlots(med: Medication): RoutineSlot[] {
-    const active = new Set(this.getTimeBlocksFor(med));
-    const dose = this.getDoseDescriptor(med);
-    const all: RoutinePeriod[] = ['morning', 'afternoon', 'evening', 'night'];
-    return all.map(p => ({
-      period: p,
-      icon: this.periodIcon(p),
-      label: this.capitalize(p),
-      active: active.has(p),
-      dose
-    }));
+  summaryLine(s: SessionRoutine): string {
+    if (s.meds.length === 0) return 'No medication';
+    return `${s.meds.length} med${s.meds.length === 1 ? '' : 's'}`;
   }
 
-  getScheduleLine(med: Medication): string {
-    const active = new Set(this.getTimeBlocksFor(med));
-    const pattern = (['morning', 'afternoon', 'evening', 'night'] as RoutinePeriod[])
-      .map(p => active.has(p) ? '1' : '0')
-      .join(' - ');
+  private getDoseLine(med: Medication): string {
     const form = this.detectMedForm(med);
-    const intake = this.getIntakeInstruction(med);
-    const intakeSuffix = intake === 'Anytime' ? '' : ` · ${intake}`;
-    return `${med.frequency} ( ${pattern} ) · ${form} orally${intakeSuffix}`;
-  }
-
-  private getDoseDescriptor(med: Medication): string {
-    const form = this.detectMedForm(med);
-    if (form === 'Tablet') return '1 Tab';
-    if (form === 'Capsule') return '1 Cap';
-    if (form === 'Syrup') return '1 Dose';
     if (form === 'Drops') return '2 Drops';
-    return '1 Dose';
+    if (form === 'Syrup') return '1 Dose';
+    if (form === 'Cream') return 'Apply';
+    return `1 ${form}`;
   }
 
   private detectMedForm(med: Medication): string {
@@ -710,9 +600,5 @@ export class MedicationsComponent implements OnInit {
       night: 'dark_mode'
     };
     return map[p];
-  }
-
-  private capitalize(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 }

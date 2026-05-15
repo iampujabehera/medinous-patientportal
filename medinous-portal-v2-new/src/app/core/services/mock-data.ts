@@ -45,12 +45,19 @@ export const MOCK_DASHBOARD: DashboardSummary = {
       id: 'm-002', name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily',
       startDate: '2026-02-01', prescribedBy: 'Dr. Rajesh Kumar',
       refillsRemaining: 5, taken: [true, true, true, true, true, false, true],
-      instructions: 'Take in the morning'
+      instructions: 'Take in the evening'
     },
     {
       id: 'm-003', name: 'Vitamin D3', dosage: '1000 IU', frequency: 'Once daily',
       startDate: '2026-03-01', prescribedBy: 'Dr. Ahmed Hassan',
-      refillsRemaining: 8, taken: [true, false, true, true, true, true, true]
+      refillsRemaining: 8, taken: [true, false, true, true, true, true, true],
+      instructions: 'Take in the morning with breakfast'
+    },
+    {
+      id: 'm-004', name: 'Calcium + Vitamin K2', dosage: '600mg', frequency: 'Once daily',
+      startDate: '2026-03-15', prescribedBy: 'Dr. Ahmed Hassan',
+      refillsRemaining: 6, taken: [true, true, true, false, true, true, true],
+      instructions: 'Take in the afternoon after lunch'
     }
   ],
   recentVitals: [
@@ -139,7 +146,7 @@ export const MOCK_MEDICATIONS: Medication[] = MOCK_DASHBOARD.activeMedications;
 
 export const MOCK_PAYMENTS: Payment[] = [
   {
-    id: 'pay-001', date: '2026-04-09T10:30:00', amount: 350, currency: 'AED',
+    id: 'pay-001', date: '2026-05-12T10:30:00', amount: 350, currency: 'AED',
     status: 'completed', method: 'card', description: 'Cardiology Consultation',
     appointmentId: 'a-001', doctorName: 'Dr. Rajesh Kumar',
     receiptUrl: '/receipts/pay-001.pdf', invoiceNumber: 'INV-2026-0041',
@@ -153,7 +160,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     }
   },
   {
-    id: 'pay-002', date: '2026-04-05T14:00:00', amount: 200, currency: 'AED',
+    id: 'pay-002', date: '2026-05-08T14:00:00', amount: 200, currency: 'AED',
     status: 'completed', method: 'upi', description: 'Dermatology Follow-up',
     appointmentId: 'a-002', doctorName: 'Dr. Sarah Chen',
     receiptUrl: '/receipts/pay-002.pdf', invoiceNumber: 'INV-2026-0038',
@@ -162,7 +169,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     ]
   },
   {
-    id: 'pay-003', date: '2026-04-02T09:00:00', amount: 1250, currency: 'AED',
+    id: 'pay-003', date: '2026-05-04T09:00:00', amount: 1250, currency: 'AED',
     status: 'completed', method: 'insurance', description: 'Lab Work - Complete Panel',
     doctorName: 'Dr. Ahmed Hassan',
     receiptUrl: '/receipts/pay-003.pdf', invoiceNumber: 'INV-2026-0035',
@@ -179,7 +186,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     }
   },
   {
-    id: 'pay-004', date: '2026-03-28T11:00:00', amount: 500, currency: 'AED',
+    id: 'pay-004', date: '2026-04-30T11:00:00', amount: 500, currency: 'AED',
     status: 'pending', method: 'insurance', description: 'Endocrinology Consultation',
     doctorName: 'Dr. Lisa Wong', invoiceNumber: 'INV-2026-0030',
     breakdown: [
@@ -192,7 +199,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     }
   },
   {
-    id: 'pay-005', date: '2026-03-20T16:00:00', amount: 150, currency: 'AED',
+    id: 'pay-005', date: '2026-04-27T16:00:00', amount: 150, currency: 'AED',
     status: 'failed', method: 'card', description: 'Pharmacy - Medication Refill',
     invoiceNumber: 'INV-2026-0025',
     breakdown: [
@@ -201,7 +208,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     ]
   },
   {
-    id: 'pay-006', date: '2026-03-15T10:00:00', amount: 800, currency: 'AED',
+    id: 'pay-006', date: '2026-04-24T10:00:00', amount: 800, currency: 'AED',
     status: 'completed', method: 'card', description: 'General Checkup + ECG',
     doctorName: 'Dr. Ahmed Hassan',
     receiptUrl: '/receipts/pay-006.pdf', invoiceNumber: 'INV-2026-0020',
@@ -212,7 +219,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     ]
   },
   {
-    id: 'pay-007', date: '2026-03-10T13:30:00', amount: 275, currency: 'AED',
+    id: 'pay-007', date: '2026-04-20T13:30:00', amount: 275, currency: 'AED',
     status: 'completed', method: 'bank_transfer', description: 'Orthopedic Consultation',
     doctorName: 'Dr. Vikram Patel',
     receiptUrl: '/receipts/pay-007.pdf', invoiceNumber: 'INV-2026-0018',
@@ -221,7 +228,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     ]
   },
   {
-    id: 'pay-008', date: '2026-02-25T09:30:00', amount: 2100, currency: 'AED',
+    id: 'pay-008', date: '2026-04-16T09:30:00', amount: 2100, currency: 'AED',
     status: 'completed', method: 'insurance', description: 'MRI Knee - Left',
     doctorName: 'Dr. Vikram Patel',
     receiptUrl: '/receipts/pay-008.pdf', invoiceNumber: 'INV-2026-0012',
@@ -260,7 +267,7 @@ export const MOCK_PAYMENTS: Payment[] = [
     ]
   },
   {
-    id: 'pay-012', date: '2026-03-22T15:30:00', amount: 90, currency: 'AED',
+    id: 'pay-012', date: '2026-04-22T15:30:00', amount: 90, currency: 'AED',
     status: 'refunded', method: 'card', description: 'Cancelled Consultation — Refund',
     doctorName: 'Dr. Sarah Chen',
     receiptUrl: '/receipts/pay-012.pdf', invoiceNumber: 'REF-2026-0004',

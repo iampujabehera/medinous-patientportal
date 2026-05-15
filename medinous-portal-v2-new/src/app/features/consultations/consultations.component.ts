@@ -5,9 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
@@ -26,7 +24,7 @@ interface ConsultationGroup {
   imports: [
     CommonModule, RouterLink,
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
+    MatInputModule, MatSnackBarModule,
     FormsModule,
     SkeletonCardComponent
   ],
@@ -80,32 +78,6 @@ interface ConsultationGroup {
         </section>
       }
 
-      <!-- Filters -->
-      <div class="filter-row">
-        <div class="search-box">
-          <mat-icon class="sb-icon">search</mat-icon>
-          <input class="sb-input"
-                 [ngModel]="searchQuery()"
-                 (ngModelChange)="searchQuery.set($event)"
-                 placeholder="Search by doctor, specialty, or diagnosis...">
-          @if (searchQuery()) {
-            <button mat-icon-button class="sb-clear" (click)="searchQuery.set('')">
-              <mat-icon>close</mat-icon>
-            </button>
-          }
-        </div>
-
-        <mat-form-field appearance="outline" class="specialty-select" subscriptSizing="dynamic">
-          <mat-select [ngModel]="specialtyFilter()" (ngModelChange)="specialtyFilter.set($event)"
-                      placeholder="All specialties">
-            <mat-option value="all">All specialties</mat-option>
-            @for (sp of specialties(); track sp) {
-              <mat-option [value]="sp">{{ sp }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-      </div>
-
       <!-- Specialty pills (quick filter) -->
       @if (specialties().length > 1) {
         <div class="quick-pills">
@@ -126,10 +98,10 @@ interface ConsultationGroup {
       } @else if (filteredGroups().length === 0) {
         <div class="empty-state">
           <mat-icon>history_edu</mat-icon>
-          <h3>No consultations match your filters</h3>
-          <p>Try adjusting your search or specialty filter.</p>
-          @if (searchQuery() || specialtyFilter() !== 'all') {
-            <button mat-stroked-button (click)="resetFilters()">Clear filters</button>
+          <h3>No consultations match this specialty</h3>
+          <p>Try a different specialty pill above.</p>
+          @if (specialtyFilter() !== 'all') {
+            <button mat-stroked-button (click)="resetFilters()">Show all</button>
           }
         </div>
       } @else {
@@ -440,20 +412,16 @@ interface ConsultationGroup {
     }
     .search-box {
       flex: 1; display: flex; align-items: center; gap: 8px;
-      padding: 6px 14px; background: #f3f4f6; border-radius: 24px; min-width: 0;
+      padding: 6px 14px; background: #ffffff; border: 1px solid #d0d7de; border-radius: 24px; min-width: 0;
     }
-    .sb-icon { color: #999; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+    .sb-icon { color: #5f6b7a; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
     .sb-input {
       flex: 1; min-width: 0;
       border: none; outline: none; background: transparent;
-      font-size: 14px; font-family: inherit; color: #333; padding: 8px 0;
+      font-size: 14px; font-family: inherit; color: #1b3a4b; padding: 8px 0;
     }
-    .sb-input::placeholder { color: #aaa; }
+    .sb-input::placeholder { color: #5f6b7a; opacity: 1; }
     .sb-clear { width: 32px !important; height: 32px !important; line-height: 32px !important; flex-shrink: 0; }
-
-    .specialty-select { width: 200px; flex-shrink: 0; }
-    .specialty-select ::ng-deep .mat-mdc-text-field-wrapper { background: white; }
-    .specialty-select ::ng-deep .mat-mdc-form-field-infix { min-height: 40px; padding-top: 10px !important; padding-bottom: 10px !important; }
 
     /* ===== Health Snapshot ===== */
     .vitals-section { margin-bottom: 24px; }

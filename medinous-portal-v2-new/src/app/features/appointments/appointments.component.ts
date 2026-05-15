@@ -67,6 +67,9 @@ interface DateOption {
             <div class="search-wrap">
               <mat-icon class="s-icon">search</mat-icon>
               <input class="s-input"
+                     type="search"
+                     name="doctor-search"
+                     autocomplete="off"
                      [ngModel]="searchQuery()"
                      (ngModelChange)="searchQuery.set($event)"
                      placeholder="Search doctor by name...">

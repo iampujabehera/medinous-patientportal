@@ -1,6 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -59,14 +61,22 @@ interface HistoryRow {
   rawPayment?: Payment;
 }
 
-type SheetMode = 'balance' | 'add' | null;
+type SheetMode = 'balance' | 'add' | 'detail' | null;
+
+interface JourneyStep {
+  key: string;
+  icon: string;
+  label: string;
+  date?: string;
+  state: 'done' | 'current' | 'pending';
+}
 
 @Component({
   selector: 'app-payments',
   standalone: true,
   imports: [
-    CommonModule,
-    MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
+    CommonModule, RouterLink,
+    MatCardModule, MatMenuModule, MatIconModule, MatButtonModule, MatChipsModule,
     MatButtonToggleModule, MatDividerModule, MatProgressSpinnerModule,
     MatSnackBarModule, MatExpansionModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatTooltipModule, FormsModule,
@@ -107,6 +117,9 @@ type SheetMode = 'balance' | 'add' | null;
           <div class="pay-search">
             <mat-icon class="ps-icon">search</mat-icon>
             <input class="ps-input"
+                   type="search"
+                   name="payment-search"
+                   autocomplete="off"
                    [ngModel]="searchQuery()"
                    (ngModelChange)="searchQuery.set($event)"
                    placeholder="Search transactions, doctor, or service...">
@@ -117,13 +130,30 @@ type SheetMode = 'balance' | 'add' | null;
             }
           </div>
 
-          <mat-form-field appearance="outline" class="time-select" subscriptSizing="dynamic">
-            <mat-select [ngModel]="selectedPeriod()" (ngModelChange)="selectedPeriod.set($event)">
-              @for (p of timePeriods; track p.days) {
-                <mat-option [value]="p.days">{{ p.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <!-- Desktop: dropdown with label -->
+          <button mat-stroked-button class="time-btn time-btn-desktop" [matMenuTriggerFor]="timeMenu">
+            <mat-icon class="tb-icon">event</mat-icon>
+            <span class="tb-label">{{ getPeriodLabel() || 'All Time' }}</span>
+            <mat-icon class="tb-caret" iconPositionEnd>expand_more</mat-icon>
+          </button>
+
+          <!-- Mobile: icon-only filter button -->
+          <button class="time-btn-mobile"
+                  [class.has-filter]="selectedPeriod() !== 30"
+                  [matMenuTriggerFor]="timeMenu"
+                  aria-label="Filter by time period">
+            <mat-icon>tune</mat-icon>
+            @if (selectedPeriod() !== 30) { <span class="time-dot"></span> }
+          </button>
+
+          <mat-menu #timeMenu="matMenu" class="time-menu">
+            @for (p of timePeriods; track p.days) {
+              <button mat-menu-item (click)="selectedPeriod.set(p.days)">
+                <mat-icon [class.invisible]="selectedPeriod() !== p.days">check</mat-icon>
+                <span>{{ p.label }}</span>
+              </button>
+            }
+          </mat-menu>
         </div>
 
         <!-- Status Tabs -->
@@ -152,9 +182,15 @@ type SheetMode = 'balance' | 'add' | null;
             <app-skeleton-card [lines]="3" />
           }
         } @else if (filteredHistory().length === 0) {
-          <div class="empty-state mini">
-            <mat-icon>receipt_long</mat-icon>
-            <p>No transactions to show.</p>
+          <div class="empty-state friendly">
+            <div class="es-illo">
+              <mat-icon>health_and_safety</mat-icon>
+            </div>
+            <h3>No recent healthcare payments found</h3>
+            <p>Once you book a consultation, lab test or admission, your payments and receipts will show up here.</p>
+            <button mat-flat-button color="primary" class="es-cta" routerLink="/appointments">
+              <mat-icon>event</mat-icon> Book Appointment
+            </button>
           </div>
         } @else {
           @for (row of filteredHistory(); track row.key) {
@@ -166,10 +202,10 @@ type SheetMode = 'balance' | 'add' | null;
                 <div class="txn-info">
                   <strong>{{ row.name }}</strong>
                   <span class="txn-meta">
-                    @if (row.doctor) { <span>{{ row.doctor }}</span> }
-                    @if (row.method) { <span> · {{ formatMethod(row.method) }}</span> }
-                    <span> · {{ row.date | date:'mediumDate' }}</span>
+                    @if (row.doctor) { <span class="txn-doc">{{ row.doctor }}</span> }
+                    <span class="txn-date">{{ row.date | date:'mediumDate' }}</span>
                   </span>
+                  <span class="txn-pm">{{ payMethodLabel(row) }}</span>
                 </div>
                 <div class="txn-right">
                   <span class="txn-amount" [ngClass]="'amount-' + row.status">
@@ -186,7 +222,7 @@ type SheetMode = 'balance' | 'add' | null;
                           (click)="payPendingRow(row)">
                     <mat-icon>payments</mat-icon> Pay
                   </button>
-                  <button mat-stroked-button class="txn-action-btn">
+                  <button mat-stroked-button class="txn-action-btn" (click)="openDetailSheet(row)">
                     <mat-icon>visibility</mat-icon> Details
                   </button>
                 } @else if (row.status === 'completed' || row.status === 'refunded') {
@@ -200,7 +236,7 @@ type SheetMode = 'balance' | 'add' | null;
                     }
                     Receipt
                   </button>
-                  <button mat-stroked-button class="txn-action-btn">
+                  <button mat-stroked-button class="txn-action-btn" (click)="openDetailSheet(row)">
                     <mat-icon>visibility</mat-icon> Details
                   </button>
                 }
@@ -397,6 +433,165 @@ type SheetMode = 'balance' | 'add' | null;
         </button>
       </footer>
     </aside>
+
+    <!-- ============================================ -->
+    <!-- PAYMENT DETAILS SIDE / BOTTOM SHEET          -->
+    <!-- ============================================ -->
+    <aside class="side-sheet detail-sheet" [class.open]="sheetOpen() === 'detail'" aria-label="Payment Details">
+      @if (detailRow(); as row) {
+        <header class="ss-head detail-head">
+          <div class="dh-title">
+            <div class="dh-icon" [ngClass]="iconBgClass(row)">
+              <mat-icon>{{ rowIcon(row) }}</mat-icon>
+            </div>
+            <div class="dh-text">
+              <h3>{{ row.name }}</h3>
+              @if (row.doctor) {
+                <p class="ss-head-sub">{{ row.doctor }}</p>
+              }
+            </div>
+          </div>
+          <button mat-icon-button class="ss-close" (click)="closeSheet()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="ss-body detail-body">
+
+          <!-- Amount block -->
+          <section class="detail-amount">
+            <div class="da-top">
+              <div>
+                <div class="da-label">Amount</div>
+                <div class="da-value" [ngClass]="'amount-' + row.status">
+                  {{ formatCurrency(row.amount) }}
+                </div>
+              </div>
+              <span class="status-tag" [class]="statusTagClass(row)">
+                {{ statusLabel(row) }}
+              </span>
+            </div>
+            @if (row.source === 'payment' && row.rawPayment?.invoiceNumber) {
+              <div class="da-receipt">
+                <mat-icon>receipt</mat-icon>
+                Receipt {{ row.rawPayment!.invoiceNumber }}
+              </div>
+            }
+          </section>
+
+          <!-- Payment method block -->
+          <section class="ss-section">
+            <div class="ss-section-label">Payment</div>
+            <div class="pm-block" [class.offline]="isOfflinePayment(row)" [class.pending-block]="row.source === 'pending'">
+              <div class="pm-icon">
+                <mat-icon>{{ payMethodIcon(row) }}</mat-icon>
+              </div>
+              <div class="pm-text">
+                <strong>{{ payMethodLabel(row) }}</strong>
+                @if (payMethodSubLabel(row); as sub) {
+                  <span>{{ sub }}</span>
+                }
+                @if (isOfflinePayment(row)) {
+                  <span class="pm-location">
+                    <mat-icon>place</mat-icon> {{ getDetailLocation(row) }}
+                  </span>
+                }
+              </div>
+            </div>
+            <div class="pm-time">
+              <mat-icon>schedule</mat-icon>
+              {{ row.date | date:'fullDate' }} · {{ row.date | date:'shortTime' }}
+            </div>
+          </section>
+
+          <!-- Why this payment -->
+          <section class="ss-section">
+            <div class="ss-section-label">Why this payment</div>
+            <p class="context-narrative">{{ getContextNarrative(row) }}</p>
+          </section>
+
+          <!-- Healthcare journey -->
+          <section class="ss-section">
+            <div class="ss-section-label">Healthcare journey</div>
+            <ol class="journey">
+              @for (s of getJourneySteps(row); track s.key) {
+                <li class="j-step" [class]="'j-' + s.state">
+                  <div class="j-icon">
+                    <mat-icon>{{ s.icon }}</mat-icon>
+                  </div>
+                  <div class="j-body">
+                    <strong>{{ s.label }}</strong>
+                    @if (s.date) {
+                      <span>{{ s.date | date:'mediumDate' }}</span>
+                    }
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+
+          <!-- Payment breakdown -->
+          @if (row.rawPayment && row.rawPayment.breakdown.length) {
+            <section class="ss-section">
+              <div class="ss-section-label">Breakdown</div>
+              <div class="bd-list">
+                @for (b of row.rawPayment.breakdown; track b.label) {
+                  <div class="bd-row">
+                    <span>{{ b.label }}</span>
+                    <strong>{{ formatCurrency(b.amount) }}</strong>
+                  </div>
+                }
+                <div class="bd-row bd-total">
+                  <span>Total</span>
+                  <strong>{{ formatCurrency(row.amount) }}</strong>
+                </div>
+              </div>
+            </section>
+          }
+
+          <!-- Insurance claim -->
+          @if (row.rawPayment?.insuranceClaim) {
+            <section class="ss-section">
+              <div class="ss-section-label">Insurance claim</div>
+              <div class="ins-row">
+                <div class="ins-icon"><mat-icon>health_and_safety</mat-icon></div>
+                <div class="ins-info">
+                  <strong>{{ row.rawPayment!.insuranceClaim!.provider }}</strong>
+                  <span>Claim {{ row.rawPayment!.insuranceClaim!.claimId }} · {{ row.rawPayment!.insuranceClaim!.status | titlecase }}</span>
+                </div>
+                <span class="ins-covered">
+                  Covered<br>
+                  <strong>{{ formatCurrency(row.rawPayment!.insuranceClaim!.coveredAmount) }}</strong>
+                </span>
+              </div>
+            </section>
+          }
+
+        </div>
+
+        <footer class="ss-footer detail-footer">
+          @if (row.source === 'pending') {
+            <button mat-flat-button color="primary" class="ds-cta"
+                    (click)="payPendingRow(row); closeSheet()">
+              <mat-icon>payments</mat-icon> Pay {{ formatCurrency(row.amount) }}
+            </button>
+          } @else if (row.rawPayment && (row.status === 'completed' || row.status === 'refunded')) {
+            <button mat-flat-button color="primary" class="ds-cta"
+                    [disabled]="generatingReceipt() === row.rawPayment.id"
+                    (click)="generateReceipt(row.rawPayment)">
+              @if (generatingReceipt() === row.rawPayment.id) {
+                <mat-spinner diameter="14"></mat-spinner>
+              } @else {
+                <mat-icon>download</mat-icon>
+              }
+              Download Receipt
+            </button>
+          } @else {
+            <button mat-stroked-button (click)="closeSheet()">Close</button>
+          }
+        </footer>
+      }
+    </aside>
   `,
   styles: [`
     :host { display: block; }
@@ -459,11 +654,42 @@ type SheetMode = 'balance' | 'add' | null;
     .ps-input::placeholder { color: #aaa; }
     .ps-clear { width: 32px !important; height: 32px !important; line-height: 32px !important; flex-shrink: 0; }
 
-    .time-select {
-      width: 160px; flex-shrink: 0;
+    /* Time period button — desktop full, mobile icon */
+    .time-btn {
+      flex-shrink: 0; height: 40px !important;
+      border-radius: 22px !important;
+      border-color: #d8e3e3 !important; background: white !important;
+      color: #1a237e !important; font-weight: 500 !important;
+      font-size: 13px !important; padding: 0 14px !important;
+      display: inline-flex !important; align-items: center; gap: 6px;
     }
-    .time-select ::ng-deep .mat-mdc-text-field-wrapper { background: white; }
-    .time-select ::ng-deep .mat-mdc-form-field-infix { min-height: 40px; padding-top: 10px !important; padding-bottom: 10px !important; }
+    .time-btn .tb-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+      color: #1a237e;
+    }
+    .time-btn .tb-caret {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #888;
+    }
+    .tb-label { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .time-btn-mobile {
+      display: none;
+      flex-shrink: 0;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: white; border: 1px solid #d8e3e3;
+      align-items: center; justify-content: center;
+      cursor: pointer; position: relative; color: #1a237e;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .time-btn-mobile:hover { border-color: #1a237e; }
+    .time-btn-mobile.has-filter { background: #eef0fb; border-color: #1a237e; }
+    .time-btn-mobile mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .time-btn-mobile .time-dot {
+      position: absolute; top: 6px; right: 6px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ef6c00; border: 2px solid white;
+    }
+    .invisible { visibility: hidden; }
 
     /* ===== Status Tabs ===== */
     .filter-group { margin-bottom: 8px; }
@@ -504,9 +730,16 @@ type SheetMode = 'balance' | 'add' | null;
     .ptype-consultation { background: #f57c00; }
     .ptype-admission { background: #5e35b1; }
 
-    .txn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .txn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
     .txn-info strong { font-size: 14px; color: #222; }
-    .txn-meta { font-size: 12px; color: #888; }
+    .txn-meta { font-size: 12px; color: #6b7884; display: inline-flex; gap: 6px; flex-wrap: wrap; }
+    .txn-meta .txn-doc { color: #455a64; }
+    .txn-meta .txn-date::before { content: '·'; margin-right: 6px; color: #c0c8d0; }
+    .txn-meta .txn-date:first-child::before { content: ''; margin-right: 0; }
+    .txn-pm {
+      font-size: 11.5px; color: #5e7691; font-weight: 600;
+      margin-top: 1px;
+    }
 
     .txn-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
     .txn-amount { font-size: 15px; font-weight: 700; }
@@ -532,13 +765,33 @@ type SheetMode = 'balance' | 'add' | null;
     .txn-action-btn { font-size: 12px !important; padding: 0 12px !important; height: 30px !important; line-height: 30px !important; }
     .txn-action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
 
-    .empty-state.mini {
-      background: white; border: 1px dashed #d0d7de; border-radius: 12px;
-      padding: 24px; text-align: center; color: #607d8b;
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    .empty-state.friendly {
+      background: white; border: 1px solid #e8edf2; border-radius: 18px;
+      padding: 36px 22px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
-    .empty-state.mini mat-icon { font-size: 28px; width: 28px; height: 28px; color: #b0bec5; }
-    .empty-state.mini p { margin: 0; font-size: 13px; }
+    .empty-state.friendly .es-illo {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, #eef0fb 0%, #e1e7f7 100%);
+      color: #1a237e;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .empty-state.friendly .es-illo mat-icon {
+      font-size: 30px !important; width: 30px !important; height: 30px !important;
+    }
+    .empty-state.friendly h3 {
+      margin: 6px 0 0; font-size: 16px; color: #1a237e; font-weight: 600;
+    }
+    .empty-state.friendly p {
+      margin: 0 auto; max-width: 340px;
+      font-size: 13px; color: #6b7884; line-height: 1.55;
+    }
+    .empty-state.friendly .es-cta {
+      margin-top: 10px;
+      height: 40px !important; border-radius: 22px !important;
+      padding: 0 22px !important; font-weight: 600 !important;
+    }
+    .empty-state.friendly .es-cta mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
     /* ===== Side Sheet ===== */
     .sheet-backdrop {
@@ -728,15 +981,172 @@ type SheetMode = 'balance' | 'add' | null;
       flex-shrink: 0;
     }
 
+    /* ===== Detail sheet — payment details ===== */
+    .detail-head { align-items: center; }
+    .dh-title { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+    .dh-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .dh-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
+    .dh-text { min-width: 0; }
+    .dh-text h3 {
+      margin: 0; font-size: 15px; font-weight: 700; color: #1a237e;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .detail-body { padding: 18px 20px 24px; }
+
+    .detail-amount {
+      background: linear-gradient(135deg, #f6f8fc 0%, #eef0fb 100%);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+    .da-top {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    }
+    .da-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+      color: #6b7884; font-weight: 600;
+    }
+    .da-value {
+      font-size: 26px; font-weight: 700; color: #1a237e; margin-top: 2px;
+      line-height: 1.2;
+    }
+    .detail-amount .amount-failed { color: #c62828; text-decoration: line-through; }
+    .detail-amount .amount-refunded { color: #546e7a; }
+    .da-receipt {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 10px; font-size: 12px; color: #455a64; font-weight: 600;
+      background: white; padding: 4px 10px; border-radius: 10px;
+    }
+    .da-receipt mat-icon { font-size: 14px; width: 14px; height: 14px; color: #1a237e; }
+
+    .pm-block {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: white; border: 1px solid #e8edf2;
+      border-radius: 12px;
+    }
+    .pm-block.offline { background: #fff7e6; border-color: #f5d99a; }
+    .pm-block.pending-block { background: #fff3e0; border-color: #f0d8b0; }
+    .pm-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #eef0fb; color: #1a237e; flex-shrink: 0;
+    }
+    .pm-block.offline .pm-icon { background: #ffe2b6; color: #b07900; }
+    .pm-block.pending-block .pm-icon { background: #ffe0b2; color: #e65100; }
+    .pm-icon mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .pm-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .pm-text strong { font-size: 14px; color: #1a237e; font-weight: 700; }
+    .pm-text span { font-size: 12px; color: #6b7884; line-height: 1.4; }
+    .pm-location {
+      display: inline-flex !important; align-items: center; gap: 4px;
+      margin-top: 4px; color: #b07900 !important;
+    }
+    .pm-location mat-icon { font-size: 13px !important; width: 13px !important; height: 13px !important; }
+    .pm-time {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 10px; font-size: 12px; color: #6b7884;
+    }
+    .pm-time mat-icon { font-size: 14px; width: 14px; height: 14px; color: #98a2ab; }
+
+    .context-narrative {
+      margin: 0;
+      padding: 12px 14px;
+      background: #f4f7fb; border-left: 3px solid #1a237e;
+      border-radius: 0 10px 10px 0;
+      font-size: 13px; color: #455a64; line-height: 1.55;
+    }
+
+    /* Healthcare journey timeline */
+    .journey { list-style: none; padding: 0; margin: 0; position: relative; }
+    .journey::before {
+      content: ''; position: absolute; top: 16px; bottom: 16px; left: 15px;
+      width: 2px; background: #e3e7f2;
+    }
+    .j-step {
+      display: grid; grid-template-columns: 32px 1fr;
+      gap: 12px; align-items: flex-start;
+      padding: 6px 0; position: relative;
+    }
+    .j-icon {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #e3e7f2; color: #98a2ab; position: relative; z-index: 1;
+      box-shadow: 0 0 0 4px white;
+    }
+    .j-icon mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .j-step.j-done .j-icon { background: #1a237e; color: white; }
+    .j-step.j-current .j-icon {
+      background: #fff3e0; color: #e65100;
+      box-shadow: 0 0 0 4px white, 0 0 0 6px #ffe0b2;
+    }
+    .j-step.j-pending .j-icon { background: #e3e7f2; color: #98a2ab; }
+    .j-body { padding-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+    .j-body strong { font-size: 13px; color: #1a237e; font-weight: 600; }
+    .j-step.j-pending .j-body strong { color: #98a2ab; font-weight: 500; }
+    .j-step.j-current .j-body strong { color: #e65100; }
+    .j-body span { font-size: 11px; color: #98a2ab; }
+
+    /* Breakdown */
+    .bd-list { display: flex; flex-direction: column; gap: 6px; }
+    .bd-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; padding: 9px 12px;
+      background: #fafbfd; border-radius: 8px;
+    }
+    .bd-row span { color: #455a64; }
+    .bd-row strong { color: #1a237e; font-weight: 600; }
+    .bd-row.bd-total {
+      background: #eef0fb; margin-top: 4px;
+      padding: 11px 12px;
+    }
+    .bd-row.bd-total span { font-weight: 700; color: #1a237e; }
+
+    /* Insurance */
+    .ins-row {
+      display: grid; grid-template-columns: 40px 1fr auto;
+      gap: 12px; align-items: center;
+      padding: 12px 14px;
+      background: white; border: 1px solid #e8edf2; border-radius: 12px;
+    }
+    .ins-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #e8f5e9; color: #2e7d32;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .ins-icon mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .ins-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ins-info strong { font-size: 13px; color: #1a237e; }
+    .ins-info span { font-size: 11.5px; color: #6b7884; }
+    .ins-covered { text-align: right; font-size: 11px; color: #6b7884; }
+    .ins-covered strong { display: block; font-size: 14px; color: #2e7d32; }
+
+    .detail-footer { background: white; }
+    .ds-cta {
+      width: 100%; height: 44px !important;
+      border-radius: 12px !important; font-weight: 600 !important;
+    }
+    .ds-cta mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
     /* ===== Mobile responsiveness ===== */
     @media (max-width: 720px) {
       h1 { font-size: 20px; }
       .header-actions { width: 100%; }
       .header-btn { flex: 1; justify-content: center; }
       .hb-amount { display: none; }
-      .history-controls { flex-direction: column; align-items: stretch; }
-      .time-select { width: 100%; }
+      .history-controls { flex-direction: row; gap: 8px; align-items: center; }
+      .time-btn-desktop { display: none !important; }
+      .time-btn-mobile { display: inline-flex; }
       .txn-actions { flex-wrap: wrap; }
+      .txn-row { gap: 10px; }
+      .txn-card { padding: 12px 14px; }
+      .txn-info strong { font-size: 13.5px; }
+      .ins-row { grid-template-columns: 36px 1fr; }
+      .ins-covered { grid-column: 1 / -1; text-align: left; padding-top: 4px; border-top: 1px dashed #eceff1; }
 
       /* Mobile bottom sheet */
       .side-sheet {
@@ -766,6 +1176,7 @@ export class PaymentsComponent implements OnInit {
   readonly searchQuery = signal('');
   readonly selectedPeriod = signal(30);
   readonly sheetOpen = signal<SheetMode>(null);
+  readonly detailRow = signal<HistoryRow | null>(null);
 
   readonly quickAmounts = [200, 500, 1000, 2000];
 
@@ -1089,6 +1500,153 @@ export class PaymentsComponent implements OnInit {
   closeSheet(): void {
     this.sheetOpen.set(null);
     this.showAdvanceForm.set(false);
+    this.detailRow.set(null);
+  }
+
+  openDetailSheet(row: HistoryRow): void {
+    this.detailRow.set(row);
+    this.sheetOpen.set('detail');
+  }
+
+  /** Patient-friendly payment method label. */
+  payMethodLabel(row: HistoryRow): string {
+    if (row.source === 'pending') return 'Awaiting payment';
+    if (row.status === 'refunded') return 'Refunded to original payment method';
+    if (row.status === 'failed') return 'Payment failed';
+    const method = row.method ?? '';
+    if (method === 'cash') return 'Paid at Hospital Reception';
+    if (method === 'insurance') return 'Paid via Insurance';
+    if (method === 'card') return 'Paid Online · Card';
+    if (method === 'upi') return 'Paid Online · UPI';
+    if (method === 'bank_transfer') return 'Paid Online · Bank Transfer';
+    return 'Paid';
+  }
+
+  /** Optional second line beneath the payment method label. */
+  payMethodSubLabel(row: HistoryRow): string | null {
+    if (row.source === 'pending') return 'You can pay online here or at the hospital counter';
+    if (row.status === 'refunded') return 'Funds returned to your original payment method';
+    if (row.method === 'cash') return 'Cash or card accepted at the counter';
+    if (row.method === 'insurance') return 'Claim approved by your insurance provider';
+    return null;
+  }
+
+  /** Icon for the payment-method block in details. */
+  payMethodIcon(row: HistoryRow): string {
+    if (row.source === 'pending') return 'schedule';
+    if (row.status === 'refunded') return 'undo';
+    if (row.status === 'failed') return 'report';
+    return this.getMethodIcon(row.method ?? '');
+  }
+
+  isOfflinePayment(row: HistoryRow): boolean {
+    return row.source === 'payment' && row.method === 'cash';
+  }
+
+  getDetailLocation(_row: HistoryRow): string {
+    return 'BSH Juffair · Reception, Block A';
+  }
+
+  /** Plain-English context about why this payment exists. */
+  getContextNarrative(row: HistoryRow): string {
+    const doctor = row.doctor || row.rawPayment?.doctorName || 'your doctor';
+    const dateLabel = row.date
+      ? new Date(row.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : '';
+    const cat = row.category ?? this.inferCategory(row.name);
+
+    if (cat === 'consultation') {
+      return `Outpatient consultation with ${doctor} on ${dateLabel}. This payment covers the consultation fee and any in-clinic tests done during that visit.`;
+    }
+    if (cat === 'lab') {
+      return `During your consultation with ${doctor} on ${dateLabel}, ${row.name} was prescribed. This payment corresponds to that diagnostic service.`;
+    }
+    if (cat === 'radiology') {
+      return `${row.name} was ordered by ${doctor} as part of your care plan. This payment covers the scan and the radiologist's report.`;
+    }
+    if (cat === 'admission') {
+      return `Admission deposit for ${row.name}. Any unused balance is automatically reconciled and refunded after discharge.`;
+    }
+    if (cat === 'medication') {
+      return `Pharmacy dispensing for the prescription issued by ${doctor}.`;
+    }
+    if (cat === 'procedure') {
+      return `Procedure performed under the care of ${doctor}. This payment covers the procedure room, consumables and clinical team.`;
+    }
+    return `Healthcare service on ${dateLabel}.`;
+  }
+
+  /** Infer a category when the row doesn't already have one. */
+  private inferCategory(name: string): string {
+    const n = (name || '').toLowerCase();
+    if (n.includes('consult')) return 'consultation';
+    if (n.includes('lab') || n.includes('blood') || n.includes('panel') || n.includes('cbc') || n.includes('hba1c') || n.includes('lipid')) return 'lab';
+    if (n.includes('mri') || n.includes('ct ') || n.includes('x-ray') || n.includes('scan') || n.includes('ecg') || n.includes('ultrasound')) return 'radiology';
+    if (n.includes('admission') || n.includes('surgery') || n.includes('deposit')) return 'admission';
+    if (n.includes('pharmacy') || n.includes('medication') || n.includes('refill') || n.includes('metformin') || n.includes('amlodipine')) return 'medication';
+    if (n.includes('procedure') || n.includes('endoscopy') || n.includes('biopsy')) return 'procedure';
+    return 'consultation';
+  }
+
+  /** Build the healthcare journey timeline shown in the details sheet. */
+  getJourneySteps(row: HistoryRow): JourneyStep[] {
+    const cat = row.category ?? this.inferCategory(row.name);
+    const isPaid = row.status === 'completed';
+    const isRefunded = row.status === 'refunded';
+    const isPending = row.source === 'pending' || row.status === 'pending';
+    const isFailed = row.status === 'failed';
+
+    const offsetDate = (days: number): string => {
+      const d = new Date(row.date); d.setDate(d.getDate() + days);
+      return d.toISOString();
+    };
+    const finalStep = (): JourneyStep => {
+      if (isFailed) return { key: 'paid', icon: 'error', label: 'Payment Failed', date: offsetDate(0), state: 'done' };
+      if (isRefunded) return { key: 'paid', icon: 'undo', label: 'Refund Issued', date: offsetDate(0), state: 'done' };
+      if (isPaid) return { key: 'paid', icon: 'verified', label: 'Payment Paid', date: offsetDate(0), state: 'done' };
+      return { key: 'paid', icon: 'verified', label: 'Awaiting Payment', state: 'pending' };
+    };
+
+    if (cat === 'consultation') {
+      return [
+        { key: 'booked', icon: 'event_available', label: 'Appointment Booked', date: offsetDate(-7), state: 'done' },
+        { key: 'consult', icon: 'medical_information', label: 'Consultation Completed', date: offsetDate(0), state: 'done' },
+        { key: 'charge', icon: 'receipt_long', label: 'Payment Generated', date: offsetDate(0), state: isPending ? 'current' : 'done' },
+        finalStep()
+      ];
+    }
+    if (cat === 'lab' || cat === 'radiology') {
+      const ord = cat === 'lab' ? 'Test Prescribed' : 'Scan Ordered';
+      const bk = cat === 'lab' ? 'Lab Visit Booked' : 'Scan Slot Booked';
+      return [
+        { key: 'booked', icon: 'event_available', label: 'Appointment Booked', date: offsetDate(-10), state: 'done' },
+        { key: 'consult', icon: 'medical_information', label: 'Consultation Completed', date: offsetDate(-7), state: 'done' },
+        { key: 'order', icon: 'science', label: ord, date: offsetDate(-7), state: 'done' },
+        { key: 'lab', icon: 'biotech', label: bk, date: offsetDate(-3), state: 'done' },
+        { key: 'charge', icon: 'receipt_long', label: 'Payment Generated', date: offsetDate(0), state: isPending ? 'current' : 'done' },
+        finalStep()
+      ];
+    }
+    if (cat === 'admission') {
+      return [
+        { key: 'pre', icon: 'event_available', label: 'Pre-admission Counselling', date: offsetDate(-5), state: 'done' },
+        { key: 'charge', icon: 'receipt_long', label: 'Admission Deposit Raised', date: offsetDate(0), state: 'done' },
+        finalStep()
+      ];
+    }
+    if (cat === 'medication') {
+      return [
+        { key: 'consult', icon: 'medical_information', label: 'Consultation Completed', date: offsetDate(-2), state: 'done' },
+        { key: 'rx', icon: 'medication', label: 'Prescription Issued', date: offsetDate(-2), state: 'done' },
+        { key: 'charge', icon: 'receipt_long', label: 'Pharmacy Charge Raised', date: offsetDate(0), state: isPending ? 'current' : 'done' },
+        finalStep()
+      ];
+    }
+    return [
+      { key: 'booked', icon: 'event_available', label: 'Appointment Booked', date: offsetDate(-5), state: 'done' },
+      { key: 'charge', icon: 'receipt_long', label: 'Payment Generated', date: offsetDate(0), state: isPending ? 'current' : 'done' },
+      finalStep()
+    ];
   }
 
   /** Demo toggle so stakeholders can flip between empty and populated wallet states. */

@@ -110,10 +110,6 @@ interface SpecialtyTile {
                   </div>
                 </div>
                 <div class="ap-top-actions">
-                  <button mat-icon-button class="ap-icon-btn" matTooltip="Add to calendar"
-                          (click)="actionPlaceholder('Adding to calendar')">
-                    <mat-icon>event_available</mat-icon>
-                  </button>
                   <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
                     Manage Booking
                   </button>
@@ -307,8 +303,8 @@ interface SpecialtyTile {
           <span class="ff-rating-label">{{ ratingWord(feedbackRating()) }}</span>
         </div>
 
-        <!-- Which visit -->
-        <label class="ff-label">Which visit are you rating?</label>
+        <!-- What this feedback is about -->
+        <label class="ff-label">What is your feedback about?</label>
         <mat-form-field appearance="outline" class="ff-full" subscriptSizing="dynamic">
           <mat-select [ngModel]="ffVisit()" (ngModelChange)="ffVisit.set($event)"
                       placeholder="Select a visit">

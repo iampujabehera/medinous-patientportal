@@ -305,6 +305,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <mat-label>National ID / Patient ID</mat-label>
                     <mat-icon matPrefix>person</mat-icon>
                     <input matInput
+                           name="cpr"
+                           autocomplete="username"
+                           inputmode="numeric"
                            [ngModel]="loginCpr()"
                            (ngModelChange)="onLoginCprInput($event)"
                            [readonly]="isLocked()"
@@ -318,6 +321,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <mat-label>Password</mat-label>
                     <mat-icon matPrefix>lock</mat-icon>
                     <input matInput
+                           name="password"
+                           autocomplete="current-password"
                            [type]="showPassword() ? 'text' : 'password'"
                            [ngModel]="loginPassword()"
                            (ngModelChange)="onLoginPasswordInput($event)"
