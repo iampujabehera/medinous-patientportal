@@ -1544,7 +1544,7 @@ export class PaymentsComponent implements OnInit {
   }
 
   getDetailLocation(_row: HistoryRow): string {
-    return 'BSH Juffair · Reception, Block A';
+    return 'NSH Juffair · Reception, Block A';
   }
 
   /** Plain-English context about why this payment exists. */

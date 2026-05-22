@@ -478,9 +478,7 @@ interface CategoryFilter {
     @media (max-width: 768px) {
       .upload-btn { display: none; }
       h1 { font-size: 22px; }
-      .filter-row { flex-direction: column; gap: 8px; }
-      .search-wrap, .period-btn { width: 100%; }
-      .period-btn { justify-content: space-between !important; }
+      .filter-row { gap: 8px; }
       .rec-row { padding: 10px 12px; }
       .rec-title { font-size: 13px; }
     }

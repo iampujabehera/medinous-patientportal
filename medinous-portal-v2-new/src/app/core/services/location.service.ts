@@ -3,25 +3,25 @@ import { ClinicLocation } from '../models/patient.model';
 
 const CLINIC_LOCATIONS: ClinicLocation[] = [
   {
-    id: 'loc-001', name: 'Bahrain Specialist Hospital - Juffair',
+    id: 'loc-001', name: 'Northbridge Specialist Hospital - Juffair',
     address: 'Building 2541, Road 2832, Juffair',
     city: 'Manama', phone: '+973-1781-2222', operatingHours: '24/7',
     specialties: ['Cardiology', 'Dermatology', 'General Medicine', 'Endocrinology', 'Orthopedics'], isActive: true
   },
   {
-    id: 'loc-002', name: 'BSH Medical Centre - Seef',
+    id: 'loc-002', name: 'NSH Medical Centre - Seef',
     address: 'Seef District, Al Seef Mall Tower',
     city: 'Manama', phone: '+973-1758-3333', operatingHours: '8:00 AM - 10:00 PM',
     specialties: ['General Medicine', 'Dermatology', 'Orthopedics'], isActive: true
   },
   {
-    id: 'loc-003', name: 'BSH Clinic - Riffa',
+    id: 'loc-003', name: 'NSH Clinic - Riffa',
     address: 'East Riffa, Avenue 55',
     city: 'Riffa', phone: '+973-1776-4444', operatingHours: '8:00 AM - 8:00 PM',
     specialties: ['General Medicine', 'Cardiology'], isActive: true
   },
   {
-    id: 'loc-004', name: 'BSH Clinic - Muharraq',
+    id: 'loc-004', name: 'NSH Clinic - Muharraq',
     address: 'Sheikh Isa Avenue, Muharraq',
     city: 'Muharraq', phone: '+973-1734-5555', operatingHours: '9:00 AM - 9:00 PM',
     specialties: ['General Medicine', 'Dermatology', 'Endocrinology'], isActive: true

@@ -83,7 +83,7 @@ type AddLookupStatus = 'idle' | 'found' | 'already_linked' | 'not_found';
             </strong>
             <span>
               @if (addFormOpen()) {
-                Link an existing BSH patient to your account
+                Link an existing NSH patient to your account
               } @else {
                 {{ family.visibleMembers().length }} profiles linked to {{ maskedMobile() }}
               }
@@ -170,7 +170,7 @@ type AddLookupStatus = 'idle' | 'found' | 'already_linked' | 'not_found';
 
             <p class="sp-add-hint">
               Enter the patient's <strong>National ID</strong> or
-              <strong>Patient ID</strong> from BSH to link their
+              <strong>Patient ID</strong> from NSH to link their
               existing record to your account.
             </p>
 
@@ -802,7 +802,7 @@ export class SelectPatientComponent {
     // pattern: a confirmation toast that just says "done" needs no
     // dismiss control, it goes away on its own in 5s.
     this.snackBar.open(
-      `${p.firstName} will appear once BSH verifies.`,
+      `${p.firstName} will appear once NSH verifies.`,
       undefined,
       { duration: 5000 }
     );

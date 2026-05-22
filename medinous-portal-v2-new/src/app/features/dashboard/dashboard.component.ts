@@ -1215,7 +1215,7 @@ export class DashboardComponent implements OnInit {
   ];
 
   // Order: most-likely tap targets first
-  // Hospital contact (BSH primary line). For multi-location white-label
+  // Hospital contact (NSH primary line). For multi-location white-label
   // this would come from the GeographyService / tenant config.
   readonly hospitalPhone = '+973 1781 2000';
   readonly hospitalPhoneRaw = '+97317812000';

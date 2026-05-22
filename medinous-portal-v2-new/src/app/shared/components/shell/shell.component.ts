@@ -87,7 +87,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <section class="hero">
             <div class="hero-content">
               <p class="hero-tagline">Welcome to</p>
-              <h1>Bahrain Specialist Hospital</h1>
+              <h1>Northbridge Specialist Hospital</h1>
               <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Bahrain since 2009.
                  NHRA licensed, internationally accredited, and trusted by over 100,000 patients.</p>
               <div class="hero-actions">
@@ -218,9 +218,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <!-- Footer -->
           <footer class="landing-footer">
             <div class="footer-inner">
-              <strong class="footer-title">BAHRAIN SPECIALIST HOSPITAL</strong>
+              <strong class="footer-title">NORTHBRIDGE SPECIALIST HOSPITAL</strong>
               <p>Building: 2743, Road: 2442, Block: 324, P.O. Box: 10588, Kingdom of Bahrain</p>
-              <p class="footer-copy">Copyright 2026 &#64; Bahrain Specialist Hospital</p>
+              <p class="footer-copy">Copyright 2026 &#64; Northbridge Specialist Hospital</p>
             </div>
           </footer>
 
@@ -247,7 +247,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <!--  STEP 3: LOGIN SCREEN                        -->
         <!-- ============================================ -->
         <div class="login-page">
-          <!-- Top strip: BSH hospital brand + branch with Change -->
+          <!-- Top strip: NSH hospital brand + branch with Change -->
           <div class="login-topbar">
             <div class="topbar-inner">
               <button mat-icon-button class="topbar-back" (click)="goBackToLanding()" matTooltip="Back to website">
@@ -256,8 +256,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="hospital-brand">
                 <div class="hospital-brand-icon"><mat-icon>local_hospital</mat-icon></div>
                 <div class="hospital-brand-text">
-                  <strong>Bahrain Specialist Hospital</strong>
-                  <span class="hospital-brand-ar">مستشفى البحرين التخصصي</span>
+                  <strong>Northbridge Specialist Hospital</strong>
+                  <span class="hospital-brand-ar">مستشفى نورثبريدج التخصصي</span>
                 </div>
               </div>
               <button mat-stroked-button class="topbar-loc-btn" [matMenuTriggerFor]="locChangeMenu">
@@ -629,11 +629,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </button>
           }
 
-          <!-- Brand: Medinous × BSH | Patient Portal -->
+          <!-- Brand: Medinous × NSH | Patient Portal -->
           <div class="brand">
             <img src="medinous-logo.svg" alt="Medinous" class="brand-medinous">
             <span class="brand-cross">×</span>
-            <img src="bsh-logo.svg" alt="Bahrain Specialist Hospital" class="brand-bsh-img">
+            <span class="brand-hospital">Northbridge Specialist Hospital</span>
             <span class="brand-divider"></span>
             <span class="brand-tag">Patient Portal</span>
           </div>
@@ -1081,7 +1081,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `,
   styles: [`
     /* =============================================
-       LANDING PAGE - BSH Hospital Website
+       LANDING PAGE - NSH Hospital Website
        ============================================= */
     .landing-page {
       min-height: 100vh; background: #fff;
@@ -1328,7 +1328,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       pointer-events: none;
     }
 
-    /* ---------- Top brand strip (BSH hospital + location) ---------- */
+    /* ---------- Top brand strip (NSH hospital + location) ---------- */
     .login-topbar {
       width: 100%; background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -1693,7 +1693,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .hamburger { color: #1b3a4b !important; flex-shrink: 0; margin-right: 4px; }
 
-    /* Brand: Medinous × BSH | Patient Portal */
+    /* Brand: Medinous × NSH | Patient Portal */
     .brand {
       display: flex; align-items: center; gap: 8px;
       flex-shrink: 0; min-width: 0;
@@ -1703,9 +1703,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       font-size: 14px; color: #aaa; font-weight: 300;
       margin: 0 2px;
     }
-    .brand-bsh-img {
-      height: 32px; width: auto; display: block;
-      object-fit: contain;
+    .brand-hospital {
+      font-size: 13px; font-weight: 700; color: #1a237e;
+      letter-spacing: -0.01em; white-space: nowrap;
     }
     .brand-divider {
       width: 1px; height: 22px; background: #d8e3e3;
@@ -1969,7 +1969,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .brand { gap: 6px; }
       .brand-medinous { height: 18px; }
       .brand-cross { font-size: 12px; margin: 0; }
-      .brand-bsh-img { height: 24px; }
+      .brand-hospital { font-size: 12px; }
       .brand-divider, .brand-tag { display: none; }
       .loc-pill, .lang-pill { height: 32px !important; padding: 0 8px !important; }
       .loc-name { max-width: 70px; }
@@ -2059,7 +2059,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .toolbar { padding: 0 8px !important; }
       .brand { gap: 4px; }
       .brand-medinous { height: 16px; }
-      .brand-bsh-img { height: 20px; }
+      .brand-hospital { font-size: 11px; }
       .brand-cross { font-size: 11px; }
       .loc-pill, .lang-pill {
         height: 28px !important; padding: 0 6px !important;
@@ -2075,7 +2075,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .hero h1 { font-size: 20px; }
       .topbar-back { display: none; }
       .topbar-loc-name { max-width: 60px; }
-      .brand-bsh-img { height: 18px; }
+      .brand-hospital { display: none; }
       .loc-name { max-width: 40px; }
       .lang-pill { display: none !important; }
     }
@@ -2783,7 +2783,7 @@ export class ShellComponent {
   }
 
   shortLocationName(name: string): string {
-    return name.replace(/^Bahrain Specialist Hospital\s*-?\s*/i, '').replace(/^BSH\s+/i, '');
+    return name.replace(/^Northbridge Specialist Hospital\s*-?\s*/i, '').replace(/^NSH\s+/i, '');
   }
 
   @HostListener('window:resize')

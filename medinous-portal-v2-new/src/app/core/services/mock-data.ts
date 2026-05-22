@@ -116,12 +116,12 @@ export const MOCK_TIMELINE: TimelineEvent[] = Array.from({ length: 100 }, (_, i)
 });
 
 export const MOCK_DOCTORS: Doctor[] = [
-  { id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8, nextAvailable: '2026-04-15', location: 'BSH Juffair', consultationFee: 25, advanceFee: 25 },
-  { id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9, nextAvailable: '2026-04-15', location: 'BSH Juffair', consultationFee: 15, advanceFee: 15 },
-  { id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'General Medicine', rating: 4.7, nextAvailable: '2026-04-15', location: 'BSH Juffair', consultationFee: 10, advanceFee: 10 },
-  { id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.6, nextAvailable: '2026-04-16', location: 'BSH Juffair', consultationFee: 30, advanceFee: 30 },
-  { id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8, nextAvailable: '2026-04-16', location: 'BSH Juffair', consultationFee: 20, advanceFee: 20 },
-  { id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9, nextAvailable: '2026-04-17', location: 'BSH Juffair', consultationFee: 35, advanceFee: 35 }
+  { id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 25, advanceFee: 25 },
+  { id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 15, advanceFee: 15 },
+  { id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'General Medicine', rating: 4.7, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 10, advanceFee: 10 },
+  { id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.6, nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 30, advanceFee: 30 },
+  { id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8, nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 20, advanceFee: 20 },
+  { id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9, nextAvailable: '2026-04-17', location: 'NSH Juffair', consultationFee: 35, advanceFee: 35 }
 ];
 
 export const MOCK_SLOTS: BookingSlot[] = [
@@ -336,7 +336,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-04-09T10:30:00',
     doctorName: 'Dr. Rajesh Kumar',
     doctorSpecialty: 'Cardiology',
-    location: 'BSH Juffair · Block A',
+    location: 'NSH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Intermittent chest tightness and palpitations on exertion for the past 2 weeks.',
     diagnosis: [
@@ -437,7 +437,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-02-18T11:00:00',
     doctorName: 'Dr. Lisa Wong',
     doctorSpecialty: 'Endocrinology',
-    location: 'BSH Juffair · Block C',
+    location: 'NSH Juffair · Block C',
     type: 'in_person',
     chiefComplaint: 'Quarterly diabetes follow-up. Self-reported fasting glucose has been creeping up.',
     diagnosis: [
@@ -502,7 +502,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-01-30T09:00:00',
     doctorName: 'Dr. Ahmed Hassan',
     doctorSpecialty: 'General Medicine',
-    location: 'BSH Juffair · Block A',
+    location: 'NSH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Annual comprehensive health check-up. No active complaints.',
     diagnosis: [
@@ -534,7 +534,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-11-12T14:00:00',
     doctorName: 'Dr. Vikram Patel',
     doctorSpecialty: 'Orthopedics',
-    location: 'BSH Juffair · Block B',
+    location: 'NSH Juffair · Block B',
     type: 'in_person',
     chiefComplaint: 'Left knee pain on stairs and after long walks for the past 6 weeks. No trauma.',
     diagnosis: [
@@ -564,7 +564,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-09-04T16:30:00',
     doctorName: 'Dr. Fatima Al-Rashid',
     doctorSpecialty: 'ENT',
-    location: 'BSH Juffair · Block A',
+    location: 'NSH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Recurrent nasal congestion, facial pressure and headache. Third episode this year.',
     diagnosis: [
