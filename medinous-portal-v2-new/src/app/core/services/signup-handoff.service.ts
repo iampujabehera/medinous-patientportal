@@ -6,6 +6,13 @@ export interface SignupPrefill {
   cpr: string;
   phone: string;
   email: string;
+  /**
+   * Which login surface the handoff should land on.
+   *  - 'create' (default): open the Create Account form prefilled.
+   *  - 'signin': open the Sign In form (used when guest booking has
+   *    already minted an account and the user just needs to log in).
+   */
+  mode?: 'create' | 'signin';
 }
 
 @Injectable({ providedIn: 'root' })

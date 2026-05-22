@@ -14,22 +14,19 @@ import { Patient } from '../../core/models/patient.model';
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSnackBarModule
+    MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule,
+    MatSnackBarModule
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="profile-container">
       <header class="page-header">
-        <div>
-          <h1>My Profile</h1>
-          <p class="subtitle">Account, contact and registration details</p>
-        </div>
+        <h1>My Profile</h1>
+        <p class="subtitle">Account, contact and registration details</p>
       </header>
 
       @if (patient(); as p) {
         <article class="profile-card">
-
-          <!-- Avatar column -->
           <div class="avatar-col">
             <div class="avatar">
               @if (p.avatarUrl) {
@@ -44,12 +41,8 @@ import { Patient } from '../../core/models/patient.model';
             </button>
           </div>
 
-          <!-- Info columns -->
           <div class="info-cols">
-
-            <!-- Left column: Account + Contact -->
             <div class="info-col">
-              <!-- Account Info -->
               <section class="info-section">
                 <h2 class="sec-title">Account Info</h2>
                 <div class="kv-list">
@@ -66,11 +59,9 @@ import { Patient } from '../../core/models/patient.model';
                 </div>
               </section>
 
-              <!-- Contact Info -->
               <section class="info-section">
                 <h2 class="sec-title">Contact Info</h2>
                 <div class="kv-list">
-                  <!-- Mobile (editable) -->
                   <div class="kv-row">
                     <span class="kv-key">Mobile No</span>
                     <span class="kv-sep">:</span>
@@ -98,7 +89,6 @@ import { Patient } from '../../core/models/patient.model';
                     }
                   </div>
 
-                  <!-- Email (editable) -->
                   <div class="kv-row">
                     <span class="kv-key">Email</span>
                     <span class="kv-sep">:</span>
@@ -129,7 +119,6 @@ import { Patient } from '../../core/models/patient.model';
               </section>
             </div>
 
-            <!-- Right column: Basic Info -->
             <div class="info-col">
               <section class="info-section">
                 <h2 class="sec-title">Basic Info</h2>
@@ -165,10 +154,10 @@ import { Patient } from '../../core/models/patient.model';
                 </div>
               </section>
             </div>
-
           </div>
         </article>
       }
+
     </div>
   `,
   styles: [`
@@ -176,93 +165,66 @@ import { Patient } from '../../core/models/patient.model';
     .profile-container { max-width: 1100px; margin: 0 auto; padding-bottom: 40px; }
 
     /* Header */
-    .page-header { margin-bottom: 18px; }
+    .page-header { margin-bottom: 14px; }
     h1 { font-size: 24px; font-weight: 600; color: #1a237e; margin: 0; letter-spacing: -0.01em; }
     .subtitle { color: #607d8b; margin: 4px 0 0; font-size: 13px; }
 
-    /* Profile card */
+    /* ===== PROFILE CARD ===== */
     .profile-card {
       display: grid;
       grid-template-columns: 200px 1fr;
       gap: 28px;
-      padding: 28px 28px;
+      padding: 28px;
       background: white;
       border: 1px solid #eceff1;
       border-radius: 14px;
       box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
-
-    /* Avatar column */
-    .avatar-col {
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
-    }
+    .avatar-col { display: flex; flex-direction: column; align-items: center; gap: 12px; }
     .avatar {
-      width: 140px; height: 140px;
-      border-radius: 12px;
+      width: 140px; height: 140px; border-radius: 12px;
       background: #eceff1;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
     }
     .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar mat-icon {
-      font-size: 88px; width: 88px; height: 88px; color: #b0bec5;
-    }
+    .avatar mat-icon { font-size: 88px; width: 88px; height: 88px; color: #b0bec5; }
     .upload-btn {
       font-size: 12px !important; height: 32px !important;
       padding: 0 12px !important; border-radius: 8px !important;
       color: #00897b !important; border-color: #b2dfdb !important;
     }
     .upload-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
-
-    /* Info columns */
-    .info-cols {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 36px;
-    }
+    .info-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
     .info-col { display: flex; flex-direction: column; gap: 26px; }
-
     .info-section { display: flex; flex-direction: column; gap: 10px; }
     .sec-title {
       margin: 0 0 8px;
-      font-size: 16px; font-weight: 500;
-      color: #009688;
-      padding-bottom: 8px;
-      border-bottom: 1px dashed #cfd8dc;
+      font-size: 16px; font-weight: 500; color: #009688;
+      padding-bottom: 8px; border-bottom: 1px dashed #cfd8dc;
     }
-
     .kv-list { display: flex; flex-direction: column; gap: 4px; }
     .kv-row {
       display: grid;
       grid-template-columns: 180px 12px 1fr auto;
-      align-items: center;
-      gap: 0 8px;
-      padding: 6px 0;
-      font-size: 14px;
+      align-items: center; gap: 0 8px; padding: 6px 0; font-size: 14px;
     }
-    .kv-key { color: #455a64; font-weight: 400; }
-    .kv-sep { color: #455a64; font-weight: 400; text-align: left; }
-    .kv-val { color: #1b3a4b; font-weight: 400; }
-
+    .kv-key { color: #455a64; }
+    .kv-sep { color: #455a64; text-align: left; }
+    .kv-val { color: #1b3a4b; }
     .kv-btn {
       width: 30px !important; height: 30px !important; line-height: 30px !important;
       color: #607d8b !important;
     }
     .kv-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .kv-edit-btn:hover { color: #00897b !important; }
-
-    /* Inline edit state */
-    .kv-edit {
-      grid-column: 3 / span 2;
-      display: flex; align-items: center; gap: 6px;
-    }
+    .kv-edit { grid-column: 3 / span 2; display: flex; align-items: center; gap: 6px; }
     .kv-input {
       flex: 1; min-width: 0;
       padding: 7px 10px;
       border: 1px solid #cfd8dc; border-radius: 8px;
       font: inherit; font-size: 14px; color: #1b3a4b;
-      background: white;
-      outline: none;
+      background: white; outline: none;
       transition: border-color 0.15s;
     }
     .kv-input:focus { border-color: #00897b; box-shadow: 0 0 0 3px rgba(0,137,123,0.12); }
@@ -287,7 +249,10 @@ import { Patient } from '../../core/models/patient.model';
         grid-template-areas: 'key edit' 'val val';
         gap: 2px 8px;
       }
-      .kv-key { grid-area: key; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #607d8b; font-weight: 600; }
+      .kv-key {
+        grid-area: key; font-size: 11px; text-transform: uppercase;
+        letter-spacing: .04em; color: #607d8b; font-weight: 600;
+      }
       .kv-sep { display: none; }
       .kv-val { grid-area: val; font-size: 14px; }
       .kv-edit-btn { grid-area: edit; }
@@ -325,12 +290,10 @@ export class ProfileComponent implements OnInit {
     this.phoneDraft.set(this.patient()?.phone ?? '');
     this.editingMobile.set(true);
   }
-
   cancelEditMobile(): void {
     this.editingMobile.set(false);
     this.phoneDraft.set('');
   }
-
   savePhone(): void {
     const next = this.phoneDraft().trim();
     if (!next) { this.cancelEditMobile(); return; }
@@ -338,17 +301,14 @@ export class ProfileComponent implements OnInit {
     this.editingMobile.set(false);
     this.snackBar.open('Mobile number updated', 'Close', { duration: 3000 });
   }
-
   startEditEmail(): void {
     this.emailDraft.set(this.patient()?.email ?? '');
     this.editingEmail.set(true);
   }
-
   cancelEditEmail(): void {
     this.editingEmail.set(false);
     this.emailDraft.set('');
   }
-
   saveEmail(): void {
     const next = this.emailDraft().trim();
     if (!next) { this.cancelEditEmail(); return; }

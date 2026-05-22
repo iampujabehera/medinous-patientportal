@@ -89,6 +89,99 @@ html[dir="rtl"] {
 }
 
 // =============================================
+// CDK OVERLAY STACKING
+// Angular Material panels (mat-select dropdowns, snackbars, mat-menu,
+// dialogs, tooltips) render into .cdk-overlay-container which is a
+// sibling of the app root. Its default z-index is 1000.
+//
+// The select-patient family picker (sp-backdrop) sits at z-index 1200
+// to cover everything beneath it, so without this override mat-select
+// dropdowns opened INSIDE that modal would render behind it and look
+// like the dropdown "has no options". Bumping the overlay container
+// above the modal keeps all popups visible.
+// =============================================
+.cdk-overlay-container {
+  z-index: 1300;
+}
+
+// =============================================
+// SNACKBAR / TOAST — device-adaptive positioning
+//
+// Industry trend for 2025-26 toast positioning (Sonner, react-hot-toast,
+// Vercel, Stripe, Linear, GitHub, Notion):
+//   - Mobile  → bottom-centre, full-bleed minus side padding (matches
+//               Material Design + native iOS/Android system toasts).
+//   - Desktop → top-right, narrow card with corner radius + shadow.
+//               Top-right keeps the user's eye on what they're doing
+//               without occluding primary actions in the bottom-right
+//               (which is where most apps place primary CTAs).
+//
+// MatSnackBar opens via GlobalPositionStrategy, which writes its
+// `align-items`/`justify-content` to the wrapper as INLINE styles. So
+// the overrides below need !important to win the cascade.
+// :has() pins the rule to wrappers that contain a snackbar — every
+// other CDK overlay (dropdowns, dialogs) is untouched.
+// =============================================
+
+// Mobile baseline — Material's defaults already place snackbars at
+// bottom-centre, but we add a small side padding + width clamp so the
+// toast doesn't run to the very edge on phones with rounded corners /
+// notches. Respects iOS safe-area-inset-bottom.
+.cdk-overlay-container .cdk-global-overlay-wrapper:has(.mat-mdc-snack-bar-container) {
+  padding: 0 12px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-shape: 10px;
+  --mat-snack-bar-button-color: #80cbc4;
+  width: 100%;
+  max-width: 420px;        // Industry-standard toast width even on mobile
+
+  // Lifted shadow so the toast reads as floating, not docked.
+  .mdc-snackbar__surface {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
+    border-radius: 10px !important;
+    min-height: 44px !important;
+  }
+
+  // Clamp the message to a maximum of TWO LINES regardless of how
+  // verbose any callsite gets — Material's guideline is single-line,
+  // and overlong toasts ("Request sent to link Ravi Sharma…") were
+  // dominating the viewport on mobile. The action button still
+  // remains visible since it sits in a sibling slot.
+  .mdc-snackbar__label,
+  .mat-mdc-snack-bar-label {
+    font-size: 13.5px !important;
+    line-height: 1.4 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    padding: 10px 14px !important;
+  }
+}
+
+// Desktop adaptation — flip alignment to top-right and narrow the card.
+@media (min-width: 769px) {
+  .cdk-overlay-container .cdk-global-overlay-wrapper:has(.mat-mdc-snack-bar-container) {
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    padding: 16px 20px 0 0 !important;
+  }
+  .mat-mdc-snack-bar-container {
+    width: auto;
+    min-width: 320px;
+    max-width: 420px;
+
+    .mdc-snackbar__surface {
+      border-radius: 12px !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18) !important;
+    }
+  }
+}
+
+// =============================================
 // BOOKING CONFIRMATION DIALOG
 // (rendered into CDK overlay so its styles must be global)
 // =============================================

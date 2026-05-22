@@ -20,6 +20,8 @@ import { FormsModule } from '@angular/forms';
 import { GeographyService } from '../../../core/services/geography.service';
 import { I18nService, SupportedLang } from '../../../core/services/i18n.service';
 import { LocationService } from '../../../core/services/location.service';
+import { FamilyService } from '../../../core/services/family.service';
+import { SelectPatientComponent } from '../../../features/select-patient/select-patient.component';
 import { SignupHandoffService, SignupPrefill } from '../../../core/services/signup-handoff.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
 
@@ -32,10 +34,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     MatIconModule, MatButtonModule, MatMenuModule, MatSelectModule,
     MatDividerModule, MatChipsModule, MatTooltipModule, MatCardModule,
     MatCheckboxModule, MatFormFieldModule, MatInputModule, MatSnackBarModule, FormsModule,
-    TranslatePipe
+    TranslatePipe,
+    SelectPatientComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- Family Grouping modal: overlays whichever screen is active -->
+    @if (family.pickerOpen()) {
+      <app-select-patient></app-select-patient>
+    }
+
     @if (!locationService.isLocationSelected()) {
 
       <!-- ============================================ -->
@@ -632,65 +640,124 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
           <span class="toolbar-spacer"></span>
 
-          <!-- Location pill -->
-          @if (locationService.selectedLocation(); as loc) {
-            <button mat-stroked-button class="loc-pill" [matMenuTriggerFor]="locationMenu">
-              <mat-icon class="loc-pin">location_on</mat-icon>
-              <span class="loc-name">{{ shortLocationName(loc.name) }}</span>
-              <mat-icon class="loc-caret">expand_more</mat-icon>
-            </button>
-          }
-          <mat-menu #locationMenu="matMenu" class="hdr-menu">
-            <div class="menu-head">Choose location</div>
-            @for (loc of locationService.locations; track loc.id) {
-              <button mat-menu-item class="menu-loc-item"
-                      (click)="locationService.setLocation(loc.id)">
-                <mat-icon [class.menu-current]="locationService.selectedLocation()?.id === loc.id">
-                  {{ locationService.selectedLocation()?.id === loc.id ? 'check_circle' : 'local_hospital' }}
-                </mat-icon>
-                <div class="menu-loc-text">
-                  <strong>{{ loc.name }}</strong>
-                  <span>{{ loc.address }}, {{ loc.city }}</span>
-                </div>
+          <!-- Desktop-only pills. On mobile everything collapses into the sidenav. -->
+          @if (!isMobile()) {
+            <!-- Sticky active-patient indicator (Family Grouping) -->
+            @if (family.activeMember(); as active) {
+              <button
+                mat-stroked-button
+                class="patient-pill"
+                [class.patient-pill-multi]="family.isMultiProfile()"
+                [matTooltip]="family.isMultiProfile() ? 'Switch patient profile' : 'Current patient'"
+                aria-label="Active patient"
+                (click)="openFamilyPicker()">
+                <span class="pp-avatar" [class.pp-avatar-female]="active.gender === 'Female'">
+                  {{ activeInitials() }}
+                </span>
+                <span class="pp-text">
+                  <strong>{{ active.firstName }} {{ active.lastName }}</strong>
+                  <span class="pp-rel">{{ active.relationship }} · #{{ active.patientId }}</span>
+                </span>
+                @if (family.isMultiProfile()) {
+                  <mat-icon class="pp-caret">swap_horiz</mat-icon>
+                }
               </button>
             }
-          </mat-menu>
 
-          <!-- Language pill -->
-          @if (geo.config().languages.length > 1) {
-            <button mat-stroked-button class="lang-pill" [matMenuTriggerFor]="langMenu">
-              <mat-icon class="lang-globe">language</mat-icon>
-              <span class="lang-code">{{ i18n.lang() === 'ar' ? 'AR' : 'EN' }}</span>
-              <mat-icon class="lang-caret">expand_more</mat-icon>
-            </button>
-            <mat-menu #langMenu="matMenu" class="hdr-menu">
-              <button mat-menu-item (click)="i18n.setLanguage('en')">
-                <mat-icon [class.invisible]="i18n.lang() !== 'en'">check</mat-icon>
-                English
+            <!-- Location pill -->
+            @if (locationService.selectedLocation(); as loc) {
+              <button mat-stroked-button class="loc-pill" [matMenuTriggerFor]="locationMenu">
+                <mat-icon class="loc-pin">location_on</mat-icon>
+                <span class="loc-name">{{ shortLocationName(loc.name) }}</span>
+                <mat-icon class="loc-caret">expand_more</mat-icon>
               </button>
-              <button mat-menu-item (click)="i18n.setLanguage('ar')">
-                <mat-icon [class.invisible]="i18n.lang() !== 'ar'">check</mat-icon>
-                العربية
-              </button>
+            }
+            <mat-menu #locationMenu="matMenu" class="hdr-menu">
+              <div class="menu-head">Choose location</div>
+              @for (loc of locationService.locations; track loc.id) {
+                <button mat-menu-item class="menu-loc-item"
+                        (click)="locationService.setLocation(loc.id)">
+                  <mat-icon [class.menu-current]="locationService.selectedLocation()?.id === loc.id">
+                    {{ locationService.selectedLocation()?.id === loc.id ? 'check_circle' : 'local_hospital' }}
+                  </mat-icon>
+                  <div class="menu-loc-text">
+                    <strong>{{ loc.name }}</strong>
+                    <span>{{ loc.address }}, {{ loc.city }}</span>
+                  </div>
+                </button>
+              }
             </mat-menu>
+
+            <!-- Language pill -->
+            @if (geo.config().languages.length > 1) {
+              <button mat-stroked-button class="lang-pill" [matMenuTriggerFor]="langMenu">
+                <mat-icon class="lang-globe">language</mat-icon>
+                <span class="lang-code">{{ i18n.lang() === 'ar' ? 'AR' : 'EN' }}</span>
+                <mat-icon class="lang-caret">expand_more</mat-icon>
+              </button>
+              <mat-menu #langMenu="matMenu" class="hdr-menu">
+                <button mat-menu-item (click)="i18n.setLanguage('en')">
+                  <mat-icon [class.invisible]="i18n.lang() !== 'en'">check</mat-icon>
+                  English
+                </button>
+                <button mat-menu-item (click)="i18n.setLanguage('ar')">
+                  <mat-icon [class.invisible]="i18n.lang() !== 'ar'">check</mat-icon>
+                  العربية
+                </button>
+              </mat-menu>
+            }
           }
 
-          <!-- User menu -->
-          <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-btn" aria-label="Account">
-            <mat-icon>account_circle</mat-icon>
-          </button>
+          <!-- User icon: opens the user menu on desktop, opens the sidenav on mobile.
+               On mobile we deliberately collapse everything (account actions,
+               location, language, profile switcher) into the sidenav so the
+               toolbar stays minimal. -->
+          @if (isMobile()) {
+            <button mat-icon-button class="user-btn" aria-label="Open menu"
+                    (click)="toggleSidenav()">
+              <mat-icon>account_circle</mat-icon>
+            </button>
+          } @else {
+            <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-btn" aria-label="Account">
+              <mat-icon>account_circle</mat-icon>
+            </button>
+          }
           <mat-menu #userMenu="matMenu" class="hdr-menu">
+            @if (family.activeMember(); as active) {
+              <div class="user-menu-head">
+                <span class="umh-avatar" [class.umh-avatar-female]="active.gender === 'Female'">
+                  {{ activeInitials() }}
+                </span>
+                <div class="umh-text">
+                  <strong>{{ active.fullName }}</strong>
+                  <span>{{ active.relationship }} · ID {{ active.patientId }}</span>
+                </div>
+              </div>
+              <mat-divider></mat-divider>
+            }
             <button mat-menu-item routerLink="/profile">
               <mat-icon>person</mat-icon> {{ 'nav.profile' | translate }}
             </button>
-            <button mat-menu-item (click)="openChangePassword()">
-              <mat-icon>lock</mat-icon> Change Password
-            </button>
+            @if (family.isPrimaryOwner()) {
+              <!--
+                Primary-owner-only actions. Only the account owner can
+                change credentials. Other family contexts are patient-
+                view only.
+              -->
+              <button mat-menu-item (click)="openChangePassword()">
+                <mat-icon>lock</mat-icon> Change Password
+              </button>
+            } @else {
+              <button mat-menu-item disabled
+                      matTooltip="Only the primary account owner can change the password.">
+                <mat-icon>lock</mat-icon> Change Password
+              </button>
+            }
             <button mat-menu-item routerLink="/dashboard" [queryParams]="{ openFeedback: '1' }">
               <mat-icon>rate_review</mat-icon> Feedback
             </button>
             <mat-divider></mat-divider>
-            <button mat-menu-item>
+            <button mat-menu-item (click)="signOut()">
               <mat-icon>logout</mat-icon> {{ 'nav.signout' | translate }}
             </button>
           </mat-menu>
@@ -704,6 +771,31 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             [fixedTopGap]="isMobile() ? 64 : 0"
             (closedStart)="sidenavOpen.set(false)"
             class="sidenav">
+            @if (family.activeMember(); as active) {
+              <div class="sn-patient">
+                <div class="sn-patient-card">
+                  <span class="sn-avatar" [class.sn-avatar-female]="active.gender === 'Female'">
+                    {{ activeInitials() }}
+                  </span>
+                  <div class="sn-patient-text">
+                    <strong>{{ active.fullName }}</strong>
+                    <span>{{ active.relationship }} · ID {{ active.patientId }}</span>
+                    @if (active.isMinorOrDependent) {
+                      <small class="sn-guardian">
+                        <mat-icon>shield_person</mat-icon> Guardian access
+                      </small>
+                    }
+                  </div>
+                </div>
+                @if (family.isMultiProfile()) {
+                  <button mat-stroked-button class="sn-switch"
+                          (click)="openFamilyPicker(); closeSidenavOnMobile()">
+                    <mat-icon>swap_horiz</mat-icon> Switch patient
+                  </button>
+                }
+              </div>
+              <mat-divider></mat-divider>
+            }
             <mat-nav-list>
               <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link"
                  (click)="closeSidenavOnMobile()">
@@ -736,6 +828,88 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <span matListItemTitle>{{ 'nav.payments' | translate }}</span>
               </a>
             </mat-nav-list>
+
+            <!-- Mobile-only: everything the desktop toolbar shows as pills /
+                 the user menu shows as a popover collapses into the sidenav. -->
+            @if (isMobile()) {
+              <mat-divider></mat-divider>
+
+              <div class="sn-section-label">Preferences</div>
+
+              @if (locationService.selectedLocation(); as loc) {
+                <button class="sn-row-btn" [matMenuTriggerFor]="locationMenuMobile">
+                  <mat-icon class="sn-row-icon">location_on</mat-icon>
+                  <div class="sn-row-text">
+                    <strong>Location</strong>
+                    <span>{{ shortLocationName(loc.name) }}</span>
+                  </div>
+                  <mat-icon class="sn-row-caret">expand_more</mat-icon>
+                </button>
+                <mat-menu #locationMenuMobile="matMenu" class="hdr-menu">
+                  <div class="menu-head">Choose location</div>
+                  @for (l of locationService.locations; track l.id) {
+                    <button mat-menu-item class="menu-loc-item"
+                            (click)="locationService.setLocation(l.id); closeSidenavOnMobile()">
+                      <mat-icon [class.menu-current]="locationService.selectedLocation()?.id === l.id">
+                        {{ locationService.selectedLocation()?.id === l.id ? 'check_circle' : 'local_hospital' }}
+                      </mat-icon>
+                      <div class="menu-loc-text">
+                        <strong>{{ l.name }}</strong>
+                        <span>{{ l.address }}, {{ l.city }}</span>
+                      </div>
+                    </button>
+                  }
+                </mat-menu>
+              }
+
+              @if (geo.config().languages.length > 1) {
+                <button class="sn-row-btn" [matMenuTriggerFor]="langMenuMobile">
+                  <mat-icon class="sn-row-icon">language</mat-icon>
+                  <div class="sn-row-text">
+                    <strong>Language</strong>
+                    <span>{{ i18n.lang() === 'ar' ? 'العربية' : 'English' }}</span>
+                  </div>
+                  <mat-icon class="sn-row-caret">expand_more</mat-icon>
+                </button>
+                <mat-menu #langMenuMobile="matMenu" class="hdr-menu">
+                  <button mat-menu-item (click)="i18n.setLanguage('en'); closeSidenavOnMobile()">
+                    <mat-icon [class.invisible]="i18n.lang() !== 'en'">check</mat-icon>
+                    English
+                  </button>
+                  <button mat-menu-item (click)="i18n.setLanguage('ar'); closeSidenavOnMobile()">
+                    <mat-icon [class.invisible]="i18n.lang() !== 'ar'">check</mat-icon>
+                    العربية
+                  </button>
+                </mat-menu>
+              }
+
+              <mat-divider></mat-divider>
+
+              <div class="sn-section-label">Account</div>
+
+              <a class="sn-row-btn" routerLink="/profile" (click)="closeSidenavOnMobile()">
+                <mat-icon class="sn-row-icon">person</mat-icon>
+                <div class="sn-row-text"><strong>{{ 'nav.profile' | translate }}</strong></div>
+              </a>
+
+              @if (family.isPrimaryOwner()) {
+                <button class="sn-row-btn" (click)="openChangePassword(); closeSidenavOnMobile()">
+                  <mat-icon class="sn-row-icon">lock</mat-icon>
+                  <div class="sn-row-text"><strong>Change Password</strong></div>
+                </button>
+              }
+
+              <a class="sn-row-btn" routerLink="/dashboard" [queryParams]="{ openFeedback: '1' }"
+                 (click)="closeSidenavOnMobile()">
+                <mat-icon class="sn-row-icon">rate_review</mat-icon>
+                <div class="sn-row-text"><strong>Feedback</strong></div>
+              </a>
+
+              <button class="sn-row-btn sn-row-danger" (click)="signOut(); closeSidenavOnMobile()">
+                <mat-icon class="sn-row-icon">logout</mat-icon>
+                <div class="sn-row-text"><strong>{{ 'nav.signout' | translate }}</strong></div>
+              </button>
+            }
           </mat-sidenav>
           <mat-sidenav-content class="content">
             <router-outlet />
@@ -1576,7 +1750,159 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .lang-code { font-weight: 700; letter-spacing: 0.3px; }
 
+    /* Active-patient pill (Family Grouping) */
+    .patient-pill {
+      border-radius: 22px !important; height: 40px !important;
+      border-color: #80cbc4 !important; background: #e0f2f1 !important;
+      color: #00695c !important; padding: 0 10px 0 4px !important;
+      display: inline-flex !important; align-items: center !important;
+      gap: 8px !important; flex-shrink: 0;
+      max-width: 240px;
+    }
+    .patient-pill:hover { background: #b2dfdb !important; }
+    .patient-pill-multi { cursor: pointer; }
+    .pp-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg, #00897b, #00bfa5);
+      color: #fff; font-weight: 700; font-size: 11px;
+      display: inline-flex; align-items: center; justify-content: center;
+      letter-spacing: 0.4px;
+    }
+    .pp-avatar-female { background: linear-gradient(135deg, #d81b60, #f06292); }
+    .pp-text {
+      display: inline-flex; flex-direction: column; line-height: 1.1;
+      text-align: left; overflow: hidden;
+    }
+    .pp-text strong {
+      font-size: 12px; color: #00695c; max-width: 130px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pp-rel {
+      font-size: 10px; color: #009688; font-weight: 600;
+      max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pp-caret { font-size: 16px !important; width: 16px !important; height: 16px !important; color: #00695c; }
+
+    /* Switcher menu */
+    .patient-switch-menu .ps-head {
+      padding: 10px 14px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .patient-switch-menu .ps-head strong { font-size: 13px; color: #1b3a4b; }
+    .patient-switch-menu .ps-head span { font-size: 11px; color: #888; }
+    .patient-switch-menu .ps-item {
+      height: auto !important; line-height: 1.3 !important;
+      padding: 10px 14px !important;
+      display: flex !important; gap: 10px !important; align-items: center !important;
+    }
+    .ps-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #00897b, #00bfa5);
+      color: #fff; font-weight: 700; font-size: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .ps-avatar-female { background: linear-gradient(135deg, #d81b60, #f06292); }
+    .ps-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .ps-text strong { font-size: 13px; color: #1b3a4b; }
+    .ps-text span { font-size: 11px; color: #6b7280; }
+    .ps-locked {
+      font-size: 10px; color: #b45309; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .ps-locked mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .ps-check { color: #00897b !important; font-size: 18px !important; width: 18px !important; height: 18px !important; }
+
+    /* Sidenav active-patient card (visible primarily on mobile) */
+    .sn-patient { padding: 14px 12px 12px; }
+    .sn-patient-card {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: linear-gradient(135deg, #e0f2f1, #f0fdf9);
+      border-radius: 12px; padding: 12px;
+    }
+    .sn-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, #00897b, #00bfa5);
+      color: #fff; font-weight: 700; font-size: 14px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .sn-avatar-female { background: linear-gradient(135deg, #d81b60, #f06292); }
+    .sn-patient-text { display: flex; flex-direction: column; min-width: 0; }
+    .sn-patient-text strong {
+      font-size: 13px; color: #1b3a4b;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sn-patient-text span { font-size: 11px; color: #00695c; font-weight: 600; }
+    .sn-guardian {
+      margin-top: 4px; font-size: 10px; color: #5e35b1;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .sn-guardian mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .sn-switch {
+      width: 100%; margin-top: 10px;
+      color: #00695c !important; border-color: #80cbc4 !important;
+      font-size: 12px !important;
+    }
+
+    /* Sidenav: mobile-only Preferences + Account rows
+       (location, language, profile, change password, manage family,
+        feedback, sign out — collapsed from the desktop toolbar) */
+    .sn-section-label {
+      padding: 14px 16px 4px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase; color: #94a3a3;
+    }
+    .sn-row-btn {
+      display: flex; align-items: center; gap: 12px;
+      width: calc(100% - 16px);
+      margin: 0 8px;
+      padding: 10px 12px;
+      background: transparent;
+      border: none; border-radius: 8px;
+      text-align: left; cursor: pointer;
+      color: #1b3a4b; text-decoration: none;
+      font: inherit;
+    }
+    .sn-row-btn:hover { background: #f0f7f7; }
+    .sn-row-icon {
+      color: #6b7c80; font-size: 20px !important;
+      width: 20px !important; height: 20px !important; flex: 0 0 auto;
+    }
+    .sn-row-text {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .sn-row-text strong {
+      font-size: 13px; font-weight: 500; color: #1b3a4b;
+    }
+    .sn-row-text span {
+      font-size: 11px; color: #00695c; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sn-row-caret {
+      color: #94a3a3; font-size: 18px !important;
+      width: 18px !important; height: 18px !important;
+    }
+    .sn-row-danger { color: #c62828; }
+    .sn-row-danger .sn-row-icon,
+    .sn-row-danger .sn-row-text strong { color: #c62828; }
+
     .user-btn { color: #1b3a4b !important; flex-shrink: 0; }
+
+    /* User menu — active patient context strip */
+    .user-menu-head {
+      display: flex; gap: 10px; align-items: center;
+      padding: 12px 14px; min-width: 240px;
+      background: linear-gradient(135deg, #e0f2f1, #f0fdf9);
+    }
+    .umh-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #00897b, #00bfa5);
+      color: #fff; font-weight: 700; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .umh-avatar-female { background: linear-gradient(135deg, #d81b60, #f06292); }
+    .umh-text { display: flex; flex-direction: column; min-width: 0; }
+    .umh-text strong { font-size: 13px; color: #1b3a4b; }
+    .umh-text span { font-size: 11px; color: #00695c; font-weight: 600; }
 
     /* Header menus */
     .hdr-menu .menu-head {
@@ -1647,6 +1973,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .brand-divider, .brand-tag { display: none; }
       .loc-pill, .lang-pill { height: 32px !important; padding: 0 8px !important; }
       .loc-name { max-width: 70px; }
+
+      /* Patient pill on mobile: avatar + caret only — full info lives in sidenav */
+      .patient-pill { height: 32px !important; padding: 0 6px 0 2px !important; max-width: none; }
+      .pp-text { display: none !important; }
+      .pp-avatar { width: 26px; height: 26px; font-size: 10px; }
       .loc-caret, .lang-caret, .lang-globe, .loc-pin {
         font-size: 14px !important; width: 14px !important; height: 14px !important;
       }
@@ -1975,6 +2306,7 @@ export class ShellComponent {
   readonly geo = inject(GeographyService);
   readonly i18n = inject(I18nService);
   readonly locationService = inject(LocationService);
+  readonly family = inject(FamilyService);
 
   // ===== Change Password =====
   // Default flow: current + new + confirm.
@@ -2208,28 +2540,44 @@ export class ShellComponent {
   // Carries name/phone/email from guest booking into the signup banner
   readonly signupPrefill = signal<SignupPrefill | null>(null);
 
-  // Auto-open Create Account when guest booking hands off prefill data.
+  // Auto-open Create Account (or Sign In) when guest booking hands off
+  // prefill data. The handoff's `mode` field decides which login surface
+  // we land on — 'create' fills the signup form, 'signin' just opens the
+  // sign-in card with the CPR (if any) prefilled.
   private readonly _handoffEffect = effect(() => {
     const data = this.signupHandoff.prefillData();
     if (!data) return;
-    this.signupPrefill.set(data);
-    this.signupFirstName.set(data.firstName || '');
-    this.signupLastName.set(data.lastName || '');
-    this.signupCpr.set((data.cpr || '').replace(/\D/g, '').slice(0, 8));
-    const parsed = this.parsePrefillPhone(data.phone);
-    this.signupCountryCode.set(parsed.code);
-    this.signupPhone.set(parsed.number);
-    this.signupAttempted.set(false);
-    this.signupOtp.set('');
-    this.signupNewPassword.set('');
-    this.passwordChoice.set(null);
-    this.signupStep.set(1);
+    const mode = data.mode ?? 'create';
+
+    if (mode === 'create') {
+      this.signupPrefill.set(data);
+      this.signupFirstName.set(data.firstName || '');
+      this.signupLastName.set(data.lastName || '');
+      this.signupCpr.set((data.cpr || '').replace(/\D/g, '').slice(0, 8));
+      const parsed = this.parsePrefillPhone(data.phone);
+      this.signupCountryCode.set(parsed.code);
+      this.signupPhone.set(parsed.number);
+      this.signupAttempted.set(false);
+      this.signupOtp.set('');
+      this.signupNewPassword.set('');
+      this.passwordChoice.set(null);
+      this.signupStep.set(1);
+    } else {
+      // Sign-in mode: only the CPR / Patient ID field is prefillable.
+      // We don't have a CPR from guest booking, so leave it blank —
+      // the user enters whatever ID they registered with.
+      this.loginCpr.set((data.cpr || '').replace(/\D/g, '').slice(0, 8));
+      this.loginPassword.set('');
+      this.signInError.set('');
+      this.termsAccepted.set(false);
+    }
+
     if (!this.pendingLocationId()) {
       this.pendingLocationId.set(this.locationService.locations[0].id);
     }
     this.showLocationPicker.set(true);
     this.showLogin.set(true);
-    this.loginMode.set('create');
+    this.loginMode.set(mode);
     this.signupHandoff.consume();
   });
 
@@ -2283,6 +2631,64 @@ export class ShellComponent {
     this.loginMode.set('signin');
   }
 
+  // ----- Family Grouping helpers (toolbar + sidenav) -----
+
+  activeInitials(): string {
+    const a = this.family.activeMember();
+    if (!a) return '';
+    return `${a.firstName[0] ?? ''}${a.lastName[0] ?? ''}`.toUpperCase();
+  }
+
+/**
+   * Open the family picker modal. Single dismissible call — the modal
+   * renders on top of whichever page the user is on (toolbar pill,
+   * sidenav switch button, etc.).
+   *
+   * If the user is mid-workflow we warn first so the switch doesn't
+   * silently wipe a partially-filled booking / payment form. The actual
+   * reset to /dashboard happens inside the picker's `select` handler
+   * once a different profile is confirmed.
+   */
+  openFamilyPicker(): void {
+    if (!this.family.hasFamily()) return;
+
+    if (
+      this.family.config().confirmSwitchDuringWorkflow &&
+      this.isInDestructiveWorkflow()
+    ) {
+      const proceed = window.confirm(
+        'Switching patient will reset the current workflow.\n\n' +
+        'Any unsaved booking, payment or form data will be lost.\n\n' +
+        'Continue?'
+      );
+      if (!proceed) return;
+    }
+
+    this.family.openPicker(true);
+  }
+
+  /**
+   * Workflows that should warn before a patient switch wipes them.
+   * Anything that's not just a read-only list is treated as a workflow.
+   */
+  private isInDestructiveWorkflow(): boolean {
+    const url = this.router.url || '';
+    return (
+      url.startsWith('/appointments') ||
+      url.startsWith('/payments') ||
+      url.startsWith('/profile')
+    );
+  }
+
+  /** Sign out clears the family + active patient and returns home. */
+  signOut(): void {
+    this.family.clear();
+    this.locationService.setLocation(null);
+    this.showLogin.set(false);
+    this.showLocationPicker.set(false);
+    this.router.navigate(['/']);
+  }
+
   signIn(): void {
     if (this.isLocked()) return;
 
@@ -2298,7 +2704,40 @@ export class ShellComponent {
         localStorage.removeItem('login_attempts');
       } catch { /* ignore */ }
       this.locationService.setLocation(this.pendingLocationId());
-      this.router.navigate(['/dashboard']);
+
+      // ----- Family Grouping post-auth resolution -----
+      // The verified mobile is what unlocks the family group; the
+      // CPR is the login handle. Both must succeed for any patient
+      // context to be selected.
+      const authenticatedMobile = '+97333224455'; // demo: Priya's verified mobile
+      this.family.loadFamilyForMobile(authenticatedMobile).subscribe(group => {
+        const selectable = this.family.selectableMembers();
+
+        if (!group || selectable.length === 0) {
+          // No valid family link — fall back to the single CPR holder.
+          // In production HMS would always return at least the self
+          // record; this branch protects the demo from a misconfigured
+          // tenant.
+          this.router.navigate(['/dashboard']);
+          return;
+        }
+
+        // Always pre-select the primary owner so the dashboard can
+        // render meaningful data behind the modal. The user then
+        // either confirms (closes modal) or switches to another
+        // family member.
+        const primary = selectable.find(m => m.isPrimaryOwner) ?? selectable[0];
+        this.family.setActivePatient(primary.patientId);
+        this.router.navigate(['/dashboard']);
+
+        // For multi-profile groups, open the picker as a dismissible
+        // overlay on top of the dashboard — the primary owner is already
+        // active behind it, so closing the sheet just lands on her
+        // dashboard. Single-profile groups skip it (happy-flow rule #4).
+        if (selectable.length > 1) {
+          this.family.openPicker(true);
+        }
+      });
       return;
     }
 
