@@ -89,6 +89,46 @@ html[dir="rtl"] {
 }
 
 // =============================================
+// FEEDBACK FORM — overlay backdrop + panel
+// The dashboard feedback dialog is rendered into the CDK overlay
+// container (at body level) so it escapes <mat-sidenav-content>'s
+// transform containing block and stacking context. Without that, the
+// dialog header gets clipped on desktop and trapped behind the toolbar
+// on mobile. These rules live globally because the overlay container is
+// a sibling of <app-root>, outside component view encapsulation.
+// =============================================
+.cdk-overlay-backdrop.feedback-form-backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+@media (max-width: 720px) {
+  // Mobile = full-screen takeover. Override the global position strategy
+  // (centred + top:12px) so the panel fills the viewport edge-to-edge.
+  .cdk-overlay-pane.feedback-form-panel {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    transform: none !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    justify-content: stretch;
+  }
+  // Make the dialog box itself fill the panel on mobile (overrides the
+  // desktop `width: min(560px, ...)` / `max-height: ...` defaults set in
+  // dashboard.component.ts).
+  .cdk-overlay-pane.feedback-form-panel .feedback-form {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+}
+
+// =============================================
 // CDK OVERLAY STACKING
 // Angular Material panels (mat-select dropdowns, snackbars, mat-menu,
 // dialogs, tooltips) render into .cdk-overlay-container which is a

@@ -1,5 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, OnDestroy, signal, computed, effect, ViewChild, TemplateRef, ViewContainerRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Overlay, OverlayRef } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -274,12 +276,15 @@ interface SpecialtyTile {
     </div>
 
     <!-- ============================================ -->
-    <!-- FEEDBACK FORM (slides down from top)         -->
+    <!-- FEEDBACK FORM (rendered via CDK overlay)     -->
+    <!-- Wrapped in <ng-template> so we can teleport  -->
+    <!-- it to body level via Overlay + TemplatePortal-->
+    <!-- (escapes <mat-sidenav-content>'s transform   -->
+    <!-- containing block, which traps position:fixed -->
+    <!-- and breaks the dialog on desktop + mobile).  -->
     <!-- ============================================ -->
-    @if (feedbackFormOpen()) {
-      <div class="form-backdrop" (click)="closeFeedbackForm()"></div>
-    }
-    <div class="feedback-form" [class.open]="feedbackFormOpen()" role="dialog" aria-modal="true">
+    <ng-template #feedbackFormTpl>
+    <div class="feedback-form" role="dialog" aria-modal="true">
       <header class="ff-head">
         <div class="ff-head-text">
           <h3>How was your overall experience at the hospital?</h3>
@@ -350,6 +355,7 @@ interface SpecialtyTile {
         </button>
       </footer>
     </div>
+    </ng-template>
 
     <!-- ============================================ -->
     <!-- LAB REPORT SIDE SHEET                        -->
@@ -879,32 +885,23 @@ interface SpecialtyTile {
     }
     .csat-x mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
-    /* ===== Feedback Form (slides from top) ===== */
-    .form-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(15, 23, 42, 0.45);
-      z-index: 1100;
-      animation: fadeIn 0.2s ease;
-    }
+    /* ===== Feedback Form =====
+       Rendered into the CDK overlay container at body level — overlay
+       handles positioning (centred + 12px from top) and backdrop. We only
+       need to style the dialog box itself. Mobile full-screen override
+       lives in styles.scss on .feedback-form-panel (sibling rule). */
     .feedback-form {
-      position: fixed;
-      top: 0; left: 50%;
-      transform: translate(-50%, -110%);
       width: min(560px, calc(100vw - 24px));
       max-height: calc(100vh - 24px);
-      margin-top: 12px;
       background: white;
       border-radius: 18px;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
-      z-index: 1101;
       display: flex; flex-direction: column;
-      visibility: hidden;
-      transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
-                  visibility 0.32s linear;
+      animation: feedback-slide-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-    .feedback-form.open {
-      transform: translate(-50%, 0);
-      visibility: visible;
+    @keyframes feedback-slide-in {
+      from { transform: translateY(-16px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
     }
 
     .ff-head {
@@ -1159,13 +1156,8 @@ interface SpecialtyTile {
       .csat-star { width: 30px !important; height: 30px !important; line-height: 30px !important; }
       .csat-star mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
-      /* Feedback form — full-width mobile */
-      .feedback-form {
-        width: 100%; max-width: 100%;
-        max-height: 100vh; height: 100vh;
-        margin: 0; border-radius: 0;
-      }
-      .feedback-form.open { transform: translate(-50%, 0); }
+      /* Feedback form mobile sizing now lives on .feedback-form-panel
+         in styles.scss (overlay-pane class, applied at body level). */
 
       /* Mobile bottom sheet */
       .side-sheet {
@@ -1184,11 +1176,64 @@ interface SpecialtyTile {
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+
+  @ViewChild('feedbackFormTpl', { static: true })
+  private readonly feedbackFormTpl!: TemplateRef<unknown>;
+  private readonly overlay = inject(Overlay);
+  private readonly viewContainerRef = inject(ViewContainerRef);
+  private feedbackOverlayRef: OverlayRef | null = null;
+
+  constructor() {
+    // The dashboard renders inside <mat-sidenav-content>, whose CSS transform
+    // turns position:fixed descendants into containing-block-relative
+    // positioning AND creates an isolated stacking context — both of which
+    // break the dialog on desktop (header clipped above the viewport) and
+    // mobile (header trapped behind the sticky toolbar). Solution: render
+    // the dialog at body level via CDK Overlay so it truly escapes the
+    // shell's containing block.
+    effect(() => {
+      if (this.feedbackFormOpen()) {
+        this.openFeedbackOverlay();
+      } else {
+        this.closeFeedbackOverlay();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.closeFeedbackOverlay();
+  }
+
+  private openFeedbackOverlay(): void {
+    if (this.feedbackOverlayRef || !this.feedbackFormTpl) return;
+    this.feedbackOverlayRef = this.overlay.create({
+      positionStrategy: this.overlay.position()
+        .global()
+        .centerHorizontally()
+        .top('12px'),
+      hasBackdrop: true,
+      backdropClass: 'feedback-form-backdrop',
+      panelClass: 'feedback-form-panel',
+      scrollStrategy: this.overlay.scrollStrategies.block(),
+    });
+    this.feedbackOverlayRef.backdropClick().subscribe(() => this.closeFeedbackForm());
+    this.feedbackOverlayRef.attach(
+      new TemplatePortal(this.feedbackFormTpl, this.viewContainerRef)
+    );
+  }
+
+  private closeFeedbackOverlay(): void {
+    if (this.feedbackOverlayRef) {
+      this.feedbackOverlayRef.detach();
+      this.feedbackOverlayRef.dispose();
+      this.feedbackOverlayRef = null;
+    }
+  }
 
   readonly loading = signal(true);
   readonly data = signal<DashboardSummary | null>(null);
