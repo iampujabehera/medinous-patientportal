@@ -262,7 +262,8 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               </div>
               <button mat-stroked-button class="topbar-loc-btn" [matMenuTriggerFor]="locChangeMenu">
                 <mat-icon class="loc-pin">location_on</mat-icon>
-                <span class="topbar-loc-name">{{ getLocationName(pendingLocationId()) }}</span>
+                <span class="topbar-loc-name topbar-loc-name-full">{{ getLocationName(pendingLocationId()) }}</span>
+                <span class="topbar-loc-name topbar-loc-name-short">{{ getLocationBranch(pendingLocationId()) }}</span>
                 <mat-icon class="loc-change-arrow">expand_more</mat-icon>
               </button>
               <mat-menu #locChangeMenu="matMenu" class="loc-change-menu">
@@ -1387,6 +1388,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .topbar-loc-name {
       max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* Desktop default: show the full "Hospital - Branch" label.
+       Mobile (<=480px) swaps to the branch-only label so the chip stops
+       repeating the brand banner above. See @media (max-width: 480px). */
+    .topbar-loc-name-short { display: none; }
     .topbar-loc-btn .loc-change-arrow {
       font-size: 18px !important; width: 18px !important; height: 18px !important;
       color: #0d8a8a; margin-left: 2px;
@@ -2019,17 +2024,27 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .accred-badge mat-icon { font-size: 30px; width: 30px; height: 30px; }
       .accred-badge span { font-size: 10px; }
 
-      /* ---------- Login topbar (pre-auth banner) ---------- */
-      .topbar-inner { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
-      .hospital-brand { gap: 8px; }
+      /* ---------- Login topbar (pre-auth banner) ----------
+         At <=480px the hospital name + Arabic subtitle were wrapping to 2-3
+         lines AND the chip on the right repeated the full hospital name +
+         branch, so the row looked like noise piled on noise. Cleanup:
+         (1) hide the hospital name block — the brand icon keeps visual ID,
+             and the chip already names the place;
+         (2) swap the chip label to branch-only ("Juffair" instead of the
+             full "Northbridge Specialist Hospital - Juffair"). */
+      .topbar-inner { padding: 8px 10px; gap: 10px; flex-wrap: nowrap; }
+      .hospital-brand { gap: 8px; flex: 0 0 auto; }
       .hospital-brand-icon { width: 32px; height: 32px; border-radius: 8px; }
       .hospital-brand-icon mat-icon { font-size: 18px; width: 18px; height: 18px; }
-      .hospital-brand-text strong { font-size: 12px; }
-      .hospital-brand-ar { font-size: 9px; }
+      .hospital-brand-text { display: none; }
       .topbar-loc-btn {
-        font-size: 11px !important; height: 28px !important; padding: 0 8px !important;
+        flex: 1; min-width: 0;
+        font-size: 12px !important; height: 32px !important; padding: 0 10px !important;
+        justify-content: flex-start !important;
       }
-      .topbar-loc-name { max-width: 90px; font-size: 11px; }
+      .topbar-loc-name-full { display: none; }
+      .topbar-loc-name-short { display: inline; }
+      .topbar-loc-name { max-width: none; font-size: 12px; flex: 1; min-width: 0; }
       .topbar-loc-btn .loc-pin,
       .topbar-loc-btn .loc-change-arrow {
         font-size: 14px !important; width: 14px !important; height: 14px !important;
@@ -2806,6 +2821,17 @@ export class ShellComponent {
 
   getLocationName(id: string): string {
     return this.locationService.getLocationById(id)?.name ?? '';
+  }
+
+  /** Branch-only label for the location chip on mobile. Locations are named
+   *  "Northbridge Specialist Hospital - Juffair" / "NSH Clinic - Riffa" —
+   *  on narrow screens the hospital prefix repeats the brand banner above
+   *  and just adds noise, so we slice to whatever follows the last " - ".
+   *  Falls back to the full name if no dash is present. */
+  getLocationBranch(id: string): string {
+    const full = this.getLocationName(id);
+    const idx = full.lastIndexOf(' - ');
+    return idx >= 0 ? full.slice(idx + 3) : full;
   }
 
   scrollTo(id: string): void {
