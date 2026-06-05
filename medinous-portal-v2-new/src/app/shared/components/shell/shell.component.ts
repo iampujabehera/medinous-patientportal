@@ -2031,20 +2031,28 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
          (1) hide the hospital name block — the brand icon keeps visual ID,
              and the chip already names the place;
          (2) swap the chip label to branch-only ("Juffair" instead of the
-             full "Northbridge Specialist Hospital - Juffair"). */
-      .topbar-inner { padding: 8px 10px; gap: 10px; flex-wrap: nowrap; }
-      .hospital-brand { gap: 8px; flex: 0 0 auto; }
+             full "Northbridge Specialist Hospital - Juffair");
+         (3) keep the chip sized to its content (it is a 7-char label — not
+             a search bar) and pin it to the right edge of the row so the
+             brand icon and chip read as two endpoints, not a stretched
+             tug-of-war. */
+      .topbar-inner { padding: 8px 10px; gap: 8px; flex-wrap: nowrap; }
+      .hospital-brand { gap: 8px; flex: 0 0 auto; min-width: 0; }
       .hospital-brand-icon { width: 32px; height: 32px; border-radius: 8px; }
       .hospital-brand-icon mat-icon { font-size: 18px; width: 18px; height: 18px; }
       .hospital-brand-text { display: none; }
       .topbar-loc-btn {
-        flex: 1; min-width: 0;
+        flex: 0 0 auto;
+        margin-left: auto;
         font-size: 12px !important; height: 32px !important; padding: 0 10px !important;
-        justify-content: flex-start !important;
+        max-width: 60vw;
       }
       .topbar-loc-name-full { display: none; }
       .topbar-loc-name-short { display: inline; }
-      .topbar-loc-name { max-width: none; font-size: 12px; flex: 1; min-width: 0; }
+      .topbar-loc-name {
+        max-width: 140px; font-size: 12px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
       .topbar-loc-btn .loc-pin,
       .topbar-loc-btn .loc-change-arrow {
         font-size: 14px !important; width: 14px !important; height: 14px !important;
