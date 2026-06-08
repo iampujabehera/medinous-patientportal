@@ -295,6 +295,29 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                 <div class="login-body" [class.login-body-locked]="isLocked()">
                   <h2 class="login-title">Sign in to your account</h2>
 
+                  <!-- Login method tabs: Password / OTP.
+                       Both methods share the CPR field below; only the
+                       second field (password vs OTP) and the primary CTA
+                       change between modes. -->
+                  <div class="login-tabs" role="tablist" aria-label="Login method">
+                    <button type="button" role="tab"
+                            class="login-tab" [class.active]="loginMethod()==='password'"
+                            [attr.aria-selected]="loginMethod()==='password'"
+                            [disabled]="isLocked()"
+                            (click)="setLoginMethod('password')">
+                      <mat-icon>lock</mat-icon>
+                      <span>Password</span>
+                    </button>
+                    <button type="button" role="tab"
+                            class="login-tab" [class.active]="loginMethod()==='otp'"
+                            [attr.aria-selected]="loginMethod()==='otp'"
+                            [disabled]="isLocked()"
+                            (click)="setLoginMethod('otp')">
+                      <mat-icon>sms</mat-icon>
+                      <span>OTP</span>
+                    </button>
+                  </div>
+
                   @if (isLocked()) {
                     <div class="signin-locked" role="alert">
                       <mat-icon class="lock-icon">lock</mat-icon>
@@ -310,41 +333,145 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <p class="signin-error" role="alert">{{ signInError() }}</p>
                   }
 
-                  <mat-form-field appearance="outline" class="login-field">
-                    <mat-label>National ID / Patient ID</mat-label>
-                    <mat-icon matPrefix>person</mat-icon>
-                    <input matInput
-                           name="cpr"
-                           autocomplete="username"
-                           inputmode="numeric"
-                           [ngModel]="loginCpr()"
-                           (ngModelChange)="onLoginCprInput($event)"
-                           [readonly]="isLocked()"
-                           placeholder="Enter National ID or Patient ID">
-                    <mat-icon matSuffix class="info-icon"
-                              matTooltip="Your 8-digit National ID, or the Patient ID provided by the hospital at registration."
-                              matTooltipPosition="above">info_outline</mat-icon>
-                  </mat-form-field>
+                  @if (loginMethod() === 'password') {
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>National ID / Patient ID</mat-label>
+                      <mat-icon matPrefix>person</mat-icon>
+                      <input matInput
+                             name="cpr"
+                             autocomplete="username"
+                             inputmode="numeric"
+                             [ngModel]="loginCpr()"
+                             (ngModelChange)="onLoginCprInput($event)"
+                             [readonly]="isLocked()"
+                             placeholder="Enter National ID or Patient ID">
+                      <mat-icon matSuffix class="info-icon"
+                                matTooltip="Your 8-digit National ID, or the Patient ID provided by the hospital at registration."
+                                matTooltipPosition="above">info_outline</mat-icon>
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="login-field">
-                    <mat-label>Password</mat-label>
-                    <mat-icon matPrefix>lock</mat-icon>
-                    <input matInput
-                           name="password"
-                           autocomplete="current-password"
-                           [type]="showPassword() ? 'text' : 'password'"
-                           [ngModel]="loginPassword()"
-                           (ngModelChange)="onLoginPasswordInput($event)"
-                           [readonly]="isLocked()"
-                           placeholder="Enter your password">
-                    <button mat-icon-button matSuffix (click)="togglePassword()" [disabled]="isLocked()">
-                      <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
-                    </button>
-                  </mat-form-field>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>Password</mat-label>
+                      <mat-icon matPrefix>lock</mat-icon>
+                      <input matInput
+                             name="password"
+                             autocomplete="current-password"
+                             [type]="showPassword() ? 'text' : 'password'"
+                             [ngModel]="loginPassword()"
+                             (ngModelChange)="onLoginPasswordInput($event)"
+                             [readonly]="isLocked()"
+                             placeholder="Enter your password">
+                      <button mat-icon-button matSuffix (click)="togglePassword()" [disabled]="isLocked()">
+                        <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                      </button>
+                    </mat-form-field>
 
-                  <div class="login-options">
-                    <a class="forgot-link" (click)="setMode('forgot')">Forgot Password?</a>
-                  </div>
+                    <div class="login-options">
+                      <a class="forgot-link" (click)="setMode('forgot')">Forgot Password?</a>
+                    </div>
+                  } @else {
+                    <!-- OTP mode: Blinkit-style split — small flag-only box
+                         (opens country menu) + larger phone field with the
+                         dial code as an in-field prefix. Helper line below
+                         names exactly which gate is unmet so the patient
+                         never has to guess why Send OTP is disabled. -->
+                    <div class="phone-row-split">
+                      <button type="button" class="cc-box"
+                              [matMenuTriggerFor]="ccMenu"
+                              [disabled]="isLocked() || signinOtpSent()"
+                              [attr.aria-label]="'Country: ' + signinOtpCountry().country">
+                        <img class="cc-flag-img"
+                             [src]="flagUrl(signinOtpCountry().iso)"
+                             [alt]="signinOtpCountry().country + ' flag'"
+                             width="28" height="20" loading="eager">
+                        <mat-icon class="cc-caret">expand_more</mat-icon>
+                      </button>
+
+                      <div class="phone-field"
+                           [class.phone-field-valid]="signinOtpPhoneValid()"
+                           [class.phone-field-warn]="signinOtpPhonePartial()"
+                           [class.phone-field-locked]="isLocked() || signinOtpSent()">
+                        <span class="phone-prefix">{{ signinOtpCountry().code }}</span>
+                        <input class="phone-input"
+                               #otpPhoneInput
+                               type="tel"
+                               name="otp-phone"
+                               autocomplete="tel-national"
+                               inputmode="numeric"
+                               maxlength="10"
+                               [ngModel]="signinOtpPhone()"
+                               (ngModelChange)="onSigninOtpPhoneInput($event, otpPhoneInput)"
+                               [readonly]="isLocked() || signinOtpSent()"
+                               placeholder="Mobile number"
+                               aria-label="Mobile number">
+                        @if (signinOtpPhone().length > 0 && !isLocked() && !signinOtpSent()) {
+                          <button class="phone-clear" type="button"
+                                  (click)="onSigninOtpPhoneInput('')"
+                                  aria-label="Clear mobile number">
+                            <mat-icon>cancel</mat-icon>
+                          </button>
+                        }
+                      </div>
+
+                      <mat-menu #ccMenu="matMenu" class="cc-menu">
+                        @for (cc of countryCodes; track cc.code) {
+                          <button mat-menu-item type="button"
+                                  (click)="signinOtpCountryCode.set(cc.code)">
+                            <img class="cc-menu-flag-img"
+                                 [src]="flagUrl(cc.iso)"
+                                 [alt]="cc.country + ' flag'"
+                                 width="22" height="16" loading="lazy">
+                            <span class="cc-menu-text">
+                              <strong>{{ cc.country }}</strong>
+                              <span class="cc-menu-code">{{ cc.code }}</span>
+                            </span>
+                            @if (signinOtpCountryCode() === cc.code) {
+                              <mat-icon class="cc-menu-tick">check</mat-icon>
+                            }
+                          </button>
+                        }
+                      </mat-menu>
+                    </div>
+
+                    @if (signinOtpSent()) {
+                      <div class="otp-sent-notice" role="status">
+                        <mat-icon>mark_email_read</mat-icon>
+                        <span>OTP sent to <strong>{{ signinOtpDestination() }}</strong></span>
+                        @if (!isLocked()) {
+                          <button type="button" class="edit-number-link"
+                                  (click)="editSigninOtpNumber(otpPhoneInput)"
+                                  aria-label="Edit mobile number">
+                            <mat-icon>edit</mat-icon>
+                            <span>Edit number</span>
+                          </button>
+                        }
+                      </div>
+
+                      <mat-form-field appearance="outline" class="login-field">
+                        <mat-label>Enter OTP</mat-label>
+                        <mat-icon matPrefix>sms</mat-icon>
+                        <input matInput
+                               #otpCodeInput
+                               name="otp"
+                               autocomplete="one-time-code"
+                               inputmode="numeric"
+                               maxlength="6"
+                               [ngModel]="signinOtp()"
+                               (ngModelChange)="onSigninOtpInput($event, otpCodeInput)"
+                               [readonly]="isLocked()"
+                               placeholder="6-digit code">
+                      </mat-form-field>
+
+                      <div class="otp-meta">
+                        <span>Didn't receive it?</span>
+                        @if (signinOtpResendSec() > 0) {
+                          <span class="resend-wait">Resend in {{ signinOtpResendSec() }}s</span>
+                        } @else {
+                          <a class="resend-link" (click)="resendSigninOtp()">Resend OTP</a>
+                        }
+                      </div>
+                    }
+                  }
 
                   <div class="login-terms">
                     <mat-checkbox [ngModel]="termsAccepted()" (ngModelChange)="termsAccepted.set($event)" [disabled]="isLocked()">
@@ -352,11 +479,25 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     </mat-checkbox>
                   </div>
 
-                  <button mat-flat-button class="login-btn"
-                          [disabled]="!loginCpr() || !loginPassword() || !termsAccepted() || isLocked()"
-                          (click)="signIn()">
-                    Sign In <mat-icon>arrow_forward</mat-icon>
-                  </button>
+                  @if (loginMethod() === 'password') {
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="!loginCpr() || !loginPassword() || !termsAccepted() || isLocked()"
+                            (click)="signIn()">
+                      Sign In <mat-icon>arrow_forward</mat-icon>
+                    </button>
+                  } @else if (!signinOtpSent()) {
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="!signinOtpPhoneValid() || !termsAccepted() || isLocked()"
+                            (click)="sendSigninOtp()">
+                      Send OTP <mat-icon>send</mat-icon>
+                    </button>
+                  } @else {
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="signinOtp().length !== 6 || !termsAccepted() || isLocked()"
+                            (click)="signInWithOtp()">
+                      Sign In <mat-icon>arrow_forward</mat-icon>
+                    </button>
+                  }
 
                   <div class="login-divider"><span>or</span></div>
 
@@ -1458,6 +1599,204 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .terms-link { color: #0d8a8a; cursor: pointer; font-weight: 500; }
     .terms-link:hover { text-decoration: underline; }
 
+    /* ---------- Login method tabs (Password / OTP) ---------- */
+    .login-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 18px;
+      background: #f0f7f7;
+      border-radius: 10px;
+    }
+    .login-tab {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 12px;
+      background: transparent; border: none;
+      border-radius: 7px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      color: #5a7a82;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    }
+    .login-tab mat-icon {
+      font-size: 16px; width: 16px; height: 16px;
+    }
+    .login-tab:hover:not(.active):not(:disabled) { color: #0d8a8a; }
+    .login-tab.active {
+      background: white;
+      color: #0d8a8a;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .login-tab:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ---------- OTP-sent confirmation banner ---------- */
+    .otp-sent-notice {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      background: #e8f5f4; border: 1px solid #b2dfdb;
+      border-radius: 8px;
+      font-size: 13px; color: #0d6b6b;
+    }
+    .otp-sent-notice mat-icon {
+      color: #0d8a8a;
+      font-size: 18px; width: 18px; height: 18px; flex-shrink: 0;
+    }
+    .otp-sent-notice strong { color: #0d8a8a; font-weight: 700; }
+    .edit-number-link {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 6px;
+      background: none; border: none; cursor: pointer;
+      color: #0d8a8a; font-size: 12px; font-weight: 600;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .edit-number-link:hover { background: #d6efed; text-decoration: underline; }
+    .edit-number-link mat-icon {
+      font-size: 15px; width: 15px; height: 15px;
+    }
+
+    /* ---------- Resend-wait countdown (sibling of .resend-link) ---------- */
+    .resend-wait {
+      color: #90a4a4; font-size: 13px; font-weight: 500;
+    }
+
+    /* ---------- Blinkit-style split phone row (OTP login)
+         Two separate bordered boxes — small flag-only box on the left
+         (opens country menu) + larger phone field with the dial code as
+         a non-editable in-field prefix. Helper line below names exactly
+         which gate is unmet so the patient never has to guess why Send
+         OTP is disabled. */
+    .phone-row-split {
+      display: flex; align-items: stretch; gap: 10px;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    /* Left: flag + caret only. Compact, square-ish — pure picker affordance. */
+    .cc-box {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 10px 0 12px;
+      height: 56px;
+      background: white;
+      border: 1.5px solid #e0e4ea;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: inherit;
+      flex-shrink: 0;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .cc-box:hover:not(:disabled) { border-color: #b0c4d4; }
+    .cc-box:focus-visible {
+      outline: none;
+      border-color: #0d8a8a;
+      box-shadow: 0 0 0 3px rgba(13,138,138,0.10);
+    }
+    .cc-box:disabled { cursor: not-allowed; opacity: 0.6; }
+    /* Flag served as a PNG from flagcdn.com — emoji flags render as text
+       "BH"/"IN" on Windows, so we use an image for cross-platform fidelity. */
+    .cc-flag-img {
+      width: 28px; height: 20px;
+      border-radius: 3px;
+      object-fit: cover;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
+      display: block;
+    }
+    .cc-caret {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #90a4a4;
+    }
+
+    /* Right: phone field with in-field dial code prefix + clear button. */
+    .phone-field {
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 12px 0 14px;
+      height: 56px;
+      background: white;
+      border: 1.5px solid #e0e4ea;
+      border-radius: 12px;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .phone-field:hover:not(.phone-field-locked) { border-color: #b0c4d4; }
+    .phone-field:focus-within {
+      border-color: #0d8a8a;
+      box-shadow: 0 0 0 3px rgba(13,138,138,0.10);
+    }
+    .phone-field.phone-field-valid:not(:focus-within) {
+      border-color: #66bb6a;
+    }
+    .phone-field.phone-field-warn:not(:focus-within) {
+      border-color: #ffb74d;
+    }
+    .phone-field.phone-field-locked { opacity: 0.7; }
+    .phone-prefix {
+      font-size: 15px; font-weight: 600;
+      color: #1b3a4b;
+      letter-spacing: 0.2px;
+      flex-shrink: 0;
+    }
+    .phone-input {
+      flex: 1; min-width: 0;
+      height: 100%;
+      border: none; background: transparent; outline: none;
+      font: inherit;
+      font-size: 15px; font-weight: 500;
+      color: #1b3a4b;
+      letter-spacing: 0.4px;
+    }
+    .phone-input::placeholder { color: #b0bec5; font-weight: 400; letter-spacing: 0.2px; }
+    .phone-input:read-only { cursor: not-allowed; }
+    .phone-clear {
+      background: transparent; border: none; padding: 4px;
+      display: flex; align-items: center; justify-content: center;
+      color: #b0bec5;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .phone-clear:hover { color: #5a7a82; background: #f0f4f7; }
+    .phone-clear mat-icon {
+      font-size: 20px !important; width: 20px !important; height: 20px !important;
+    }
+
+    /* Country menu items: flag + name + code + tick on the active one */
+    ::ng-deep .cc-menu .mat-mdc-menu-item {
+      min-height: 44px !important;
+      padding: 0 14px !important;
+    }
+    ::ng-deep .cc-menu .mat-mdc-menu-item .mat-mdc-menu-item-text {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%;
+    }
+    .cc-menu-flag-img {
+      width: 22px; height: 16px;
+      border-radius: 3px;
+      object-fit: cover;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
+      display: block;
+    }
+    .cc-menu-text {
+      display: flex; align-items: baseline; gap: 8px;
+      flex: 1; min-width: 0;
+    }
+    .cc-menu-text strong {
+      font-size: 13.5px; color: #1b3a4b; font-weight: 600;
+    }
+    .cc-menu-code {
+      font-size: 12.5px; color: #6b7884; font-weight: 500;
+    }
+    .cc-menu-tick {
+      color: #0d8a8a;
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      flex-shrink: 0;
+    }
+
     .login-btn {
       width: 100%;
       padding: 14px !important;
@@ -2434,6 +2773,45 @@ export class ShellComponent {
   readonly termsAccepted = signal(false);
   readonly signInError = signal('');
 
+  // Sign-in method (Password / OTP). Tab switch at the top of the form.
+  // Password flow: CPR + Password.
+  // OTP flow: country code + 10-digit mobile → Send OTP → 6-digit OTP → Sign In.
+  // Any 6 digits accepted (demo); the lockout from password-mode failures
+  // still applies so OTP can't bypass the 3-strike rule.
+  readonly loginMethod = signal<'password' | 'otp'>('password');
+  readonly signinOtpCountryCode = signal('+973');
+  readonly signinOtpPhone = signal('');
+  readonly signinOtpSent = signal(false);
+  readonly signinOtp = signal('');
+  private readonly signinOtpSentAt = signal<number | null>(null);
+  // Phone must be exactly 10 digits to enable Send OTP (mirrors signup rule).
+  readonly signinOtpPhoneValid = computed(() => this.signinOtpPhone().length === 10);
+  /** True when the patient has typed some digits but hasn't reached 10 yet
+   *  — drives the warning colour on the helper text. Empty input is not a
+   *  warning, it's a prompt. */
+  readonly signinOtpPhonePartial = computed(() => {
+    const len = this.signinOtpPhone().length;
+    return len > 0 && len < 10;
+  });
+  // Masked rendering of the destination phone for the "OTP sent to ..." banner.
+  // Shows the dial code + last 4 digits, hides the middle. Demo only — real
+  // backend would echo whatever it actually messaged.
+  readonly signinOtpDestination = computed(() => {
+    const cc = this.signinOtpCountryCode();
+    const phone = this.signinOtpPhone();
+    if (!phone) return cc;
+    if (phone.length <= 4) return `${cc} ${phone}`;
+    const hidden = '*'.repeat(phone.length - 4);
+    return `${cc} ${hidden}${phone.slice(-4)}`;
+  });
+  // Seconds remaining before "Resend OTP" becomes clickable again (30s window).
+  readonly signinOtpResendSec = computed(() => {
+    const sentAt = this.signinOtpSentAt();
+    if (sentAt === null) return 0;
+    const elapsedSec = Math.floor((this.currentTime() - sentAt) / 1000);
+    return Math.max(0, 30 - elapsedSec);
+  });
+
   // Failed-login lockout state
   private readonly LOCK_DURATION_MS = 60 * 1000; // 1 minute
   readonly failedAttempts = signal(0);
@@ -2514,17 +2892,34 @@ export class ShellComponent {
   readonly signupNewPassword = signal('');
   readonly passwordChoice = signal<'hospital' | 'own' | null>(null);
 
+  // ISO 3166-1 alpha-2 codes drive flag-image lookup via flagcdn.com.
+  // Emoji flags render as plain text ("BH", "IN") on Windows because the
+  // OS doesn't ship colour flag glyphs — SVGs are the cross-platform fix.
   readonly countryCodes = [
-    { code: '+973', country: 'Bahrain' },
-    { code: '+91',  country: 'India' },
-    { code: '+1',   country: 'USA' },
-    { code: '+44',  country: 'UK' },
-    { code: '+971', country: 'UAE' },
-    { code: '+966', country: 'Saudi Arabia' },
-    { code: '+965', country: 'Kuwait' },
-    { code: '+974', country: 'Qatar' },
-    { code: '+968', country: 'Oman' }
+    { code: '+973', country: 'Bahrain',      iso: 'bh' },
+    { code: '+91',  country: 'India',        iso: 'in' },
+    { code: '+1',   country: 'USA',          iso: 'us' },
+    { code: '+44',  country: 'UK',           iso: 'gb' },
+    { code: '+971', country: 'UAE',          iso: 'ae' },
+    { code: '+966', country: 'Saudi Arabia', iso: 'sa' },
+    { code: '+965', country: 'Kuwait',       iso: 'kw' },
+    { code: '+974', country: 'Qatar',        iso: 'qa' },
+    { code: '+968', country: 'Oman',         iso: 'om' }
   ];
+
+  /** Active country object for the OTP phone input — drives the flag/code
+   *  shown in the unified phone field's left-side trigger. Falls back to the
+   *  first entry if the signal somehow holds an unknown code. */
+  readonly signinOtpCountry = computed(() =>
+    this.countryCodes.find(c => c.code === this.signinOtpCountryCode()) ?? this.countryCodes[0]
+  );
+
+  /** Flag-CDN URL for a country. 40px-wide PNG hits the sweet spot for
+   *  small UI chips on retina — sharper than the SVG at this size and
+   *  smaller payload (~1KB vs ~5-15KB SVG). */
+  flagUrl(iso: string): string {
+    return `https://flagcdn.com/w40/${iso}.png`;
+  }
 
   // Field-level invalid states (only shown after first Send OTP attempt)
   readonly fnInvalid = computed(() => {
@@ -2719,48 +3114,7 @@ export class ShellComponent {
     const pwd = this.loginPassword().trim();
 
     if (cpr === '12345678' && pwd === '123') {
-      this.failedAttempts.set(0);
-      this.lockedUntil.set(null);
-      this.signInError.set('');
-      try {
-        localStorage.removeItem('login_lock_until');
-        localStorage.removeItem('login_attempts');
-      } catch { /* ignore */ }
-      this.locationService.setLocation(this.pendingLocationId());
-
-      // ----- Family Grouping post-auth resolution -----
-      // The verified mobile is what unlocks the family group; the
-      // CPR is the login handle. Both must succeed for any patient
-      // context to be selected.
-      const authenticatedMobile = '+97333224455'; // demo: Priya's verified mobile
-      this.family.loadFamilyForMobile(authenticatedMobile).subscribe(group => {
-        const selectable = this.family.selectableMembers();
-
-        if (!group || selectable.length === 0) {
-          // No valid family link — fall back to the single CPR holder.
-          // In production HMS would always return at least the self
-          // record; this branch protects the demo from a misconfigured
-          // tenant.
-          this.router.navigate(['/dashboard']);
-          return;
-        }
-
-        // Always pre-select the primary owner so the dashboard can
-        // render meaningful data behind the modal. The user then
-        // either confirms (closes modal) or switches to another
-        // family member.
-        const primary = selectable.find(m => m.isPrimaryOwner) ?? selectable[0];
-        this.family.setActivePatient(primary.patientId);
-        this.router.navigate(['/dashboard']);
-
-        // For multi-profile groups, open the picker as a dismissible
-        // overlay on top of the dashboard — the primary owner is already
-        // active behind it, so closing the sheet just lands on her
-        // dashboard. Single-profile groups skip it (happy-flow rule #4).
-        if (selectable.length > 1) {
-          this.family.openPicker(true);
-        }
-      });
+      this.completeSignIn();
       return;
     }
 
@@ -2780,6 +3134,138 @@ export class ShellComponent {
         `attempt${remaining === 1 ? '' : 's'} remaining before temporary account lock.`
       );
     }
+  }
+
+  /** Switch between Password and OTP login tabs. Clears any in-flight error
+   *  and resets OTP state — the patient should start the OTP flow clean if
+   *  they bounce between tabs. */
+  setLoginMethod(method: 'password' | 'otp'): void {
+    if (this.loginMethod() === method) return;
+    this.loginMethod.set(method);
+    this.signInError.set('');
+    this.signinOtpSent.set(false);
+    this.signinOtp.set('');
+    this.signinOtpSentAt.set(null);
+  }
+
+  /** Pretend-send a 6-digit OTP to the entered mobile number. Validates the
+   *  phone is exactly 10 digits and the account isn't locked. Starts a 30s
+   *  window before the patient can hit Resend. */
+  sendSigninOtp(): void {
+    if (this.isLocked()) return;
+    if (!this.signinOtpPhoneValid()) return;
+    this.signinOtp.set('');
+    this.signinOtpSent.set(true);
+    this.signinOtpSentAt.set(Date.now());
+    this.signInError.set('');
+  }
+
+  /** Phone-input handler for the OTP flow. Strips non-digits, caps at 10,
+   *  clears any visible error, and — if an OTP was already sent — invalidates
+   *  it so the patient must hit Send OTP again with the corrected number. */
+  onSigninOtpPhoneInput(value: string, el?: HTMLInputElement): void {
+    const digits = (value || '').replace(/\D/g, '').slice(0, 10);
+    this.signinOtpPhone.set(digits);
+    // One-way [ngModel] skips writing back to the DOM when the sanitized value
+    // equals the current signal (e.g. typing "www" → "" while already ""), so
+    // the stray characters would stay visible. Force the element in sync.
+    if (el && el.value !== digits) el.value = digits;
+    if (this.signInError() && !this.isLocked()) this.signInError.set('');
+    if (this.signinOtpSent()) {
+      this.signinOtpSent.set(false);
+      this.signinOtp.set('');
+      this.signinOtpSentAt.set(null);
+    }
+  }
+
+  /** Resend OTP — re-runs sendSigninOtp() but only if the 30s window has
+   *  expired. Bound to the resend link. */
+  resendSigninOtp(): void {
+    if (this.signinOtpResendSec() > 0) return;
+    this.sendSigninOtp();
+  }
+
+  /** "Edit number" — let the patient correct the mobile number after an OTP
+   *  was already sent. Unwinds the whole OTP step: clears the entered code,
+   *  hides the "OTP sent" notice, resets the 30s resend timer, and re-enables
+   *  the mobile field. With signinOtpSent() back to false the primary CTA
+   *  reverts to "Send OTP", so the patient must request and verify a fresh
+   *  code before they can sign in. */
+  editSigninOtpNumber(el?: HTMLInputElement): void {
+    this.signinOtpSent.set(false);
+    this.signinOtp.set('');
+    this.signinOtpSentAt.set(null);
+    if (this.signInError() && !this.isLocked()) this.signInError.set('');
+    // Field is editable again next render — focus it for an immediate edit.
+    if (el) setTimeout(() => el.focus());
+  }
+
+  /** Sign in via OTP. Demo accepts any 6-digit OTP — the real flow would
+   *  POST {cpr, otp} to the HMS and gate on a 200 response. Lockout from
+   *  password-mode failures still applies. */
+  signInWithOtp(): void {
+    if (this.isLocked()) return;
+    if (!this.signinOtpSent()) return;
+    if (this.signinOtp().length !== 6) {
+      this.signInError.set('OTP must be 6 digits.');
+      return;
+    }
+    this.completeSignIn();
+  }
+
+  onSigninOtpInput(value: string, el?: HTMLInputElement): void {
+    // Strip non-digits + clamp to 6 — keeps the field strictly numeric.
+    const digits = (value || '').replace(/\D/g, '').slice(0, 6);
+    this.signinOtp.set(digits);
+    // Force the DOM in sync — one-way [ngModel] won't repaint when the
+    // sanitized value matches the current signal (see onSigninOtpPhoneInput).
+    if (el && el.value !== digits) el.value = digits;
+    if (this.signInError() && !this.isLocked()) this.signInError.set('');
+  }
+
+  /** Shared post-auth handoff used by both password and OTP sign-in.
+   *  Clears lock state, sets the chosen location, loads the family group
+   *  for the authenticated mobile, picks the primary owner, then navigates
+   *  to the dashboard (showing the family picker if >1 selectable member). */
+  private completeSignIn(): void {
+    this.failedAttempts.set(0);
+    this.lockedUntil.set(null);
+    this.signInError.set('');
+    try {
+      localStorage.removeItem('login_lock_until');
+      localStorage.removeItem('login_attempts');
+    } catch { /* ignore */ }
+    this.locationService.setLocation(this.pendingLocationId());
+
+    // The verified mobile is what unlocks the family group; the CPR is the
+    // login handle. Both must succeed for any patient context to be selected.
+    const authenticatedMobile = '+97333224455'; // demo: Priya's verified mobile
+    this.family.loadFamilyForMobile(authenticatedMobile).subscribe(group => {
+      const selectable = this.family.selectableMembers();
+
+      if (!group || selectable.length === 0) {
+        // No valid family link — fall back to the single CPR holder.
+        // Production HMS would always return at least the self record;
+        // this branch protects the demo from a misconfigured tenant.
+        this.router.navigate(['/dashboard']);
+        return;
+      }
+
+      // Pre-select the primary owner so the dashboard renders meaningful
+      // data behind the modal. The user then either confirms (closes
+      // modal) or switches to another family member.
+      const primary = selectable.find(m => m.isPrimaryOwner) ?? selectable[0];
+      this.family.setActivePatient(primary.patientId);
+      this.router.navigate(['/dashboard']);
+
+      // For multi-profile groups, open the picker as a dismissible overlay
+      // on top of the dashboard — the primary owner is already active
+      // behind it, so closing the sheet just lands on her dashboard.
+      // Single-profile groups skip it (happy-flow rule #4).
+      if (selectable.length > 1) {
+        this.family.openPicker(true);
+      }
+    });
   }
 
   onLoginCprInput(value: string): void {
