@@ -116,12 +116,97 @@ export const MOCK_TIMELINE: TimelineEvent[] = Array.from({ length: 100 }, (_, i)
 });
 
 export const MOCK_DOCTORS: Doctor[] = [
-  { id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 25, advanceFee: 25 },
-  { id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 15, advanceFee: 15 },
-  { id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'General Medicine', rating: 4.7, nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 10, advanceFee: 10 },
-  { id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.6, nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 30, advanceFee: 30 },
-  { id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8, nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 20, advanceFee: 20 },
-  { id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9, nextAvailable: '2026-04-17', location: 'NSH Juffair', consultationFee: 35, advanceFee: 35 }
+  {
+    id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 25, advanceFee: 25,
+    designation: 'Senior Consultant — Interventional Cardiology', experienceYears: 18,
+    languages: ['English', 'Hindi', 'Arabic'], videoConsultFee: 15,
+    nextHospitalSlot: 'Today, 04:30 PM', nextVideoSlot: 'Tomorrow, 11:00 AM'
+  },
+  {
+    id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 15, advanceFee: 15,
+    designation: 'Consultant Dermatologist', experienceYears: 11,
+    languages: ['English', 'Mandarin'], videoConsultFee: 10,
+    nextHospitalSlot: 'Today, 02:00 PM', nextVideoSlot: 'Today, 06:30 PM'
+  },
+  {
+    id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'General Medicine', rating: 4.7,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 10, advanceFee: 10,
+    designation: 'Consultant — Internal Medicine', experienceYears: 14,
+    languages: ['English', 'Arabic'], videoConsultFee: 8,
+    nextHospitalSlot: 'Today, 10:30 AM', nextVideoSlot: 'Today, 01:00 PM'
+  },
+  {
+    id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.6,
+    nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 30, advanceFee: 30,
+    designation: 'Consultant Endocrinologist (Diabetes & Thyroid)', experienceYears: 16,
+    languages: ['English', 'Cantonese'], videoConsultFee: 18,
+    nextHospitalSlot: 'Tomorrow, 09:30 AM', nextVideoSlot: 'Tomorrow, 04:00 PM'
+  },
+  {
+    id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8,
+    nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 20, advanceFee: 20,
+    designation: 'Consultant Orthopedic Surgeon — Spine & Joints', experienceYears: 20,
+    languages: ['English', 'Hindi', 'Gujarati'], videoConsultFee: 12,
+    nextHospitalSlot: 'Tomorrow, 11:30 AM', nextVideoSlot: 'Today, 05:00 PM'
+  },
+  {
+    id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9,
+    nextAvailable: '2026-04-17', location: 'NSH Juffair', consultationFee: 35, advanceFee: 35,
+    designation: 'Senior Consultant Cardiologist', experienceYears: 22,
+    languages: ['English', 'Arabic', 'French'], videoConsultFee: 20,
+    nextHospitalSlot: '17 Apr, 09:00 AM', nextVideoSlot: 'Tomorrow, 12:30 PM'
+  },
+  {
+    id: 'd-007', name: 'Dr. Maria Gonzalez', specialty: 'Pediatrics', rating: 4.9,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 18, advanceFee: 18,
+    designation: 'Consultant Pediatrician — Newborn & Child Care', experienceYears: 13,
+    languages: ['English', 'Spanish', 'Arabic'], videoConsultFee: 12,
+    nextHospitalSlot: 'Today, 03:30 PM', nextVideoSlot: 'Today, 07:00 PM'
+  },
+  {
+    id: 'd-008', name: 'Dr. Imran Sheikh', specialty: 'Pediatrics', rating: 4.7,
+    nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 16, advanceFee: 16,
+    designation: 'Specialist Pediatrician', experienceYears: 9,
+    languages: ['English', 'Urdu', 'Arabic'], videoConsultFee: 10,
+    nextHospitalSlot: 'Tomorrow, 10:00 AM', nextVideoSlot: 'Tomorrow, 02:30 PM'
+  },
+  {
+    id: 'd-009', name: 'Dr. Aisha Rahman', specialty: 'Gynecology', rating: 4.8,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 28, advanceFee: 28,
+    designation: 'Consultant — Obstetrics & Gynecology', experienceYears: 17,
+    languages: ['English', 'Arabic', 'Hindi'], videoConsultFee: 16,
+    nextHospitalSlot: 'Today, 11:00 AM', nextVideoSlot: 'Tomorrow, 09:00 AM'
+  },
+  {
+    id: 'd-010', name: 'Dr. Priya Nair', specialty: 'Gynecology', rating: 4.9,
+    nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 26, advanceFee: 26,
+    designation: 'Senior Consultant Gynecologist', experienceYears: 19,
+    languages: ['English', 'Hindi', 'Malayalam'], videoConsultFee: 15,
+    nextHospitalSlot: 'Tomorrow, 12:00 PM', nextVideoSlot: 'Today, 05:30 PM'
+  },
+  {
+    id: 'd-011', name: 'Dr. David Miller', specialty: 'General Medicine', rating: 4.6,
+    nextAvailable: '2026-04-15', location: 'NSH Juffair', consultationFee: 12, advanceFee: 12,
+    designation: 'Consultant — Family Medicine', experienceYears: 10,
+    languages: ['English'], videoConsultFee: 8,
+    nextHospitalSlot: 'Today, 09:00 AM', nextVideoSlot: 'Today, 12:00 PM'
+  },
+  {
+    id: 'd-012', name: 'Dr. Noor Abbas', specialty: 'Dermatology', rating: 4.7,
+    nextAvailable: '2026-04-16', location: 'NSH Juffair', consultationFee: 17, advanceFee: 17,
+    designation: 'Specialist — Skin, Hair & Aesthetics', experienceYears: 8,
+    languages: ['English', 'Arabic'], videoConsultFee: 11,
+    nextHospitalSlot: 'Tomorrow, 01:30 PM', nextVideoSlot: 'Tomorrow, 05:00 PM'
+  },
+  {
+    id: 'd-013', name: 'Dr. Sanjay Mehta', specialty: 'Orthopedics', rating: 4.7,
+    nextAvailable: '2026-04-17', location: 'NSH Juffair', consultationFee: 22, advanceFee: 22,
+    designation: 'Consultant — Sports & Joint Injuries', experienceYears: 15,
+    languages: ['English', 'Hindi'], videoConsultFee: 13,
+    nextHospitalSlot: '17 Apr, 10:30 AM', nextVideoSlot: 'Tomorrow, 03:00 PM'
+  }
 ];
 
 export const MOCK_SLOTS: BookingSlot[] = [

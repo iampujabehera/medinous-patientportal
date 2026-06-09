@@ -39,6 +39,51 @@ interface DateOption {
   year: number;       // 2026
 }
 
+// One autocomplete suggestion shown under the search box.
+interface SearchSuggestion {
+  key: string;                                   // track-by id
+  type: 'condition' | 'specialty' | 'doctor';
+  label: string;                                 // text the patient sees / matched
+  specialty: string;                             // specialty this resolves to
+  icon: string;                                  // Material icon
+  kindLabel?: string;                            // right-side tag for doctor/specialty rows
+}
+
+// Everyday symptom / condition → clinical specialty. Add a row to extend;
+// no logic change needed. Terms are matched case-insensitively.
+const CONDITION_SPECIALTY_MAP: ReadonlyArray<{ term: string; specialty: string }> = [
+  { term: 'Diabetes',    specialty: 'Endocrinology' },
+  { term: 'Sugar',       specialty: 'Endocrinology' },
+  { term: 'Thyroid',     specialty: 'Endocrinology' },
+  { term: 'Cold',        specialty: 'General Medicine' },
+  { term: 'Fever',       specialty: 'General Medicine' },
+  { term: 'Cough',       specialty: 'General Medicine' },
+  { term: 'Flu',         specialty: 'General Medicine' },
+  { term: 'Skin Rash',   specialty: 'Dermatology' },
+  { term: 'Acne',        specialty: 'Dermatology' },
+  { term: 'Hair Fall',   specialty: 'Dermatology' },
+  { term: 'Back Pain',   specialty: 'Orthopedics' },
+  { term: 'Knee Pain',   specialty: 'Orthopedics' },
+  { term: 'Joint Pain',  specialty: 'Orthopedics' },
+  { term: 'Chest Pain',  specialty: 'Cardiology' },
+  { term: 'Heart',       specialty: 'Cardiology' },
+  { term: 'Pregnancy',   specialty: 'Gynecology' },
+  { term: 'Period Pain', specialty: 'Gynecology' },
+  { term: 'Child Care',  specialty: 'Pediatrics' },
+  { term: 'Vaccination', specialty: 'Pediatrics' }
+];
+
+// Icon per condition specialty (suggestion rows).
+const CONDITION_ICONS: Record<string, string> = {
+  Endocrinology: 'bloodtype',
+  'General Medicine': 'sick',
+  Dermatology: 'face',
+  Orthopedics: 'accessibility_new',
+  Cardiology: 'favorite',
+  Gynecology: 'pregnant_woman',
+  Pediatrics: 'child_care'
+};
+
 @Component({
   selector: 'app-appointments',
   standalone: true,
@@ -62,21 +107,50 @@ interface DateOption {
             <p class="subtitle">Pick a specialist to book your visit</p>
           </div>
 
-          <!-- Search bar -->
+          <!-- Search bar + autocomplete suggestions -->
           <div class="filter-row">
-            <div class="search-wrap">
-              <mat-icon class="s-icon">search</mat-icon>
-              <input class="s-input"
-                     type="search"
-                     name="doctor-search"
-                     autocomplete="off"
-                     [ngModel]="searchQuery()"
-                     (ngModelChange)="searchQuery.set($event)"
-                     placeholder="Search doctor by name...">
-              @if (searchQuery()) {
-                <button mat-icon-button class="s-clear" (click)="searchQuery.set('')" aria-label="Clear search">
-                  <mat-icon>close</mat-icon>
-                </button>
+            <div class="search-suggest">
+              <div class="search-wrap">
+                <mat-icon class="s-icon">search</mat-icon>
+                <input class="s-input"
+                       type="search"
+                       name="doctor-search"
+                       autocomplete="off"
+                       role="combobox"
+                       aria-label="Search doctor, specialty, or condition"
+                       aria-controls="search-suggestions"
+                       [attr.aria-expanded]="suggestionsOpen() && suggestions().length > 0"
+                       [ngModel]="searchQuery()"
+                       (ngModelChange)="onSearchChange($event)"
+                       (focus)="onSearchFocus()"
+                       (blur)="onSearchBlur()"
+                       placeholder="Search doctor, specialty, or condition...">
+                @if (searchQuery()) {
+                  <button mat-icon-button class="s-clear" (click)="clearSearch()" aria-label="Clear search">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+
+              @if (suggestionsOpen() && suggestions().length) {
+                <ul class="suggest-list" id="search-suggestions" role="listbox">
+                  @for (sug of suggestions(); track sug.key) {
+                    <li role="option">
+                      <button class="suggest-item" type="button"
+                              (mousedown)="$event.preventDefault()"
+                              (click)="selectSuggestion(sug)">
+                        <mat-icon class="sug-icon" [class.condition]="sug.type === 'condition'">{{ sug.icon }}</mat-icon>
+                        <span class="sug-label">{{ sug.label }}</span>
+                        @if (sug.type === 'condition') {
+                          <mat-icon class="sug-arrow">east</mat-icon>
+                          <span class="sug-target">{{ sug.specialty }}</span>
+                        } @else {
+                          <span class="sug-kind">{{ sug.kindLabel }}</span>
+                        }
+                      </button>
+                    </li>
+                  }
+                </ul>
               }
             </div>
           </div>
@@ -99,6 +173,17 @@ interface DateOption {
             }
           </div>
 
+          <!-- Contextual message when a condition/symptom drives the results -->
+          @if (contextLabel()) {
+            <div class="context-banner" role="status">
+              <mat-icon>info</mat-icon>
+              <span>Showing doctors for <strong>{{ contextLabel() }}</strong></span>
+              <button class="context-clear" (click)="clearContext()" aria-label="Clear filter">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+
           @if (loadingDoctors()) {
             @for (i of [1,2,3]; track i) {
               <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
@@ -118,8 +203,19 @@ interface DateOption {
                     <strong class="doc-name">{{ doc.name }}</strong>
                     <span class="doc-specialty">
                       <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
-                      {{ doc.specialty }}
+                      {{ doctorDesignation(doc) }} • {{ doc.specialty }}
                     </span>
+
+                    <div class="doc-credentials">
+                      <span class="cred-item">
+                        <mat-icon>workspace_premium</mat-icon>
+                        {{ doctorExperience(doc) }} Years Experience
+                      </span>
+                      <span class="cred-item">
+                        <mat-icon>translate</mat-icon>
+                        {{ doctorLanguages(doc) }}
+                      </span>
+                    </div>
 
                     <div class="next-avail-wrap">
                       <span class="next-avail-label">Next available at</span>
@@ -843,6 +939,71 @@ interface DateOption {
       line-height: 28px !important; color: #999;
     }
     .s-clear mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .s-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+    /* =============================================
+       SEARCH AUTOCOMPLETE SUGGESTIONS
+       ============================================= */
+    .search-suggest { position: relative; flex: 1; min-width: 0; }
+    .suggest-list {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      z-index: 30; margin: 0; padding: 6px; list-style: none;
+      background: #fff; border: 1px solid #e6edee; border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(15,30,40,0.12);
+      max-height: 320px; overflow-y: auto;
+    }
+    .suggest-item {
+      width: 100%; box-sizing: border-box;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border: none; background: transparent;
+      border-radius: 9px; cursor: pointer; text-align: left;
+      font-family: inherit; font-size: 13.5px; color: #1b3a4b;
+      transition: background 0.14s;
+    }
+    .suggest-item:hover { background: #f3faf9; }
+    .sug-icon {
+      font-size: 19px !important; width: 19px !important; height: 19px !important;
+      color: #6b7884; flex-shrink: 0;
+    }
+    .sug-icon.condition { color: #0d8a8a; }
+    .sug-label { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sug-arrow {
+      font-size: 15px !important; width: 15px !important; height: 15px !important;
+      color: #b6c2c8; flex-shrink: 0;
+    }
+    .sug-target {
+      font-size: 12.5px; font-weight: 700; color: #0d8a8a;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .sug-kind {
+      margin-left: auto; font-size: 11px; font-weight: 600; color: #98a2ab;
+      text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
+    }
+
+    /* =============================================
+       CONTEXTUAL "SHOWING DOCTORS FOR …" BANNER
+       ============================================= */
+    .context-banner {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 14px; margin-bottom: 12px;
+      border-radius: 10px;
+      background: #e8f5f3; border: 1px solid #b2dfdb;
+      color: #0a5b5b; font-size: 13px;
+    }
+    .context-banner mat-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a; flex-shrink: 0;
+    }
+    .context-banner strong { font-weight: 700; }
+    .context-clear {
+      margin-left: auto; display: inline-flex; align-items: center;
+      border: none; background: transparent; cursor: pointer;
+      color: #0a5b5b; padding: 2px; border-radius: 50%;
+    }
+    .context-clear:hover { background: rgba(13,138,138,0.12); }
+    .context-clear mat-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important; color: inherit;
+    }
 
     /* Specialty tabs (horizontal scrollable) */
     .specialty-tabs {
@@ -951,6 +1112,20 @@ interface DateOption {
     .spec-inline-icon {
       font-size: 16px !important; width: 16px !important; height: 16px !important;
       color: #5a8585;
+    }
+
+    /* Credentials row (experience + languages) */
+    .doc-credentials {
+      display: flex; flex-wrap: wrap; gap: 6px 14px;
+      margin-top: 4px;
+    }
+    .cred-item {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 12px; color: #6b7884; font-weight: 600;
+    }
+    .cred-item mat-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+      color: #98a2ab;
     }
 
     /* Next available section */
@@ -1781,6 +1956,10 @@ export class AppointmentsComponent implements OnInit {
   readonly specialties = signal<string[]>([]);
   readonly selectedSpecialty = signal<string>('all');
   readonly searchQuery = signal<string>('');
+  readonly suggestionsOpen = signal(false);
+  // Set when the patient picks a condition suggestion (e.g. "Diabetes"),
+  // driving the "Showing doctors for …" banner.
+  readonly selectedConditionTerm = signal<string | null>(null);
   readonly doctors = signal<Doctor[]>([]);
   readonly loadingDoctors = signal(false);
   readonly selectedDoctor = signal<Doctor | null>(null);
@@ -1933,13 +2112,73 @@ export class AppointmentsComponent implements OnInit {
     let list = this.doctors();
     if (spec !== 'all') list = list.filter(d => d.specialty === spec);
     if (q) {
-      list = list.filter(d =>
-        d.name.toLowerCase().includes(q) ||
-        d.specialty.toLowerCase().includes(q)
-      );
+      // A typed condition/symptom (e.g. "diabetes") resolves to a specialty;
+      // otherwise match on doctor name or specialty text.
+      const cond = this.matchConditionForFilter(q);
+      if (cond) {
+        list = list.filter(d => d.specialty === cond.specialty);
+      } else {
+        list = list.filter(d =>
+          d.name.toLowerCase().includes(q) ||
+          d.specialty.toLowerCase().includes(q)
+        );
+      }
     }
     return list;
   });
+
+  // Autocomplete suggestions: conditions, then specialties, then doctors.
+  readonly suggestions = computed<SearchSuggestion[]>(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    if (!q) return [];
+    const out: SearchSuggestion[] = [];
+
+    for (const c of CONDITION_SPECIALTY_MAP) {
+      if (c.term.toLowerCase().includes(q)) {
+        out.push({
+          key: 'c-' + c.term, type: 'condition', label: c.term,
+          specialty: c.specialty, icon: CONDITION_ICONS[c.specialty] ?? 'healing'
+        });
+      }
+    }
+    for (const s of this.specialties()) {
+      if (s.toLowerCase().includes(q)) {
+        out.push({
+          key: 's-' + s, type: 'specialty', label: s,
+          specialty: s, icon: this.specialtyIcon(s), kindLabel: 'Specialty'
+        });
+      }
+    }
+    for (const d of this.doctors()) {
+      if (d.name.toLowerCase().includes(q)) {
+        out.push({
+          key: 'd-' + d.id, type: 'doctor', label: d.name,
+          specialty: d.specialty, icon: 'person', kindLabel: d.specialty
+        });
+      }
+    }
+    return out.slice(0, 8);
+  });
+
+  // Label for the "Showing doctors for …" banner: an explicitly-selected
+  // condition wins; otherwise a typed query that resolves to a condition.
+  readonly contextLabel = computed<string | null>(() => {
+    const picked = this.selectedConditionTerm();
+    if (picked) return picked;
+    const q = this.searchQuery().trim().toLowerCase();
+    if (q) {
+      const cond = this.matchConditionForFilter(q);
+      if (cond) return cond.term;
+    }
+    return null;
+  });
+
+  private matchConditionForFilter(q: string): { term: string; specialty: string } | null {
+    return CONDITION_SPECIALTY_MAP.find(c => {
+      const t = c.term.toLowerCase();
+      return q === t || q.includes(t) || (t.includes(q) && q.length >= 3);
+    }) ?? null;
+  }
 
   specialtyIcon(specialty: string): string {
     const map: Record<string, string> = {
@@ -1985,6 +2224,61 @@ export class AppointmentsComponent implements OnInit {
 
   setSpecialty(spec: string): void {
     this.selectedSpecialty.set(spec);
+    // Tapping a specialty chip is an explicit clinical choice — drop any
+    // condition context so the banner doesn't linger.
+    this.selectedConditionTerm.set(null);
+  }
+
+  // ---- Search + autocomplete ----
+
+  onSearchChange(value: string): void {
+    this.searchQuery.set(value);
+    // Editing the text supersedes a previously-picked condition suggestion.
+    this.selectedConditionTerm.set(null);
+    this.suggestionsOpen.set(true);
+  }
+
+  onSearchFocus(): void {
+    this.suggestionsOpen.set(true);
+  }
+
+  onSearchBlur(): void {
+    // Delay so a suggestion click registers before the list closes.
+    setTimeout(() => this.suggestionsOpen.set(false), 150);
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+    this.selectedConditionTerm.set(null);
+  }
+
+  // Clears the condition context entirely (text + chip), from the banner.
+  clearContext(): void {
+    this.searchQuery.set('');
+    this.selectedConditionTerm.set(null);
+    this.selectedSpecialty.set('all');
+  }
+
+  selectSuggestion(sug: SearchSuggestion): void {
+    this.suggestionsOpen.set(false);
+    switch (sug.type) {
+      case 'condition':
+        // Auto-select the mapped specialty chip + show the context banner.
+        this.selectedSpecialty.set(sug.specialty);
+        this.selectedConditionTerm.set(sug.label);
+        this.searchQuery.set('');
+        break;
+      case 'specialty':
+        this.selectedSpecialty.set(sug.specialty);
+        this.selectedConditionTerm.set(null);
+        this.searchQuery.set('');
+        break;
+      case 'doctor':
+        // Narrow the list to the chosen doctor by name.
+        this.selectedConditionTerm.set(null);
+        this.searchQuery.set(sug.label);
+        break;
+    }
   }
 
   selectDoctor(doctor: Doctor): void {
@@ -2224,6 +2518,7 @@ export class AppointmentsComponent implements OnInit {
   }
 
   nextInPersonSlot(doctor: Doctor): string {
+    if (doctor.nextHospitalSlot) return doctor.nextHospitalSlot;
     const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
     const offset = n % 4;                  // 0-3 days
     const hour = 9 + (n % 8);              // 9-16
@@ -2232,11 +2527,24 @@ export class AppointmentsComponent implements OnInit {
   }
 
   nextVideoSlot(doctor: Doctor): string {
+    if (doctor.nextVideoSlot) return doctor.nextVideoSlot;
     const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
     const offset = (n + 1) % 4;
     const hour = 13 + (n % 6);             // 13-18
     const minute = ((n + 1) % 2) * 30;
     return this.formatSlotLabel(offset, hour, minute);
+  }
+
+  // Years of experience — prefers explicit data, falls back to a stable
+  // value derived from the doctor id so older mock rows still render.
+  doctorExperience(doctor: Doctor): number {
+    if (doctor.experienceYears != null) return doctor.experienceYears;
+    const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
+    return 5 + (n % 20);
+  }
+
+  doctorLanguages(doctor: Doctor): string {
+    return (doctor.languages?.length ? doctor.languages : ['English']).join(', ');
   }
 
   doctorDesignation(doctor: Doctor | null): string {

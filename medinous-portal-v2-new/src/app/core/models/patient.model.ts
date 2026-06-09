@@ -90,6 +90,13 @@ export interface Doctor {
   locationId?: string;
   consultationFee: number;
   advanceFee?: number;
+  // --- Discovery / profile enrichment (optional so legacy data stays valid) ---
+  designation?: string;        // e.g. "Senior Consultant"
+  experienceYears?: number;    // years of clinical experience
+  languages?: string[];        // languages the doctor speaks
+  videoConsultFee?: number;    // fee for a video consultation
+  nextHospitalSlot?: string;   // human label, e.g. "Today, 04:30 PM"
+  nextVideoSlot?: string;      // human label, e.g. "Tomorrow, 11:00 AM"
 }
 
 // Payment & Receipt models
