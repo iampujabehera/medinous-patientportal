@@ -38,6 +38,9 @@ export interface Medication {
   startDate: string;
   endDate?: string;
   prescribedBy: string;
+  /** Specialty of the prescribing doctor — surfaced next to the name so the
+   *  patient can tell which condition each prescription relates to. */
+  prescribedBySpecialty?: string;
   refillsRemaining: number;
   taken: boolean[];
   instructions?: string;
@@ -45,7 +48,7 @@ export interface Medication {
 
 export interface TimelineEvent {
   id: string;
-  type: 'appointment' | 'lab_result' | 'prescription' | 'vaccination' | 'note' | 'imaging' | 'procedure' | 'medical_report';
+  type: 'appointment' | 'lab_result' | 'prescription' | 'vaccination' | 'note' | 'imaging' | 'procedure' | 'medical_report' | 'self_document';
   title: string;
   description: string;
   date: string;
@@ -91,12 +94,13 @@ export interface Doctor {
   consultationFee: number;
   advanceFee?: number;
   // --- Discovery / profile enrichment (optional so legacy data stays valid) ---
-  designation?: string;        // e.g. "Senior Consultant"
+  designation?: string;        // full title, e.g. "Consultant Endocrinologist"
   experienceYears?: number;    // years of clinical experience
   languages?: string[];        // languages the doctor speaks
   videoConsultFee?: number;    // fee for a video consultation
   nextHospitalSlot?: string;   // human label, e.g. "Today, 04:30 PM"
   nextVideoSlot?: string;      // human label, e.g. "Tomorrow, 11:00 AM"
+  treats?: string[];           // common conditions handled, e.g. ["Diabetes", "PCOS"]
 }
 
 // Payment & Receipt models

@@ -29,7 +29,7 @@ describe('LocationService', () => {
   it('should select a location', () => {
     service.setLocation('loc-001');
     expect(service.isLocationSelected()).toBeTrue();
-    expect(service.selectedLocation()?.name).toBe('Northbridge Specialist Hospital - Juffair');
+    expect(service.selectedLocation()?.name).toBe('Prince Fahd Bin Sultan Hospital - Juffair');
   });
 
   it('should persist location to localStorage', () => {
@@ -54,7 +54,7 @@ describe('LocationService', () => {
   it('should get location by id', () => {
     const loc = service.getLocationById('loc-003');
     expect(loc).toBeTruthy();
-    expect(loc?.name).toBe('NSH Clinic - Riffa');
+    expect(loc?.name).toBe('PFSH Clinic - Riffa');
     expect(loc?.city).toBe('Riffa');
   });
 

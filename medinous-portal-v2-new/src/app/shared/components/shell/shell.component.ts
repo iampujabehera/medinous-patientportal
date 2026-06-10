@@ -67,7 +67,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="nav-brand">
                 <mat-icon class="brand-icon">local_hospital</mat-icon>
                 <div class="brand-text">
-                  <span class="brand-name">BAHRAIN SPECIALIST</span>
+                  <span class="brand-name">PRINCE FAHD BIN SULTAN</span>
                   <span class="brand-sub">HOSPITAL</span>
                 </div>
               </div>
@@ -87,9 +87,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <section class="hero">
             <div class="hero-content">
               <p class="hero-tagline">Welcome to</p>
-              <h1>Northbridge Specialist Hospital</h1>
-              <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Bahrain since 2009.
-                 NHRA licensed, internationally accredited, and trusted by over 100,000 patients.</p>
+              <h1>Prince Fahd Bin Sultan Hospital</h1>
+              <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Saudi Arabia since 2009.
+                 MOH licensed, internationally accredited, and trusted by over 100,000 patients.</p>
               <div class="hero-actions">
                 <button mat-flat-button class="hero-btn primary" (click)="goToLogin()">
                   <mat-icon>login</mat-icon> Patient Portal
@@ -197,7 +197,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="accred-badges">
                 <div class="accred-badge">
                   <mat-icon>verified</mat-icon>
-                  <span>NHRA Bahrain</span>
+                  <span>CBAHI Accredited</span>
                 </div>
                 <div class="accred-badge">
                   <mat-icon>workspace_premium</mat-icon>
@@ -218,9 +218,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <!-- Footer -->
           <footer class="landing-footer">
             <div class="footer-inner">
-              <strong class="footer-title">NORTHBRIDGE SPECIALIST HOSPITAL</strong>
-              <p>Building: 2743, Road: 2442, Block: 324, P.O. Box: 10588, Kingdom of Bahrain</p>
-              <p class="footer-copy">Copyright 2026 &#64; Northbridge Specialist Hospital</p>
+              <strong class="footer-title">PRINCE FAHD BIN SULTAN HOSPITAL</strong>
+              <p>Prince Sultan Bin Abdulaziz Road, Sultanah District, P.O. Box: 10588, Tabuk, Kingdom of Saudi Arabia</p>
+              <p class="footer-copy">Copyright 2026 &#64; Prince Fahd Bin Sultan Hospital</p>
             </div>
           </footer>
 
@@ -247,7 +247,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <!--  STEP 3: LOGIN SCREEN                        -->
         <!-- ============================================ -->
         <div class="login-page">
-          <!-- Top strip: NSH hospital brand + branch with Change -->
+          <!-- Top strip: PFSH hospital brand + branch with Change -->
           <div class="login-topbar">
             <div class="topbar-inner">
               <button mat-icon-button class="topbar-back" (click)="goBackToLanding()" matTooltip="Back to website">
@@ -256,7 +256,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="hospital-brand">
                 <div class="hospital-brand-icon"><mat-icon>local_hospital</mat-icon></div>
                 <div class="hospital-brand-text">
-                  <strong>Northbridge Specialist Hospital</strong>
+                  <strong>Prince Fahd Bin Sultan Hospital</strong>
                   <span class="hospital-brand-ar">مستشفى نورثبريدج التخصصي</span>
                 </div>
               </div>
@@ -771,11 +771,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </button>
           }
 
-          <!-- Brand: Medinous × NSH | Patient Portal -->
+          <!-- Brand: Prince Fahd Bin Sultan Hospital | Patient Portal -->
           <div class="brand">
-            <img src="medinous-logo.svg" alt="Medinous" class="brand-medinous">
-            <span class="brand-cross">×</span>
-            <span class="brand-hospital">Northbridge Specialist Hospital</span>
+            <span class="brand-hospital">Prince Fahd Bin Sultan Hospital</span>
             <span class="brand-divider"></span>
             <span class="brand-tag">Patient Portal</span>
           </div>
@@ -1223,7 +1221,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `,
   styles: [`
     /* =============================================
-       LANDING PAGE - NSH Hospital Website
+       LANDING PAGE - PFSH Hospital Website
        ============================================= */
     .landing-page {
       min-height: 100vh; background: #fff;
@@ -1470,7 +1468,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       pointer-events: none;
     }
 
-    /* ---------- Top brand strip (NSH hospital + location) ---------- */
+    /* ---------- Top brand strip (PFSH hospital + location) ---------- */
     .login-topbar {
       width: 100%; background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -2037,19 +2035,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .hamburger { color: #1b3a4b !important; flex-shrink: 0; margin-right: 4px; }
 
-    /* Brand: Medinous × NSH | Patient Portal */
+    /* Brand: Prince Fahd Bin Sultan Hospital | Patient Portal */
     .brand {
       display: flex; align-items: center; gap: 8px;
-      flex-shrink: 0; min-width: 0;
-    }
-    .brand-medinous { height: 22px; width: auto; display: block; }
-    .brand-cross {
-      font-size: 14px; color: #aaa; font-weight: 300;
-      margin: 0 2px;
+      min-width: 0;
     }
     .brand-hospital {
-      font-size: 13px; font-weight: 700; color: #1a237e;
+      font-size: 15px; font-weight: 700; color: #1a237e;
       letter-spacing: -0.01em; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
     .brand-divider {
       width: 1px; height: 22px; background: #d8e3e3;
@@ -2311,9 +2305,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       /* Toolbar on mobile: compact brand, hide tag + divider, smaller pills */
       .toolbar { padding: 0 10px !important; }
       .brand { gap: 6px; }
-      .brand-medinous { height: 18px; }
-      .brand-cross { font-size: 12px; margin: 0; }
-      .brand-hospital { font-size: 12px; }
+      .brand-hospital { font-size: 13px; }
       .brand-divider, .brand-tag { display: none; }
       .loc-pill, .lang-pill { height: 32px !important; padding: 0 8px !important; }
       .loc-name { max-width: 70px; }
@@ -2370,7 +2362,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
          (1) hide the hospital name block — the brand icon keeps visual ID,
              and the chip already names the place;
          (2) swap the chip label to branch-only ("Juffair" instead of the
-             full "Northbridge Specialist Hospital - Juffair");
+             full "Prince Fahd Bin Sultan Hospital - Juffair");
          (3) keep the chip sized to its content (it is a 7-char label — not
              a search bar) and pin it to the right edge of the row so the
              brand icon and chip read as two endpoints, not a stretched
@@ -2420,9 +2412,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       /* ---------- App shell toolbar (post-auth) ---------- */
       .toolbar { padding: 0 8px !important; }
       .brand { gap: 4px; }
-      .brand-medinous { height: 16px; }
-      .brand-hospital { font-size: 11px; }
-      .brand-cross { font-size: 11px; }
+      .brand-hospital { font-size: 12px; max-width: 190px; }
       .loc-pill, .lang-pill {
         height: 28px !important; padding: 0 6px !important;
         font-size: 11px !important;
@@ -2437,7 +2427,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .hero h1 { font-size: 20px; }
       .topbar-back { display: none; }
       .topbar-loc-name { max-width: 60px; }
-      .brand-hospital { display: none; }
+      .brand-hospital { font-size: 11px; max-width: 120px; }
       .loc-name { max-width: 40px; }
       .lang-pill { display: none !important; }
     }
@@ -3292,7 +3282,7 @@ export class ShellComponent {
   }
 
   shortLocationName(name: string): string {
-    return name.replace(/^Northbridge Specialist Hospital\s*-?\s*/i, '').replace(/^NSH\s+/i, '');
+    return name.replace(/^Prince Fahd Bin Sultan Hospital\s*-?\s*/i, '').replace(/^PFSH\s+/i, '');
   }
 
   @HostListener('window:resize')
@@ -3318,7 +3308,7 @@ export class ShellComponent {
   }
 
   /** Branch-only label for the location chip on mobile. Locations are named
-   *  "Northbridge Specialist Hospital - Juffair" / "NSH Clinic - Riffa" —
+   *  "Prince Fahd Bin Sultan Hospital - Juffair" / "PFSH Clinic - Riffa" —
    *  on narrow screens the hospital prefix repeats the brand banner above
    *  and just adds noise, so we slice to whatever follows the last " - ".
    *  Falls back to the full name if no dash is present. */

@@ -540,7 +540,7 @@ export class FamilyService {
   /**
    * Create a brand-new patient record in HMS AND link them to this
    * family in one step. Used when the user couldn't find their relative
-   * via Patient ID — usually because the relative has never been to NSH
+   * via Patient ID — usually because the relative has never been to the hospital
    * and therefore doesn't have an account yet.
    *
    * Real production: POST /patients (HMS) then POST /family/{owner}/links

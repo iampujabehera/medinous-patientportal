@@ -93,10 +93,15 @@ interface SessionRoutine {
             <mat-icon [class.invisible]="selectedDoctor() !== 'all'">check</mat-icon>
             <span>All doctors</span>
           </button>
-          @for (doc of allDoctors(); track doc) {
-            <button mat-menu-item (click)="selectedDoctor.set(doc)">
-              <mat-icon [class.invisible]="selectedDoctor() !== doc">check</mat-icon>
-              <span>{{ doc }}</span>
+          @for (doc of allDoctors(); track doc.name) {
+            <button mat-menu-item (click)="selectedDoctor.set(doc.name)">
+              <mat-icon [class.invisible]="selectedDoctor() !== doc.name">check</mat-icon>
+              <span class="doc-option">
+                <span class="doc-option-name">{{ doc.name }}</span>
+                @if (doc.specialty) {
+                  <span class="doc-option-specialty">{{ doc.specialty }}</span>
+                }
+              </span>
             </button>
           }
         </mat-menu>
@@ -268,6 +273,15 @@ interface SessionRoutine {
       background: #ef6c00; border: 2px solid white;
     }
     .invisible { visibility: hidden; }
+
+    /* Doctor menu option: name on top, specialty muted underneath so the
+       patient sees which condition the doctor was consulted for. */
+    .doc-option {
+      display: inline-flex; flex-direction: column; align-items: flex-start;
+      line-height: 1.25; gap: 1px;
+    }
+    .doc-option-name { font-weight: 600; color: #1b3a4b; }
+    .doc-option-specialty { font-size: 12px; color: #0d8a8a; font-weight: 500; }
 
     /* ===== FILTER CHIPS ===== */
     .med-filters {
@@ -458,10 +472,16 @@ export class MedicationsComponent implements OnInit {
     night: 'Night'
   };
 
-  readonly allDoctors = computed<string[]>(() => {
-    const set = new Set<string>();
-    this.medications().forEach(m => set.add(m.prescribedBy));
-    return Array.from(set).sort();
+  /** Unique prescribers with their specialty, for the doctor filter menu.
+   *  Specialty is shown under the name so the patient can tell which
+   *  condition each doctor was consulted for (e.g. Cardiology vs Endocrinology). */
+  readonly allDoctors = computed<{ name: string; specialty: string }[]>(() => {
+    const map = new Map<string, string>();
+    this.medications().forEach(m => {
+      if (!map.has(m.prescribedBy)) map.set(m.prescribedBy, m.prescribedBySpecialty ?? '');
+    });
+    return Array.from(map, ([name, specialty]) => ({ name, specialty }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   });
 
   /** Meds visible after applying search, doctor, and active-filter (recent/active/completed). */
