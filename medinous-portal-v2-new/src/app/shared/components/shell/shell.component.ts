@@ -284,9 +284,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
 
           <div class="login-card-wrapper">
             <mat-card class="login-card">
-              <!-- Medinous wordmark inside the login card -->
+              <!-- Hospital wordmark inside the login card.
+                   White-label slot: each tenant's brand image goes here.
+                   Current tenant: Prince Fahd Bin Sultan Hospital, Tabuk (KSA). -->
               <div class="login-medinous-strip">
-                <img src="medinous-logo.svg" alt="Medinous" class="medinous-logo">
+                <img src="prince-fahd-hospital.png"
+                     alt="Prince Fahd Bin Sultan Hospital"
+                     class="hospital-logo">
                 <span class="medinous-tag">Patient Portal</span>
               </div>
 
@@ -1564,6 +1568,16 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .medinous-logo {
       height: 28px; width: auto; display: block;
     }
+    /* Hospital brand image — wider composition (seal + bilingual name).
+       Sized taller than the medinous wordmark to keep the seal legible
+       alongside the Arabic + English lines. object-fit: contain so the
+       composition never crops if the source aspect ratio shifts. */
+    .hospital-logo {
+      height: 44px;
+      width: auto; max-width: 240px;
+      object-fit: contain;
+      display: block;
+    }
     .medinous-tag {
       font-size: 11px; color: #888; font-weight: 500;
       padding-left: 12px; border-left: 1px solid #cfd8d8;
@@ -2393,6 +2407,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .login-card-wrapper { padding: 16px 10px 28px; }
       .login-medinous-strip { padding: 12px 16px; gap: 8px; }
       .medinous-logo { height: 22px; }
+      .hospital-logo { height: 36px; max-width: 180px; }
       .medinous-tag { font-size: 10px; padding-left: 8px; }
       .login-body { padding: 18px 16px 22px; }
       .login-title { font-size: 16px; margin-bottom: 14px; }
