@@ -128,7 +128,7 @@ interface CategoryFilter {
               <mat-option value="prescription">Prescription</mat-option>
               <mat-option value="medical_report">Medical Report</mat-option>
               <mat-option value="procedure">Procedure Report</mat-option>
-              <mat-option value="self_document">Self Document</mat-option>
+              <mat-option value="self_document">Self-Uploaded</mat-option>
               <mat-option value="note">Other</mat-option>
             </mat-select>
           </mat-form-field>
@@ -516,13 +516,16 @@ export class TimelineComponent implements OnInit {
 
   readonly categories: CategoryFilter[] = [
     { value: 'all',            label: 'All',         icon: 'apps' },
+    // Self-uploaded docs get the 2nd slot (right after All) so the tab is
+    // always visible without scrolling the chip row — patients shouldn't have
+    // to hunt for the documents they uploaded themselves.
+    { value: 'self_document',  label: 'Self-Uploaded', icon: 'folder_shared' },
     { value: 'lab_result',     label: 'Labs',        icon: 'science' },
     { value: 'prescription',   label: 'Rx',          icon: 'medication' },
     { value: 'imaging',        label: 'Radiology',   icon: 'image' },
     { value: 'procedure',      label: 'Procedures',  icon: 'monitor_heart' },
     { value: 'medical_report', label: 'Reports',     icon: 'summarize' },
-    { value: 'vaccination',    label: 'Vaccines',    icon: 'vaccines' },
-    { value: 'self_document',  label: 'Self Documents', icon: 'folder_shared' }
+    { value: 'vaccination',    label: 'Vaccines',    icon: 'vaccines' }
   ];
 
   readonly filteredEvents = computed(() => {
@@ -593,7 +596,7 @@ export class TimelineComponent implements OnInit {
     const m: Record<string, string> = {
       appointment: 'Visit', lab_result: 'Lab', prescription: 'Rx',
       vaccination: 'Vaccine', note: 'Note', imaging: 'Radiology',
-      procedure: 'Procedure', medical_report: 'Report', self_document: 'Self'
+      procedure: 'Procedure', medical_report: 'Report', self_document: 'Document'
     };
     return m[type] ?? type;
   }
