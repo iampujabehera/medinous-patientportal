@@ -39,41 +39,60 @@ interface DateOption {
   year: number;       // 2026
 }
 
-// One autocomplete suggestion shown under the search box.
-interface SearchSuggestion {
+// One autocomplete suggestion (condition, specialty or doctor).
+interface DropItem {
   key: string;                                   // track-by id
-  type: 'condition' | 'specialty' | 'doctor';
-  label: string;                                 // text the patient sees / matched
-  specialty: string;                             // specialty this resolves to
+  kind: 'condition' | 'specialty' | 'doctor';
+  label: string;                                 // primary text
+  specialty: string;                             // specialty it resolves / belongs to
+  sub: string;                                   // secondary line, e.g. "Recommended Specialty: …"
   icon: string;                                  // Material icon
-  kindLabel?: string;                            // right-side tag for doctor/specialty rows
 }
 
-// Everyday symptom / condition → clinical specialty. Add a row to extend;
-// no logic change needed. Terms are matched case-insensitively.
-const CONDITION_SPECIALTY_MAP: ReadonlyArray<{ term: string; specialty: string }> = [
-  { term: 'Diabetes',    specialty: 'Endocrinology' },
-  { term: 'Sugar',       specialty: 'Endocrinology' },
-  { term: 'Thyroid',     specialty: 'Endocrinology' },
-  { term: 'Cold',        specialty: 'General Medicine' },
-  { term: 'Fever',       specialty: 'General Medicine' },
-  { term: 'Cough',       specialty: 'General Medicine' },
-  { term: 'Flu',         specialty: 'General Medicine' },
-  { term: 'Skin Rash',   specialty: 'Dermatology' },
-  { term: 'Acne',        specialty: 'Dermatology' },
-  { term: 'Hair Fall',   specialty: 'Dermatology' },
-  { term: 'Back Pain',   specialty: 'Orthopedics' },
-  { term: 'Knee Pain',   specialty: 'Orthopedics' },
-  { term: 'Joint Pain',  specialty: 'Orthopedics' },
-  { term: 'Chest Pain',  specialty: 'Cardiology' },
-  { term: 'Heart',       specialty: 'Cardiology' },
-  { term: 'Pregnancy',   specialty: 'Gynecology' },
-  { term: 'Period Pain', specialty: 'Gynecology' },
-  { term: 'Child Care',  specialty: 'Pediatrics' },
-  { term: 'Vaccination', specialty: 'Pediatrics' }
+// The structured dropdown: one highlighted top match + a grid of related ones.
+interface SuggestionDropdown {
+  top: DropItem | null;
+  others: DropItem[];
+}
+
+// Everyday condition / symptom → clinical specialty. Patients search in their
+// own words; this resolves to the right specialty. Add a row to extend — the
+// order also controls how "related" suggestions are surfaced. Case-insensitive.
+const CONDITIONS: ReadonlyArray<{ term: string; specialty: string }> = [
+  // Endocrinology
+  { term: 'Diabetes',            specialty: 'Endocrinology' },
+  { term: 'Diabetes Type 2',     specialty: 'Endocrinology' },
+  { term: 'Thyroid Problems',    specialty: 'Endocrinology' },
+  { term: 'Sugar Levels High',   specialty: 'Endocrinology' },
+  { term: 'Hormonal Imbalance',  specialty: 'Endocrinology' },
+  { term: 'PCOS',                specialty: 'Endocrinology' },
+  // Pediatrics
+  { term: 'Diabetes in Children', specialty: 'Pediatrics' },
+  { term: 'Child Fever',          specialty: 'Pediatrics' },
+  { term: 'Vaccination',          specialty: 'Pediatrics' },
+  // General Medicine
+  { term: 'Cold',                specialty: 'General Medicine' },
+  { term: 'Fever',               specialty: 'General Medicine' },
+  { term: 'Cough',               specialty: 'General Medicine' },
+  { term: 'Flu',                 specialty: 'General Medicine' },
+  // Dermatology
+  { term: 'Skin Rash',           specialty: 'Dermatology' },
+  { term: 'Acne',                specialty: 'Dermatology' },
+  { term: 'Hair Fall',           specialty: 'Dermatology' },
+  // Orthopedics
+  { term: 'Back Pain',           specialty: 'Orthopedics' },
+  { term: 'Knee Pain',           specialty: 'Orthopedics' },
+  { term: 'Joint Pain',          specialty: 'Orthopedics' },
+  // Cardiology
+  { term: 'Chest Pain',          specialty: 'Cardiology' },
+  { term: 'Heart Problems',      specialty: 'Cardiology' },
+  { term: 'High Blood Pressure', specialty: 'Cardiology' },
+  // Gynecology
+  { term: 'Pregnancy',           specialty: 'Gynecology' },
+  { term: 'Period Pain',         specialty: 'Gynecology' }
 ];
 
-// Icon per condition specialty (suggestion rows).
+// Icon per condition specialty (suggestion + banner).
 const CONDITION_ICONS: Record<string, string> = {
   Endocrinology: 'bloodtype',
   'General Medicine': 'sick',
@@ -107,7 +126,7 @@ const CONDITION_ICONS: Record<string, string> = {
             <p class="subtitle">Pick a specialist to book your visit</p>
           </div>
 
-          <!-- Search bar + autocomplete suggestions -->
+          <!-- Search + smart autocomplete -->
           <div class="filter-row">
             <div class="search-suggest">
               <div class="search-wrap">
@@ -119,7 +138,7 @@ const CONDITION_ICONS: Record<string, string> = {
                        role="combobox"
                        aria-label="Search doctor, specialty, or condition"
                        aria-controls="search-suggestions"
-                       [attr.aria-expanded]="suggestionsOpen() && suggestions().length > 0"
+                       [attr.aria-expanded]="suggestionsOpen() && hasSuggestions()"
                        [ngModel]="searchQuery()"
                        (ngModelChange)="onSearchChange($event)"
                        (focus)="onSearchFocus()"
@@ -132,40 +151,80 @@ const CONDITION_ICONS: Record<string, string> = {
                 }
               </div>
 
-              @if (suggestionsOpen() && suggestions().length) {
-                <ul class="suggest-list" id="search-suggestions" role="listbox">
-                  @for (sug of suggestions(); track sug.key) {
-                    <li role="option">
-                      <button class="suggest-item" type="button"
-                              (mousedown)="$event.preventDefault()"
-                              (click)="selectSuggestion(sug)">
-                        <mat-icon class="sug-icon" [class.condition]="sug.type === 'condition'">{{ sug.icon }}</mat-icon>
-                        <span class="sug-label">{{ sug.label }}</span>
-                        @if (sug.type === 'condition') {
-                          <mat-icon class="sug-arrow">east</mat-icon>
-                          <span class="sug-target">{{ sug.specialty }}</span>
-                        } @else {
-                          <span class="sug-kind">{{ sug.kindLabel }}</span>
-                        }
-                      </button>
-                    </li>
+              @if (suggestionsOpen() && hasSuggestions()) {
+                <div class="suggest-panel" id="search-suggestions" role="listbox">
+                  @if (dropdown().top; as top) {
+                    <span class="suggest-section">Top Matches</span>
+                    <button class="suggest-row top" type="button"
+                            (mousedown)="$event.preventDefault()"
+                            (click)="selectSuggestion(top)">
+                      <span class="sug-ic"><mat-icon>{{ top.icon }}</mat-icon></span>
+                      <span class="sug-text">
+                        <strong class="sug-label">{{ top.label }}</strong>
+                        <span class="sug-sub">{{ top.sub }}</span>
+                      </span>
+                    </button>
                   }
-                </ul>
+
+                  @if (dropdown().others.length) {
+                    <span class="suggest-section">Other Suggestions</span>
+                    <div class="suggest-grid">
+                      @for (item of dropdown().others; track item.key) {
+                        <button class="suggest-row" type="button"
+                                (mousedown)="$event.preventDefault()"
+                                (click)="selectSuggestion(item)">
+                          <span class="sug-ic"><mat-icon>{{ item.icon }}</mat-icon></span>
+                          <span class="sug-text">
+                            <strong class="sug-label">{{ item.label }}</strong>
+                            <span class="sug-sub">{{ item.sub }}</span>
+                          </span>
+                        </button>
+                      }
+                    </div>
+                  }
+
+                  <button class="suggest-seeall" type="button"
+                          (mousedown)="$event.preventDefault()"
+                          (click)="closeSuggestions()">
+                    See all results for "{{ searchQuery() }}"
+                    <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+                  </button>
+                </div>
               }
             </div>
           </div>
 
-          <!-- Specialty tabs (horizontal scrollable) -->
+          <!-- Context banner: condition → recommended specialty + live count -->
+          @if (contextLabel(); as ctx) {
+            <div class="ctx-banner" role="status">
+              <span class="ctx-ic"><mat-icon>medical_services</mat-icon></span>
+              <div class="ctx-text">
+                <strong>Showing doctors for "{{ ctx }}"</strong>
+                @if (recommendedSpecialty(); as rs) {
+                  <span class="ctx-sub">Recommended Specialty: {{ rs }}</span>
+                }
+              </div>
+              <span class="ctx-count">
+                {{ filteredDoctors().length }} {{ filteredDoctors().length === 1 ? 'doctor' : 'doctors' }} available
+                <mat-icon>check_circle</mat-icon>
+              </span>
+              <button class="ctx-clear" (click)="clearContext()" aria-label="Clear filter">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          }
+
+          <!-- Specialty chips (horizontal scrollable) -->
           <div class="specialty-tabs">
             <button class="spec-tab"
-                    [class.active]="selectedSpecialty() === 'all'"
+                    [class.active]="isSpecialtyActive('all')"
                     (click)="setSpecialty('all')">
-              <mat-icon>apps</mat-icon>
+              <mat-icon>public</mat-icon>
               All
             </button>
             @for (s of specialties(); track s) {
               <button class="spec-tab"
-                      [class.active]="selectedSpecialty() === s"
+                      [class.active]="isSpecialtyActive(s)"
                       (click)="setSpecialty(s)">
                 <mat-icon>{{ specialtyIcon(s) }}</mat-icon>
                 {{ s }}
@@ -173,75 +232,71 @@ const CONDITION_ICONS: Record<string, string> = {
             }
           </div>
 
-          <!-- Contextual message when a condition/symptom drives the results -->
-          @if (contextLabel()) {
-            <div class="context-banner" role="status">
-              <mat-icon>info</mat-icon>
-              <span>Showing doctors for <strong>{{ contextLabel() }}</strong></span>
-              <button class="context-clear" (click)="clearContext()" aria-label="Clear filter">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-          }
-
           @if (loadingDoctors()) {
             @for (i of [1,2,3]; track i) {
-              <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
+              <app-skeleton-card [lines]="3" [showAvatar]="true" />
             }
           } @else {
             <div class="doctors-list">
               @for (doc of filteredDoctors(); track doc.id) {
-                <div class="doc-row" (click)="selectDoctor(doc)">
-                  <div class="doc-left">
+                <div class="doc-card">
+                  <!-- Identity -->
+                  <div class="dc-main">
                     <div class="doc-avatar"><mat-icon>person</mat-icon></div>
-                    <button class="view-profile-cta" (click)="openProfile(doc, $event)">
-                      View Profile <mat-icon iconPositionEnd>arrow_forward</mat-icon>
-                    </button>
-                  </div>
-
-                  <div class="doc-body">
-                    <strong class="doc-name">{{ doc.name }}</strong>
-                    <span class="doc-specialty">
-                      <mat-icon class="spec-inline-icon">{{ specialtyIcon(doc.specialty) }}</mat-icon>
-                      {{ doctorDesignation(doc) }} • {{ doc.specialty }}
-                    </span>
-
-                    <div class="doc-credentials">
-                      <span class="cred-item">
+                    <div class="dc-info">
+                      <strong class="doc-name">{{ doc.name }}</strong>
+                      <span class="doc-designation">{{ doctorDesignation(doc) }}</span>
+                      <span class="doc-cred">
                         <mat-icon>workspace_premium</mat-icon>
                         {{ doctorExperience(doc) }} Years Experience
-                      </span>
-                      <span class="cred-item">
-                        <mat-icon>translate</mat-icon>
+                        <span class="cred-dot">•</span>
                         {{ doctorLanguages(doc) }}
                       </span>
-                    </div>
-
-                    <div class="next-avail-wrap">
-                      <span class="next-avail-label">Next available at</span>
-                      <div class="avail-chips">
-                        <span class="avail-chip in-person">
-                          <mat-icon>local_hospital</mat-icon>
-                          {{ nextInPersonSlot(doc) }}
+                      @if (doctorTreats(doc); as treats) {
+                        <span class="doc-treats">
+                          <span class="treats-label">Treats:</span>
+                          <span class="treats-list">{{ treats }}</span>
                         </span>
-                        <span class="avail-chip video">
-                          <mat-icon>videocam</mat-icon>
-                          {{ nextVideoSlot(doc) }}
-                        </span>
-                      </div>
+                      }
+                      <button class="view-profile-btn" type="button" (click)="openProfile(doc, $event)">
+                        View Profile
+                      </button>
                     </div>
                   </div>
 
-                  <div class="doc-right">
-                    <strong class="fee-onwards">{{ formatCurrency(videoConsultFee(doc)) }} onwards</strong>
-                    <mat-icon class="row-chevron">chevron_right</mat-icon>
+                  <!-- Next available -->
+                  <div class="dc-avail">
+                    <span class="avail-head">Next Available</span>
+                    <div class="avail-row">
+                      <span class="avail-mode">
+                        <mat-icon class="m-hosp">local_hospital</mat-icon> Hospital Visit
+                      </span>
+                      <span class="avail-time">{{ nextInPersonSlot(doc) }}</span>
+                    </div>
+                    <div class="avail-row">
+                      <span class="avail-mode">
+                        <mat-icon class="m-vid">videocam</mat-icon> Video Consult
+                      </span>
+                      <span class="avail-time">{{ nextVideoSlot(doc) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Price + book -->
+                  <div class="dc-book">
+                    <div class="dc-price">
+                      <strong>{{ formatCurrency(videoConsultFee(doc)) }}</strong>
+                      <span>onwards</span>
+                    </div>
+                    <button mat-flat-button class="book-btn" (click)="selectDoctor(doc)">
+                      Book Appointment
+                    </button>
                   </div>
                 </div>
               }
               @if (!filteredDoctors().length) {
                 <div class="empty-state">
                   <mat-icon>search_off</mat-icon>
-                  <p>No records</p>
+                  <p>No doctors found</p>
                 </div>
               }
             </div>
@@ -942,67 +997,110 @@ const CONDITION_ICONS: Record<string, string> = {
     .s-input::-webkit-search-cancel-button { -webkit-appearance: none; }
 
     /* =============================================
-       SEARCH AUTOCOMPLETE SUGGESTIONS
+       SEARCH AUTOCOMPLETE PANEL (Top Matches + grid)
        ============================================= */
     .search-suggest { position: relative; flex: 1; min-width: 0; }
-    .suggest-list {
-      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-      z-index: 30; margin: 0; padding: 6px; list-style: none;
-      background: #fff; border: 1px solid #e6edee; border-radius: 14px;
-      box-shadow: 0 10px 28px rgba(15,30,40,0.12);
-      max-height: 320px; overflow-y: auto;
+    .suggest-panel {
+      position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+      z-index: 30; padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      background: #fff; border: 1px solid #e6edee; border-radius: 16px;
+      box-shadow: 0 16px 36px rgba(15,30,40,0.14);
+      max-height: 70vh; overflow-y: auto;
     }
-    .suggest-item {
+    .suggest-section {
+      font-size: 11px; font-weight: 700; color: #98a2ab;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      margin: 2px 2px 0;
+    }
+    .suggest-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .suggest-row {
       width: 100%; box-sizing: border-box;
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border: none; background: transparent;
-      border-radius: 9px; cursor: pointer; text-align: left;
-      font-family: inherit; font-size: 13.5px; color: #1b3a4b;
-      transition: background 0.14s;
+      display: flex; align-items: center; gap: 11px;
+      padding: 10px 12px; border: 1px solid transparent; background: transparent;
+      border-radius: 11px; cursor: pointer; text-align: left;
+      font-family: inherit; transition: background 0.14s, border-color 0.14s;
     }
-    .suggest-item:hover { background: #f3faf9; }
-    .sug-icon {
-      font-size: 19px !important; width: 19px !important; height: 19px !important;
-      color: #6b7884; flex-shrink: 0;
+    .suggest-row:hover { background: #f3faf9; }
+    .suggest-row.top {
+      background: #eaf6f4; border-color: #cdebe6;
     }
-    .sug-icon.condition { color: #0d8a8a; }
-    .sug-label { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sug-arrow {
-      font-size: 15px !important; width: 15px !important; height: 15px !important;
-      color: #b6c2c8; flex-shrink: 0;
+    .suggest-row.top:hover { background: #e2f2ef; }
+    .sug-ic {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #e8f5f3;
     }
-    .sug-target {
-      font-size: 12.5px; font-weight: 700; color: #0d8a8a;
-      white-space: nowrap; flex-shrink: 0;
+    .suggest-row.top .sug-ic { background: #d4ece8; }
+    .sug-ic mat-icon {
+      font-size: 18px !important; width: 18px !important; height: 18px !important;
+      color: #0d8a8a;
     }
-    .sug-kind {
-      margin-left: auto; font-size: 11px; font-weight: 600; color: #98a2ab;
-      text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
+    .sug-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .sug-label {
+      font-size: 13.5px; font-weight: 700; color: #1b3a4b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sug-sub {
+      font-size: 11.5px; color: #8b9aa3; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .suggest-seeall {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 2px; padding: 10px 12px;
+      border: none; border-top: 1px solid #eef2f4; background: transparent;
+      border-radius: 0 0 6px 6px; cursor: pointer; text-align: left;
+      font-family: inherit; font-size: 12.5px; font-weight: 600; color: #0d8a8a;
+    }
+    .suggest-seeall:hover { color: #0a6e6e; }
+    .suggest-seeall mat-icon {
+      margin-left: auto;
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
     }
 
     /* =============================================
-       CONTEXTUAL "SHOWING DOCTORS FOR …" BANNER
+       CONTEXT BANNER (condition → specialty + count)
        ============================================= */
-    .context-banner {
-      display: flex; align-items: center; gap: 9px;
-      padding: 9px 14px; margin-bottom: 12px;
-      border-radius: 10px;
-      background: #e8f5f3; border: 1px solid #b2dfdb;
-      color: #0a5b5b; font-size: 13px;
+    .ctx-banner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; margin-bottom: 14px;
+      border-radius: 12px;
+      background: #eaf6ef; border: 1px solid #c2e6cf;
     }
-    .context-banner mat-icon {
-      font-size: 18px !important; width: 18px !important; height: 18px !important;
-      color: #0d8a8a; flex-shrink: 0;
+    .ctx-ic {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #d3ecdb;
     }
-    .context-banner strong { font-weight: 700; }
-    .context-clear {
-      margin-left: auto; display: inline-flex; align-items: center;
+    .ctx-ic mat-icon {
+      font-size: 19px !important; width: 19px !important; height: 19px !important;
+      color: #2e8b57;
+    }
+    .ctx-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+    .ctx-text strong { font-size: 13.5px; font-weight: 700; color: #1f5132; }
+    .ctx-sub { font-size: 12px; color: #4f7a61; font-weight: 500; }
+    .ctx-count {
+      display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+      padding: 5px 11px; border-radius: 16px;
+      background: #fff; border: 1px solid #c2e6cf;
+      font-size: 12px; font-weight: 700; color: #2e8b57;
+      white-space: nowrap;
+    }
+    .ctx-count mat-icon {
+      font-size: 15px !important; width: 15px !important; height: 15px !important;
+      color: #2e8b57;
+    }
+    .ctx-clear {
+      display: inline-flex; align-items: center; flex-shrink: 0;
       border: none; background: transparent; cursor: pointer;
-      color: #0a5b5b; padding: 2px; border-radius: 50%;
+      color: #4f7a61; padding: 2px; border-radius: 50%;
     }
-    .context-clear:hover { background: rgba(13,138,138,0.12); }
-    .context-clear mat-icon {
-      font-size: 16px !important; width: 16px !important; height: 16px !important; color: inherit;
+    .ctx-clear:hover { background: rgba(46,139,87,0.14); }
+    .ctx-clear mat-icon {
+      font-size: 17px !important; width: 17px !important; height: 17px !important; color: inherit;
     }
 
     /* Specialty tabs (horizontal scrollable) */
@@ -1053,130 +1151,130 @@ const CONDITION_ICONS: Record<string, string> = {
     }
 
     /* =============================================
-       DOCTOR ROW (find phase) — restructured
+       DOCTOR CARD (find phase) — 3-column layout
        ============================================= */
-    .doctors-list { display: flex; flex-direction: column; gap: 10px; }
-    .doc-row {
-      display: flex; align-items: flex-start; gap: 14px;
-      padding: 14px; border-radius: 12px;
+    .doctors-list { display: flex; flex-direction: column; gap: 12px; }
+    .doc-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 0.7fr) auto;
+      align-items: stretch; gap: 18px;
+      padding: 18px; border-radius: 14px;
       background: white; border: 1px solid #eef2f5;
-      cursor: pointer; transition: all 0.18s;
+      transition: border-color 0.18s, box-shadow 0.18s;
     }
-    .doc-row:hover {
-      border-color: #80cbc4;
-      box-shadow: 0 4px 14px rgba(13,138,138,0.08);
-      transform: translateY(-1px);
+    .doc-card:hover {
+      border-color: #cdebe6;
+      box-shadow: 0 6px 18px rgba(13,138,138,0.08);
     }
 
-    /* Left column: avatar + view-profile CTA */
-    .doc-left {
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
-      flex-shrink: 0;
-    }
+    /* --- Column 1: identity --- */
+    .dc-main { display: flex; gap: 14px; min-width: 0; }
     .doc-avatar {
-      width: 56px; height: 56px; border-radius: 50%;
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
       background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
       display: flex; align-items: center; justify-content: center;
     }
     .doc-avatar mat-icon {
-      color: #0d8a8a; font-size: 32px; width: 32px; height: 32px;
+      color: #0d8a8a; font-size: 30px; width: 30px; height: 30px;
     }
-    .view-profile-cta {
-      display: inline-flex; align-items: center; gap: 2px;
-      padding: 4px 8px; border-radius: 14px;
-      border: none; background: #eaf4ff; color: #1565c0;
-      font-size: 11px; font-weight: 600; cursor: pointer;
-      font-family: inherit;
-      transition: background 0.15s;
-      white-space: nowrap;
-    }
-    .view-profile-cta:hover { background: #d4e7fb; }
-    .view-profile-cta mat-icon {
-      font-size: 13px !important; width: 13px !important; height: 13px !important;
-    }
-
-    /* Body */
-    .doc-body {
-      flex: 1; min-width: 0;
-      display: flex; flex-direction: column; gap: 4px;
-    }
+    .dc-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
     .doc-name {
-      font-size: 15px; color: #1b3a4b; font-weight: 700;
-      line-height: 1.25;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 15.5px; color: #1b3a4b; font-weight: 700; line-height: 1.25;
     }
-    .doc-specialty {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 12.5px; color: #5a8585; font-weight: 600;
+    .doc-designation { font-size: 12.5px; color: #5a8585; font-weight: 600; }
+    .doc-cred {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      margin-top: 3px; font-size: 12px; color: #6b7884; font-weight: 600;
     }
-    .spec-inline-icon {
-      font-size: 16px !important; width: 16px !important; height: 16px !important;
-      color: #5a8585;
-    }
-
-    /* Credentials row (experience + languages) */
-    .doc-credentials {
-      display: flex; flex-wrap: wrap; gap: 6px 14px;
-      margin-top: 4px;
-    }
-    .cred-item {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 12px; color: #6b7884; font-weight: 600;
-    }
-    .cred-item mat-icon {
+    .doc-cred mat-icon {
       font-size: 14px !important; width: 14px !important; height: 14px !important;
       color: #98a2ab;
     }
-
-    /* Next available section */
-    .next-avail-wrap {
-      margin-top: 6px;
+    .cred-dot { color: #c2cdd4; margin: 0 1px; }
+    .doc-treats {
+      margin-top: 4px; font-size: 12px; line-height: 1.45;
     }
-    .next-avail-label {
-      display: block; font-size: 10.5px; color: #98a2ab;
+    .treats-label { color: #98a2ab; font-weight: 600; margin-right: 4px; }
+    .treats-list { color: #0d8a8a; font-weight: 600; }
+    .view-profile-btn {
+      align-self: flex-start; margin-top: 9px;
+      padding: 7px 16px; border-radius: 8px;
+      border: 1.5px solid #d8e3e3; background: #fff;
+      cursor: pointer; font-family: inherit;
+      font-size: 12.5px; font-weight: 700; color: #0d8a8a;
+      transition: all 0.15s;
+    }
+    .view-profile-btn:hover { border-color: #0d8a8a; background: #f5fafa; }
+
+    /* --- Column 2: next available --- */
+    .dc-avail {
+      display: flex; flex-direction: column; gap: 8px;
+      padding-left: 18px; border-left: 1px solid #eef2f5;
+      justify-content: center;
+    }
+    .avail-head {
+      font-size: 10.5px; color: #98a2ab; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.4px;
-      font-weight: 700; margin-bottom: 5px;
     }
-    .avail-chips {
-      display: flex; flex-wrap: wrap; gap: 6px;
+    .avail-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
     }
-    .avail-chips.stacked { flex-direction: column; align-items: flex-start; }
-    .avail-chip {
+    .avail-mode {
       display: inline-flex; align-items: center; gap: 5px;
-      padding: 4px 10px; border-radius: 14px;
-      font-size: 11.5px; font-weight: 600;
-      white-space: nowrap;
+      font-size: 12px; color: #51616b; font-weight: 600; white-space: nowrap;
     }
-    .avail-chip mat-icon {
-      font-size: 13px !important; width: 13px !important; height: 13px !important;
+    .avail-mode mat-icon {
+      font-size: 15px !important; width: 15px !important; height: 15px !important;
     }
-    .avail-chip.in-person {
-      background: #e8f5f3; color: #0d8a8a;
-    }
-    .avail-chip.video {
-      background: #ede7f6; color: #5e35b1;
+    .avail-mode .m-hosp { color: #0d8a8a; }
+    .avail-mode .m-vid { color: #5e35b1; }
+    .avail-time {
+      font-size: 12.5px; font-weight: 700; color: #0d8a8a;
+      white-space: nowrap; text-align: right;
     }
 
-    /* Right column: starting price + chevron */
-    .doc-right {
-      display: flex; align-items: center; gap: 6px;
-      flex-shrink: 0;
+    /* --- Column 3: price + book --- */
+    .dc-book {
+      display: flex; flex-direction: column; align-items: flex-end;
+      justify-content: center; gap: 12px; flex-shrink: 0;
     }
-    .fee-onwards {
-      font-size: 14px; font-weight: 700; color: #1b3a4b;
+    .dc-price { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+    .dc-price strong { font-size: 19px; font-weight: 700; color: #1b3a4b; }
+    .dc-price span {
+      font-size: 11px; color: #98a2ab; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .book-btn {
+      height: 42px !important; padding: 0 20px !important;
+      border-radius: 10px !important;
+      background: #0d8a8a !important; color: #fff !important;
+      font-weight: 700 !important; font-size: 13px !important;
+      box-shadow: 0 4px 12px rgba(13,138,138,0.25) !important;
       white-space: nowrap;
     }
-
-    .row-chevron {
-      color: #c8d0d8; flex-shrink: 0;
-      font-size: 22px !important; width: 22px !important; height: 22px !important;
-    }
-    .doc-row:hover .row-chevron { color: #0d8a8a; }
 
     .empty-state {
       text-align: center; padding: 40px; color: #999;
     }
     .empty-state mat-icon { font-size: 40px; width: 40px; height: 40px; margin-bottom: 8px; }
+
+    /* Shared inline specialty icon + availability chips (detail / profile phases) */
+    .spec-inline-icon {
+      font-size: 16px !important; width: 16px !important; height: 16px !important;
+      color: #5a8585;
+    }
+    .avail-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .avail-chips.stacked { flex-direction: column; align-items: flex-start; }
+    .avail-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 14px;
+      font-size: 11.5px; font-weight: 600; white-space: nowrap;
+    }
+    .avail-chip mat-icon {
+      font-size: 13px !important; width: 13px !important; height: 13px !important;
+    }
+    .avail-chip.in-person { background: #e8f5f3; color: #0d8a8a; }
+    .avail-chip.video { background: #ede7f6; color: #5e35b1; }
 
     /* =============================================
        DOCTOR PROFILE SHEET (slide-in / bottom)
@@ -1906,16 +2004,32 @@ const CONDITION_ICONS: Record<string, string> = {
     /* =============================================
        RESPONSIVE
        ============================================= */
+    /* Stack the doctor card into a single column on tablet & mobile */
+    @media (max-width: 760px) {
+      .doc-card {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      .dc-avail {
+        padding-left: 0; padding-top: 14px;
+        border-left: none; border-top: 1px solid #eef2f5;
+      }
+      .dc-book {
+        flex-direction: row; align-items: center; justify-content: space-between;
+        padding-top: 14px; border-top: 1px solid #eef2f5;
+      }
+      .dc-price { align-items: flex-start; }
+      .book-btn { flex-shrink: 0; }
+      .suggest-grid { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 600px) {
       h1 { font-size: 22px; }
-      .doc-row { padding: 10px; gap: 10px; }
-      .doc-left { gap: 6px; }
+      .doc-card { padding: 14px; }
       .doc-avatar { width: 48px; height: 48px; }
       .doc-avatar mat-icon { font-size: 28px; width: 28px; height: 28px; }
-      .view-profile-cta { font-size: 10px; padding: 3px 6px; }
-      .avail-chip { font-size: 11px; padding: 3px 8px; }
-      .fee-onwards { font-size: 12.5px; }
-      .row-chevron { display: none; }
+      .ctx-banner { flex-wrap: wrap; }
+      .ctx-count { order: 3; }
       .slots-grid { grid-template-columns: repeat(3, 1fr); }
       .sticky-doc-header { padding: 8px 10px; }
       .sticky-doc-header .doc-avatar { width: 36px; height: 36px; }
@@ -1927,21 +2041,9 @@ const CONDITION_ICONS: Record<string, string> = {
       .confirm-btn { height: 40px !important; padding: 0 14px !important; font-size: 12.5px !important; }
       .pay-row { flex-direction: column; gap: 8px; }
     }
-    @media (max-width: 480px) {
-      .doc-row {
-        display: grid;
-        grid-template-columns: 64px 1fr;
-        grid-template-areas:
-          "left body"
-          "left right";
-        align-items: start;
-        gap: 8px 10px;
-      }
-      .doc-left { grid-area: left; }
-      .doc-body { grid-area: body; min-width: 0; }
-      .doc-right { grid-area: right; justify-content: flex-end; align-items: center; }
-    }
     @media (max-width: 380px) {
+      .avail-row { flex-wrap: wrap; gap: 2px; }
+      .avail-time { width: 100%; text-align: left; }
       .slots-grid { grid-template-columns: repeat(2, 1fr); }
       .slot-pill { font-size: 12px; padding: 7px 4px; }
     }
@@ -2106,18 +2208,36 @@ export class AppointmentsComponent implements OnInit {
     return opts;
   });
 
+  // The specialty a typed/selected condition recommends (drives the banner
+  // sub-line and the highlighted chip). Null when not in "condition mode".
+  readonly recommendedSpecialty = computed<string | null>(() => {
+    const picked = this.selectedConditionTerm();
+    if (picked) {
+      return this.conditionSpecialty(picked)
+        ?? (this.selectedSpecialty() !== 'all' ? this.selectedSpecialty() : null);
+    }
+    if (this.selectedSpecialty() === 'all') {
+      const q = this.searchQuery().trim();
+      if (q) return this.matchConditionForFilter(q)?.specialty ?? null;
+    }
+    return null;
+  });
+
+  // The specialty actually applied to the list: a live condition recommendation
+  // wins; otherwise the manually-chosen chip ('all' = no filter).
+  readonly effectiveSpecialty = computed<string>(() =>
+    this.recommendedSpecialty() ?? this.selectedSpecialty()
+  );
+
   readonly filteredDoctors = computed(() => {
-    const spec = this.selectedSpecialty();
+    const eff = this.effectiveSpecialty();
     const q = this.searchQuery().trim().toLowerCase();
     let list = this.doctors();
-    if (spec !== 'all') list = list.filter(d => d.specialty === spec);
+    if (eff !== 'all') list = list.filter(d => d.specialty === eff);
     if (q) {
-      // A typed condition/symptom (e.g. "diabetes") resolves to a specialty;
-      // otherwise match on doctor name or specialty text.
+      // Free-text that isn't a recognised condition → match name/specialty.
       const cond = this.matchConditionForFilter(q);
-      if (cond) {
-        list = list.filter(d => d.specialty === cond.specialty);
-      } else {
+      if (!cond) {
         list = list.filter(d =>
           d.name.toLowerCase().includes(q) ||
           d.specialty.toLowerCase().includes(q)
@@ -2127,57 +2247,111 @@ export class AppointmentsComponent implements OnInit {
     return list;
   });
 
-  // Autocomplete suggestions: conditions, then specialties, then doctors.
-  readonly suggestions = computed<SearchSuggestion[]>(() => {
+  // Structured autocomplete: one highlighted "top match" + a grid of related
+  // suggestions (other matching conditions, plus siblings in the same specialty).
+  readonly dropdown = computed<SuggestionDropdown>(() => {
     const q = this.searchQuery().trim().toLowerCase();
-    if (!q) return [];
-    const out: SearchSuggestion[] = [];
+    if (!q) return { top: null, others: [] };
 
-    for (const c of CONDITION_SPECIALTY_MAP) {
-      if (c.term.toLowerCase().includes(q)) {
-        out.push({
-          key: 'c-' + c.term, type: 'condition', label: c.term,
-          specialty: c.specialty, icon: CONDITION_ICONS[c.specialty] ?? 'healing'
-        });
+    const conditionMatches = CONDITIONS.filter(c => c.term.toLowerCase().includes(q));
+    const doctorMatches = this.doctors().filter(d => d.name.toLowerCase().includes(q));
+    const specialtyMatches = this.specialties().filter(s => s.toLowerCase().includes(q));
+
+    // Prefer an exact / prefix condition for the top slot, else first match.
+    const topCondition =
+      conditionMatches.find(c => c.term.toLowerCase() === q) ??
+      conditionMatches.find(c => c.term.toLowerCase().startsWith(q)) ??
+      conditionMatches[0] ?? null;
+
+    let top: DropItem | null = null;
+    if (topCondition) top = this.conditionItem(topCondition);
+    else if (doctorMatches.length) top = this.doctorItem(doctorMatches[0]);
+    else if (specialtyMatches.length) top = this.specialtyItem(specialtyMatches[0]);
+
+    const others: DropItem[] = [];
+    if (topCondition) {
+      const directRemaining = conditionMatches
+        .filter(c => c.term !== topCondition.term)
+        .map(c => this.conditionItem(c));
+      // Sibling conditions in the recommended specialty, not already shown.
+      const shown = new Set([topCondition.term, ...conditionMatches.map(c => c.term)]);
+      const related = CONDITIONS
+        .filter(c => c.specialty === topCondition.specialty && !shown.has(c.term))
+        .map(c => this.conditionItem(c));
+      // Interleave direct matches with related siblings (matches the design grid).
+      let i = 0, j = 0;
+      while (others.length < 4 && (i < directRemaining.length || j < related.length)) {
+        if (i < directRemaining.length) others.push(directRemaining[i++]);
+        if (others.length < 4 && j < related.length) others.push(related[j++]);
+      }
+    } else {
+      // Name / specialty search: list remaining doctors then specialties.
+      for (const d of doctorMatches.slice(top?.kind === 'doctor' ? 1 : 0)) {
+        if (others.length >= 4) break;
+        others.push(this.doctorItem(d));
+      }
+      for (const s of specialtyMatches) {
+        if (others.length >= 4) break;
+        if (top?.kind === 'specialty' && s === top.label) continue;
+        others.push(this.specialtyItem(s));
       }
     }
-    for (const s of this.specialties()) {
-      if (s.toLowerCase().includes(q)) {
-        out.push({
-          key: 's-' + s, type: 'specialty', label: s,
-          specialty: s, icon: this.specialtyIcon(s), kindLabel: 'Specialty'
-        });
-      }
-    }
-    for (const d of this.doctors()) {
-      if (d.name.toLowerCase().includes(q)) {
-        out.push({
-          key: 'd-' + d.id, type: 'doctor', label: d.name,
-          specialty: d.specialty, icon: 'person', kindLabel: d.specialty
-        });
-      }
-    }
-    return out.slice(0, 8);
+    return { top, others };
   });
 
-  // Label for the "Showing doctors for …" banner: an explicitly-selected
-  // condition wins; otherwise a typed query that resolves to a condition.
+  readonly hasSuggestions = computed(() => {
+    const d = this.dropdown();
+    return !!d.top || d.others.length > 0;
+  });
+
+  // Label for the "Showing doctors for …" banner. Selected condition wins;
+  // else a typed query that resolves to a condition (while no chip is forced).
   readonly contextLabel = computed<string | null>(() => {
     const picked = this.selectedConditionTerm();
     if (picked) return picked;
-    const q = this.searchQuery().trim().toLowerCase();
-    if (q) {
-      const cond = this.matchConditionForFilter(q);
-      if (cond) return cond.term;
+    if (this.selectedSpecialty() === 'all') {
+      const q = this.searchQuery().trim();
+      if (q) {
+        const cond = this.matchConditionForFilter(q);
+        if (cond) return cond.term;
+      }
     }
     return null;
   });
 
+  private conditionItem(c: { term: string; specialty: string }): DropItem {
+    return {
+      key: 'c-' + c.term, kind: 'condition', label: c.term, specialty: c.specialty,
+      sub: 'Recommended Specialty: ' + c.specialty,
+      icon: CONDITION_ICONS[c.specialty] ?? 'healing'
+    };
+  }
+  private doctorItem(d: Doctor): DropItem {
+    return {
+      key: 'd-' + d.id, kind: 'doctor', label: d.name, specialty: d.specialty,
+      sub: d.designation ?? d.specialty, icon: 'person'
+    };
+  }
+  private specialtyItem(s: string): DropItem {
+    return {
+      key: 's-' + s, kind: 'specialty', label: s, specialty: s,
+      sub: 'Specialty', icon: this.specialtyIcon(s)
+    };
+  }
+
+  private conditionSpecialty(term: string): string | null {
+    return CONDITIONS.find(c => c.term === term)?.specialty ?? null;
+  }
+
   private matchConditionForFilter(q: string): { term: string; specialty: string } | null {
-    return CONDITION_SPECIALTY_MAP.find(c => {
+    return CONDITIONS.find(c => {
       const t = c.term.toLowerCase();
       return q === t || q.includes(t) || (t.includes(q) && q.length >= 3);
     }) ?? null;
+  }
+
+  isSpecialtyActive(spec: string): boolean {
+    return this.effectiveSpecialty() === spec;
   }
 
   specialtyIcon(specialty: string): string {
@@ -2224,9 +2398,11 @@ export class AppointmentsComponent implements OnInit {
 
   setSpecialty(spec: string): void {
     this.selectedSpecialty.set(spec);
-    // Tapping a specialty chip is an explicit clinical choice — drop any
-    // condition context so the banner doesn't linger.
+    // Tapping a chip is an explicit clinical choice — drop the condition
+    // context and any typed query so the filter is unambiguous.
     this.selectedConditionTerm.set(null);
+    this.searchQuery.set('');
+    this.suggestionsOpen.set(false);
   }
 
   // ---- Search + autocomplete ----
@@ -2259,24 +2435,28 @@ export class AppointmentsComponent implements OnInit {
     this.selectedSpecialty.set('all');
   }
 
-  selectSuggestion(sug: SearchSuggestion): void {
+  closeSuggestions(): void {
     this.suggestionsOpen.set(false);
-    switch (sug.type) {
+  }
+
+  selectSuggestion(item: DropItem): void {
+    this.suggestionsOpen.set(false);
+    switch (item.kind) {
       case 'condition':
-        // Auto-select the mapped specialty chip + show the context banner.
-        this.selectedSpecialty.set(sug.specialty);
-        this.selectedConditionTerm.set(sug.label);
+        // Auto-select the recommended specialty chip + show the context banner.
+        this.selectedSpecialty.set(item.specialty);
+        this.selectedConditionTerm.set(item.label);
         this.searchQuery.set('');
         break;
       case 'specialty':
-        this.selectedSpecialty.set(sug.specialty);
+        this.selectedSpecialty.set(item.specialty);
         this.selectedConditionTerm.set(null);
         this.searchQuery.set('');
         break;
       case 'doctor':
         // Narrow the list to the chosen doctor by name.
         this.selectedConditionTerm.set(null);
-        this.searchQuery.set(sug.label);
+        this.searchQuery.set(item.label);
         break;
     }
   }
@@ -2513,8 +2693,14 @@ export class AppointmentsComponent implements OnInit {
   // -------- Synthesized doctor data (deterministic from id) --------
 
   videoConsultFee(doctor: Doctor): number {
+    if (doctor.videoConsultFee != null) return doctor.videoConsultFee;
     // ~60% of in-person fee, rounded to nearest 5
     return Math.max(5, Math.round((doctor.consultationFee * 0.6) / 5) * 5);
+  }
+
+  // Conditions the doctor commonly treats (shown as the "Treats:" line).
+  doctorTreats(doctor: Doctor): string {
+    return (doctor.treats ?? []).join(', ');
   }
 
   nextInPersonSlot(doctor: Doctor): string {
@@ -2549,6 +2735,7 @@ export class AppointmentsComponent implements OnInit {
 
   doctorDesignation(doctor: Doctor | null): string {
     if (!doctor) return '';
+    if (doctor.designation) return doctor.designation;
     const n = parseInt(doctor.id.replace(/\D/g, ''), 10) || 0;
     const labels = ['Consultant', 'Senior Consultant', 'Specialist', 'Surgeon'];
     return labels[n % labels.length];

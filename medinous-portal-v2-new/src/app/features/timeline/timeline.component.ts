@@ -128,6 +128,7 @@ interface CategoryFilter {
               <mat-option value="prescription">Prescription</mat-option>
               <mat-option value="medical_report">Medical Report</mat-option>
               <mat-option value="procedure">Procedure Report</mat-option>
+              <mat-option value="self_document">Self Document</mat-option>
               <mat-option value="note">Other</mat-option>
             </mat-select>
           </mat-form-field>
@@ -365,6 +366,7 @@ interface CategoryFilter {
     .icon-imaging { background: linear-gradient(135deg, #0277bd, #29b6f6); }
     .icon-procedure { background: linear-gradient(135deg, #e64a19, #ff8a65); }
     .icon-medical_report { background: linear-gradient(135deg, #2e7d32, #66bb6a); }
+    .icon-self_document { background: linear-gradient(135deg, #00897b, #4db6ac); }
 
     .rec-body {
       flex: 1; min-width: 0;
@@ -391,6 +393,7 @@ interface CategoryFilter {
     .chip-imaging { background: #e1f5fe; color: #0277bd; }
     .chip-procedure { background: #fbe9e7; color: #e64a19; }
     .chip-medical_report { background: #e8f5e9; color: #2e7d32; }
+    .chip-self_document { background: #e0f2f1; color: #00897b; }
 
     .rec-meta {
       display: flex; align-items: center; gap: 6px;
@@ -518,7 +521,8 @@ export class TimelineComponent implements OnInit {
     { value: 'imaging',        label: 'Radiology',   icon: 'image' },
     { value: 'procedure',      label: 'Procedures',  icon: 'monitor_heart' },
     { value: 'medical_report', label: 'Reports',     icon: 'summarize' },
-    { value: 'vaccination',    label: 'Vaccines',    icon: 'vaccines' }
+    { value: 'vaccination',    label: 'Vaccines',    icon: 'vaccines' },
+    { value: 'self_document',  label: 'Self Documents', icon: 'folder_shared' }
   ];
 
   readonly filteredEvents = computed(() => {
@@ -579,7 +583,8 @@ export class TimelineComponent implements OnInit {
     const m: Record<string, string> = {
       appointment: 'event', lab_result: 'science', prescription: 'medication',
       vaccination: 'vaccines', note: 'description', imaging: 'image',
-      procedure: 'monitor_heart', medical_report: 'summarize'
+      procedure: 'monitor_heart', medical_report: 'summarize',
+      self_document: 'folder_shared'
     };
     return m[event.type] ?? 'info';
   }
@@ -588,7 +593,7 @@ export class TimelineComponent implements OnInit {
     const m: Record<string, string> = {
       appointment: 'Visit', lab_result: 'Lab', prescription: 'Rx',
       vaccination: 'Vaccine', note: 'Note', imaging: 'Radiology',
-      procedure: 'Procedure', medical_report: 'Report'
+      procedure: 'Procedure', medical_report: 'Report', self_document: 'Self'
     };
     return m[type] ?? type;
   }
