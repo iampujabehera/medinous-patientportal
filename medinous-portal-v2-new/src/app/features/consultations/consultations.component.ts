@@ -605,7 +605,9 @@ interface ConsultationGroup {
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .side-sheet {
-      position: fixed; top: 0; right: 0; bottom: 0;
+      /* Start below the sticky app toolbar (mat-toolbar = 64px) so the sheet's
+         own header + close button aren't hidden behind the global top bar. */
+      position: fixed; top: 64px; right: 0; bottom: 0;
       width: 560px; max-width: 100vw;
       background: white;
       box-shadow: -10px 0 30px rgba(0,0,0,0.18);
@@ -821,22 +823,96 @@ export class ConsultationsComponent implements OnInit {
     this.api.getDashboard().subscribe(s => this.vitals.set(s.recentVitals));
   }
 
+  // Health Snapshot = the latest recorded value PER metric, sourced from the
+  // actual visit history (consultations are pre-sorted newest-first), so the
+  // snapshot can never contradict the "Vitals Recorded" inside the most recent
+  // visit. Metrics no visit measured (e.g. fasting glucose — visits track
+  // HbA1c instead) fall back to the dashboard's recentVitals so the card still
+  // renders. Status is derived from the value itself so the chip always agrees
+  // with the number shown, rather than relying on a stale hard-coded flag.
   readonly dashboardVitals = computed<VitalSign[]>(() => {
-    const vitals = this.vitals();
-    const order = ['blood_pressure', 'glucose', 'heart_rate', 'oxygen', 'temperature', 'weight'];
-    return order
-      .map(t => vitals.find(v => v.type === t))
-      .filter((v): v is VitalSign => !!v);
+    const order: VitalSign['type'][] =
+      ['blood_pressure', 'glucose', 'heart_rate', 'oxygen', 'temperature', 'weight'];
+    const cons = this.consultations();
+    const fallback = this.vitals();
+    const result: VitalSign[] = [];
+
+    for (const type of order) {
+      let vital: VitalSign | null = null;
+      // Walk visits newest-first; take the first that recorded this metric.
+      for (const c of cons) {
+        const rec = c.vitalsRecorded.find(v => this.vitalTypeFromLabel(v.label) === type);
+        if (rec) {
+          vital = {
+            type, value: rec.value, unit: rec.unit ?? '', timestamp: c.date,
+            status: this.deriveVitalStatus(type, rec.value, rec.unit ?? '')
+          };
+          break;
+        }
+      }
+      if (!vital) {
+        const fb = fallback.find(v => v.type === type);
+        if (fb) vital = fb;
+      }
+      if (vital) result.push(vital);
+    }
+    return result;
   });
 
   readonly latestVitalDate = computed<string>(() => {
-    const v = this.vitals();
+    const v = this.dashboardVitals();
     if (!v.length) return '';
     return v
       .slice()
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
       .timestamp;
   });
+
+  // Map a free-text encounter vital label to a snapshot metric type.
+  private vitalTypeFromLabel(label: string): VitalSign['type'] | null {
+    const l = label.toLowerCase();
+    if (l.includes('blood pressure')) return 'blood_pressure';
+    if (l.includes('heart rate') || l.includes('pulse')) return 'heart_rate';
+    if (l.includes('temp')) return 'temperature';
+    if (l.includes('spo') || l.includes('oxygen')) return 'oxygen';
+    if (l.includes('weight')) return 'weight';
+    if (l.includes('glucose') || l.includes('sugar')) return 'glucose';
+    return null; // e.g. HbA1c — not one of the six snapshot tiles
+  }
+
+  // Derive a status band from the value so the trend chip matches the number.
+  // Standard adult reference ranges; demo heuristics, not a clinical engine.
+  private deriveVitalStatus(type: VitalSign['type'], value: string, unit: string): VitalSign['status'] {
+    if (type === 'blood_pressure') {
+      const [s, d] = value.split('/').map(n => parseInt(n, 10));
+      if (s >= 180 || d >= 120) return 'critical';
+      if (s >= 140 || d >= 90) return 'warning';
+      return 'normal';
+    }
+    const n = parseFloat(value);
+    switch (type) {
+      case 'heart_rate':
+        if (n < 50 || n > 120) return 'critical';
+        if (n < 60 || n > 100) return 'warning';
+        return 'normal';
+      case 'oxygen':
+        if (n < 90) return 'critical';
+        if (n < 95) return 'warning';
+        return 'normal';
+      case 'glucose':
+        if (n >= 200 || n < 54) return 'critical';
+        if (n >= 140 || n < 70) return 'warning';
+        return 'normal';
+      case 'temperature': {
+        const f = unit.includes('C') ? (n * 9) / 5 + 32 : n;
+        if (f >= 103) return 'critical';
+        if (f >= 100.4) return 'warning';
+        return 'normal';
+      }
+      default:
+        return 'normal'; // weight has no universal band
+    }
+  }
 
   getVitalIcon(vital: VitalSign): string {
     const m: Record<string, string> = {

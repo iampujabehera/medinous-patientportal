@@ -1286,9 +1286,11 @@ const CONDITION_ICONS: Record<string, string> = {
       animation: fadeIn 0.18s ease-out;
     }
     .profile-sheet {
-      position: fixed; top: 0; right: 0;
+      /* Start below the sticky app toolbar (mat-toolbar = 64px) so the sheet's
+         own header + close button aren't hidden behind the global top bar. */
+      position: fixed; top: 64px; right: 0;
       width: 38vw; min-width: 380px; max-width: 480px;
-      height: 100vh; background: white;
+      height: calc(100vh - 64px); background: white;
       z-index: 101;
       box-shadow: -8px 0 24px rgba(0,0,0,0.10);
       display: flex; flex-direction: column;

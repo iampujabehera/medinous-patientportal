@@ -44,6 +44,14 @@ export interface Medication {
   refillsRemaining: number;
   taken: boolean[];
   instructions?: string;
+  // --- Refill / supply tracking (sourced from the pharmacy billed receipt) ---
+  /** Units (tablets/doses) actually dispensed at the pharmacy, per the billed
+   *  receipt. This is the hard signal we predict run-out from. */
+  dispensedQty?: number;
+  /** Date those units were dispensed (ISO). Run-out is counted from here. */
+  dispensedDate?: string;
+  /** Units consumed per single dose — defaults to 1 when omitted. */
+  unitsPerDose?: number;
 }
 
 export interface TimelineEvent {

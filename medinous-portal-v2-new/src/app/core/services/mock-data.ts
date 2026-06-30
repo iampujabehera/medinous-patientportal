@@ -39,25 +39,29 @@ export const MOCK_DASHBOARD: DashboardSummary = {
       id: 'm-001', name: 'Metformin', dosage: '500mg', frequency: 'Twice daily',
       startDate: '2026-01-10', prescribedBy: 'Dr. Rajesh Kumar', prescribedBySpecialty: 'Cardiology',
       refillsRemaining: 3, taken: [true, true, false, true, true, true, true],
-      instructions: 'Take with meals'
+      instructions: 'Take with meals',
+      dispensedQty: 90, dispensedDate: '2026-05-08'
     },
     {
       id: 'm-002', name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily',
       startDate: '2026-02-01', prescribedBy: 'Dr. Rajesh Kumar', prescribedBySpecialty: 'Cardiology',
       refillsRemaining: 5, taken: [true, true, true, true, true, false, true],
-      instructions: 'Take in the evening'
+      instructions: 'Take in the evening',
+      dispensedQty: 30, dispensedDate: '2026-05-15'
     },
     {
       id: 'm-003', name: 'Vitamin D3', dosage: '1000 IU', frequency: 'Once daily',
       startDate: '2026-03-01', prescribedBy: 'Dr. Ahmed Hassan', prescribedBySpecialty: 'Endocrinology',
       refillsRemaining: 8, taken: [true, false, true, true, true, true, true],
-      instructions: 'Take in the morning with breakfast'
+      instructions: 'Take in the morning with breakfast',
+      dispensedQty: 90, dispensedDate: '2026-06-01'
     },
     {
       id: 'm-004', name: 'Calcium + Vitamin K2', dosage: '600mg', frequency: 'Once daily',
       startDate: '2026-03-15', prescribedBy: 'Dr. Ahmed Hassan', prescribedBySpecialty: 'Endocrinology',
       refillsRemaining: 6, taken: [true, true, true, false, true, true, true],
-      instructions: 'Take in the afternoon after lunch'
+      instructions: 'Take in the afternoon after lunch',
+      dispensedQty: 30, dispensedDate: '2026-06-10'
     }
   ],
   recentVitals: [
@@ -140,7 +144,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Endocrinology ----
   {
     id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Consultant Endocrinologist', experienceYears: 14,
     languages: ['English', 'Mandarin'], videoConsultFee: 20,
     nextHospitalSlot: 'Today, 10:30 AM', nextVideoSlot: 'Today, 01:00 PM',
@@ -148,7 +152,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'Endocrinology', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Endocrinologist', experienceYears: 12,
     languages: ['English', 'Arabic'], videoConsultFee: 15,
     nextHospitalSlot: 'Tomorrow, 09:30 AM', nextVideoSlot: 'Tomorrow, 02:30 PM',
@@ -156,7 +160,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-010', name: 'Dr. Priya Nair', specialty: 'Endocrinology', rating: 4.9,
-    nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
+    nextAvailable: '2026-06-11', location: 'GHH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Specialist Endocrinologist', experienceYears: 9,
     languages: ['English', 'Hindi', 'Malayalam'], videoConsultFee: 12,
     nextHospitalSlot: '10 Jun, 11:00 AM', nextVideoSlot: '10 Jun, 04:00 PM',
@@ -165,7 +169,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- General Medicine ----
   {
     id: 'd-011', name: 'Dr. David Miller', specialty: 'General Medicine', rating: 4.6,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 12, advanceFee: 12,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 12, advanceFee: 12,
     designation: 'Consultant Physician', experienceYears: 10,
     languages: ['English'], videoConsultFee: 8,
     nextHospitalSlot: 'Today, 09:00 AM', nextVideoSlot: 'Today, 12:00 PM',
@@ -174,7 +178,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Cardiology ----
   {
     id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Senior Consultant Cardiologist', experienceYears: 18,
     languages: ['English', 'Hindi', 'Arabic'], videoConsultFee: 15,
     nextHospitalSlot: 'Today, 04:30 PM', nextVideoSlot: 'Tomorrow, 11:00 AM',
@@ -182,7 +186,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 35, advanceFee: 35,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 35, advanceFee: 35,
     designation: 'Consultant Cardiologist', experienceYears: 22,
     languages: ['English', 'Arabic', 'French'], videoConsultFee: 20,
     nextHospitalSlot: 'Tomorrow, 09:00 AM', nextVideoSlot: 'Tomorrow, 12:30 PM',
@@ -191,7 +195,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Dermatology ----
   {
     id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Consultant Dermatologist', experienceYears: 11,
     languages: ['English', 'Mandarin'], videoConsultFee: 10,
     nextHospitalSlot: 'Today, 02:00 PM', nextVideoSlot: 'Today, 06:30 PM',
@@ -199,7 +203,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-012', name: 'Dr. Noor Abbas', specialty: 'Dermatology', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 17, advanceFee: 17,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 17, advanceFee: 17,
     designation: 'Specialist Dermatologist', experienceYears: 8,
     languages: ['English', 'Arabic'], videoConsultFee: 11,
     nextHospitalSlot: 'Tomorrow, 01:30 PM', nextVideoSlot: 'Tomorrow, 05:00 PM',
@@ -208,7 +212,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Orthopedics ----
   {
     id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Orthopedic Surgeon', experienceYears: 20,
     languages: ['English', 'Hindi', 'Gujarati'], videoConsultFee: 12,
     nextHospitalSlot: 'Tomorrow, 11:30 AM', nextVideoSlot: 'Today, 05:00 PM',
@@ -216,7 +220,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-013', name: 'Dr. Sanjay Mehta', specialty: 'Orthopedics', rating: 4.7,
-    nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 22, advanceFee: 22,
+    nextAvailable: '2026-06-11', location: 'GHH Juffair', consultationFee: 22, advanceFee: 22,
     designation: 'Consultant Orthopedic Surgeon', experienceYears: 15,
     languages: ['English', 'Hindi'], videoConsultFee: 13,
     nextHospitalSlot: '10 Jun, 10:30 AM', nextVideoSlot: 'Tomorrow, 03:00 PM',
@@ -225,7 +229,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Pediatrics ----
   {
     id: 'd-007', name: 'Dr. Maria Gonzalez', specialty: 'Pediatrics', rating: 4.9,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 18, advanceFee: 18,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 18, advanceFee: 18,
     designation: 'Consultant Pediatrician', experienceYears: 13,
     languages: ['English', 'Spanish', 'Arabic'], videoConsultFee: 12,
     nextHospitalSlot: 'Today, 03:30 PM', nextVideoSlot: 'Today, 07:00 PM',
@@ -233,7 +237,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-008', name: 'Dr. Imran Sheikh', specialty: 'Pediatrics', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 16, advanceFee: 16,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 16, advanceFee: 16,
     designation: 'Specialist Pediatrician', experienceYears: 9,
     languages: ['English', 'Urdu', 'Arabic'], videoConsultFee: 10,
     nextHospitalSlot: 'Tomorrow, 10:00 AM', nextVideoSlot: 'Tomorrow, 02:30 PM',
@@ -242,7 +246,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Gynecology ----
   {
     id: 'd-009', name: 'Dr. Aisha Rahman', specialty: 'Gynecology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 28, advanceFee: 28,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 28, advanceFee: 28,
     designation: 'Consultant Gynecologist', experienceYears: 17,
     languages: ['English', 'Arabic', 'Hindi'], videoConsultFee: 16,
     nextHospitalSlot: 'Today, 11:00 AM', nextVideoSlot: 'Tomorrow, 09:00 AM',
@@ -462,7 +466,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-04-09T10:30:00',
     doctorName: 'Dr. Rajesh Kumar',
     doctorSpecialty: 'Cardiology',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Intermittent chest tightness and palpitations on exertion for the past 2 weeks.',
     diagnosis: [
@@ -563,7 +567,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-02-18T11:00:00',
     doctorName: 'Dr. Lisa Wong',
     doctorSpecialty: 'Endocrinology',
-    location: 'PFSH Juffair · Block C',
+    location: 'GHH Juffair · Block C',
     type: 'in_person',
     chiefComplaint: 'Quarterly diabetes follow-up. Self-reported fasting glucose has been creeping up.',
     diagnosis: [
@@ -628,7 +632,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-01-30T09:00:00',
     doctorName: 'Dr. Ahmed Hassan',
     doctorSpecialty: 'Endocrinology',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Annual comprehensive health check-up. No active complaints.',
     diagnosis: [
@@ -660,7 +664,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-11-12T14:00:00',
     doctorName: 'Dr. Vikram Patel',
     doctorSpecialty: 'Orthopedics',
-    location: 'PFSH Juffair · Block B',
+    location: 'GHH Juffair · Block B',
     type: 'in_person',
     chiefComplaint: 'Left knee pain on stairs and after long walks for the past 6 weeks. No trauma.',
     diagnosis: [
@@ -690,7 +694,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-09-04T16:30:00',
     doctorName: 'Dr. Fatima Al-Rashid',
     doctorSpecialty: 'ENT',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Recurrent nasal congestion, facial pressure and headache. Third episode this year.',
     diagnosis: [

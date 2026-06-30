@@ -194,54 +194,62 @@ interface JourneyStep {
           </div>
         } @else {
           @for (row of filteredHistory(); track row.key) {
-            <mat-card class="txn-card">
-              <div class="txn-row">
-                <div class="payment-icon" [ngClass]="iconBgClass(row)">
-                  <mat-icon>{{ rowIcon(row) }}</mat-icon>
-                </div>
-                <div class="txn-info">
-                  <strong>{{ row.name }}</strong>
-                  <span class="txn-meta">
-                    @if (row.doctor) { <span class="txn-doc">{{ row.doctor }}</span> }
-                    <span class="txn-date">{{ row.date | date:'mediumDate' }}</span>
-                  </span>
-                  <span class="txn-pm">{{ payMethodLabel(row) }}</span>
-                </div>
-                <div class="txn-right">
-                  <span class="txn-amount" [ngClass]="'amount-' + row.status">
-                    {{ formatCurrency(row.amount) }}
-                  </span>
-                  <span class="status-tag" [class]="statusTagClass(row)">
-                    {{ statusLabel(row) }}
-                  </span>
-                </div>
+            <div class="txn-card"
+                 [class.is-pending]="row.source === 'pending'"
+                 [class.is-due]="row.dueStatus === 'due-soon' || row.dueStatus === 'due-today'"
+                 [class.is-overdue]="row.dueStatus === 'overdue'"
+                 (click)="openDetailSheet(row)"
+                 (keydown.enter)="openDetailSheet(row)"
+                 tabindex="0" role="button"
+                 [attr.aria-label]="row.name + ', ' + formatCurrency(row.amount) + ', ' + statusLabel(row)">
+              <div class="payment-icon" [ngClass]="iconBgClass(row)">
+                <mat-icon>{{ rowIcon(row) }}</mat-icon>
               </div>
-              <div class="txn-actions">
+
+              <div class="txn-info">
+                <strong class="txn-title">{{ row.name }}</strong>
+                <span class="txn-meta">
+                  @if (row.doctor) { <span class="txn-doc">{{ row.doctor }}</span> }
+                  <span class="txn-date">{{ row.date | date:'mediumDate' }}</span>
+                </span>
+                @if (row.source !== 'pending') {
+                  <span class="txn-pm">
+                    <mat-icon>{{ payMethodIcon(row) }}</mat-icon>{{ payMethodLabel(row) }}
+                  </span>
+                }
+              </div>
+
+              <div class="txn-right">
+                <span class="txn-amount" [ngClass]="'amount-' + row.status">
+                  {{ formatCurrency(row.amount) }}
+                </span>
+                <span class="status-tag" [class]="statusTagClass(row)">
+                  {{ statusLabel(row) }}
+                </span>
+              </div>
+
+              <div class="txn-actions" (click)="$event.stopPropagation()">
                 @if (row.source === 'pending') {
-                  <button mat-flat-button color="primary" class="txn-action-btn"
+                  <button mat-flat-button color="primary" class="txn-pay-btn"
                           (click)="payPendingRow(row)">
-                    <mat-icon>payments</mat-icon> Pay
-                  </button>
-                  <button mat-stroked-button class="txn-action-btn" (click)="openDetailSheet(row)">
-                    <mat-icon>visibility</mat-icon> Details
+                    <mat-icon>bolt</mat-icon> Pay
                   </button>
                 } @else if (row.status === 'completed' || row.status === 'refunded') {
-                  <button mat-stroked-button class="txn-action-btn"
+                  <button mat-icon-button class="txn-icon-btn"
+                          matTooltip="Download receipt"
                           [disabled]="generatingReceipt() === row.rawPayment?.id"
                           (click)="generateReceipt(row.rawPayment!)">
                     @if (generatingReceipt() === row.rawPayment?.id) {
-                      <mat-spinner diameter="14"></mat-spinner>
+                      <mat-spinner diameter="16"></mat-spinner>
                     } @else {
                       <mat-icon>download</mat-icon>
                     }
-                    Receipt
-                  </button>
-                  <button mat-stroked-button class="txn-action-btn" (click)="openDetailSheet(row)">
-                    <mat-icon>visibility</mat-icon> Details
                   </button>
                 }
               </div>
-            </mat-card>
+
+              <mat-icon class="txn-chevron">chevron_right</mat-icon>
+            </div>
           }
         }
       </section>
@@ -306,29 +314,16 @@ interface JourneyStep {
             </button>
           </section>
 
-          <!-- Applied To -->
-          <section class="ss-section">
-            <div class="ss-section-label">Applied to</div>
-            <div class="applied-pills">
-              @for (target of appliedTargets(); track target) {
-                <span class="applied-pill">
-                  <mat-icon>check_circle</mat-icon>
-                  {{ target }}
-                </span>
-              }
-            </div>
-          </section>
-
-          <!-- Recent Deductions -->
-          @if (recentDeductions().length > 0) {
+          <!-- Applied To (derived from real deductions) -->
+          @if (appliedTargets().length > 0) {
             <section class="ss-section">
-              <div class="ss-section-label">Recent deductions</div>
-              <div class="recent-deductions">
-                @for (d of recentDeductions(); track d.id) {
-                  <div class="rd-row">
-                    <span class="rd-name">{{ d.appliedTo }}</span>
-                    <span class="rd-amount">−{{ formatCurrency(d.amount) }}</span>
-                  </div>
+              <div class="ss-section-label">Used for</div>
+              <div class="applied-pills">
+                @for (target of appliedTargets(); track target) {
+                  <span class="applied-pill">
+                    <mat-icon>check_circle</mat-icon>
+                    {{ target }}
+                  </span>
                 }
               </div>
             </section>
@@ -427,9 +422,9 @@ interface JourneyStep {
       <footer class="ss-footer">
         <button mat-stroked-button (click)="closeSheet()">Cancel</button>
         <button mat-flat-button color="primary"
-                [disabled]="!advanceAmount() || advanceAmount() <= 0"
+                [disabled]="!advanceAmount() || advanceAmount()! <= 0"
                 (click)="submitAdvancePayment()">
-          Add {{ advanceAmount() ? formatCurrency(advanceAmount()) : 'Advance Balance' }}
+          Add {{ advanceAmount() ? formatCurrency(advanceAmount()!) : 'Advance Balance' }}
         </button>
       </footer>
     </aside>
@@ -705,20 +700,32 @@ interface JourneyStep {
     .pay-count span { color: #777; }
 
     /* ===== Transaction Cards ===== */
+    /* ===== TRANSACTION CARDS — compact, tappable rows ===== */
     .txn-card {
-      padding: 14px 16px; margin-bottom: 8px;
-      border-radius: 12px !important;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
-      transition: box-shadow 0.15s;
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 16px; margin-bottom: 10px;
+      background: white;
+      border: 1px solid #eef2f4;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, transform .12s;
     }
-    .txn-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06) !important; }
+    .txn-card:hover {
+      border-color: #cfe6e3;
+      box-shadow: 0 6px 18px rgba(13,138,138,0.09);
+      transform: translateY(-1px);
+    }
+    .txn-card:focus-visible { outline: 2px solid #0d8a8a; outline-offset: 2px; }
+    /* Urgency accent down the left edge for charges that need paying */
+    .txn-card.is-pending { border-left: 3px solid #cfd8dc; }
+    .txn-card.is-due { border-left: 3px solid #fb8c00; }
+    .txn-card.is-overdue { border-left: 3px solid #e53935; background: #fffafa; }
 
-    .txn-row { display: flex; align-items: center; gap: 14px; }
     .payment-icon {
-      width: 40px; height: 40px; border-radius: 12px;
+      width: 42px; height: 42px; border-radius: 12px;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .payment-icon mat-icon { color: white; font-size: 20px; width: 20px; height: 20px; }
+    .payment-icon mat-icon { color: white; font-size: 21px; width: 21px; height: 21px; }
     .status-bg-completed { background: #43a047; }
     .status-bg-pending { background: #90a4ae; }
     .status-bg-failed { background: #ef5350; }
@@ -730,40 +737,60 @@ interface JourneyStep {
     .ptype-consultation { background: #f57c00; }
     .ptype-admission { background: #5e35b1; }
 
-    .txn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-    .txn-info strong { font-size: 14px; color: #222; }
+    .txn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .txn-title {
+      font-size: 14.5px; font-weight: 600; color: #1b3a4b;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .txn-meta { font-size: 12px; color: #6b7884; display: inline-flex; gap: 6px; flex-wrap: wrap; }
     .txn-meta .txn-doc { color: #455a64; }
     .txn-meta .txn-date::before { content: '·'; margin-right: 6px; color: #c0c8d0; }
     .txn-meta .txn-date:first-child::before { content: ''; margin-right: 0; }
     .txn-pm {
-      font-size: 11.5px; color: #5e7691; font-weight: 600;
-      margin-top: 1px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11.5px; color: #5e7691; font-weight: 600; margin-top: 1px;
     }
+    .txn-pm mat-icon { font-size: 13px; width: 13px; height: 13px; }
 
-    .txn-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-    .txn-amount { font-size: 15px; font-weight: 700; }
+    .txn-right {
+      text-align: right; display: flex; flex-direction: column;
+      align-items: flex-end; gap: 5px; flex-shrink: 0;
+    }
+    .txn-amount { font-size: 16px; font-weight: 700; color: #1b3a4b; line-height: 1; }
     .amount-completed { color: #2e7d32; }
-    .amount-pending { color: #455a64; }
+    .amount-pending { color: #1b3a4b; }
     .amount-failed { color: #ef5350; text-decoration: line-through; }
     .amount-refunded { color: #546e7a; }
 
     .status-tag {
-      display: inline-block;
-      font-size: 11px; font-weight: 600;
-      padding: 2px 8px; border-radius: 10px;
-      text-transform: capitalize; letter-spacing: .02em;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 700;
+      padding: 3px 9px; border-radius: 20px;
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .status-tag::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor;
     }
     .status-tag.status-completed { background: #e8f5e9; color: #2e7d32; }
     .status-tag.status-refunded { background: #eceff1; color: #546e7a; }
     .status-tag.status-failed { background: #ffebee; color: #c62828; }
-    .status-tag.status-pending { background: #eceff1; color: #546e7a; }
+    .status-tag.status-pending { background: #eceff1; color: #607d8b; }
     .status-tag.status-due-soon { background: #fff3e0; color: #e65100; }
     .status-tag.status-overdue { background: #fdecea; color: #c62828; }
 
-    .txn-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-    .txn-action-btn { font-size: 12px !important; padding: 0 12px !important; height: 30px !important; line-height: 30px !important; }
-    .txn-action-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .txn-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .txn-pay-btn {
+      height: 36px !important; border-radius: 10px !important;
+      font-size: 13px !important; font-weight: 600 !important;
+      padding: 0 16px !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+    }
+    .txn-pay-btn mat-icon { font-size: 17px; width: 17px; height: 17px; margin-right: 2px; }
+    .txn-icon-btn { color: #607d8b !important; }
+    .txn-icon-btn:hover { color: #0d8a8a !important; }
+    .txn-icon-btn mat-icon { font-size: 19px; }
+    .txn-chevron { color: #b8c4cc; flex-shrink: 0; margin-left: -4px; }
 
     .empty-state.friendly {
       background: white; border: 1px solid #e8edf2; border-radius: 18px;
@@ -801,7 +828,9 @@ interface JourneyStep {
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     .side-sheet {
-      position: fixed; top: 0; right: 0; bottom: 0;
+      /* Start below the sticky app toolbar (mat-toolbar = 64px) so the sheet's
+         own header + close button aren't hidden behind the global top bar. */
+      position: fixed; top: 64px; right: 0; bottom: 0;
       width: 460px; max-width: 100vw;
       background: white;
       box-shadow: -10px 0 30px rgba(0,0,0,0.18);
@@ -1141,10 +1170,11 @@ interface JourneyStep {
       .history-controls { flex-direction: row; gap: 8px; align-items: center; }
       .time-btn-desktop { display: none !important; }
       .time-btn-mobile { display: inline-flex; }
-      .txn-actions { flex-wrap: wrap; }
-      .txn-row { gap: 10px; }
-      .txn-card { padding: 12px 14px; }
-      .txn-info strong { font-size: 13.5px; }
+      .txn-card { padding: 11px 12px; gap: 10px; }
+      .txn-title { font-size: 13.5px; }
+      .txn-amount { font-size: 15px; }
+      .txn-pay-btn { padding: 0 12px !important; height: 34px !important; }
+      .txn-chevron { display: none; }
       .ins-row { grid-template-columns: 36px 1fr; }
       .ins-covered { grid-column: 1 / -1; text-align: left; padding-top: 4px; border-top: 1px dashed #eceff1; }
 
@@ -1170,7 +1200,7 @@ export class PaymentsComponent implements OnInit {
   readonly activeFilter = signal('all');
   readonly generatingReceipt = signal<string | null>(null);
   readonly showAdvanceForm = signal(false);
-  readonly advanceAmount = signal<number>(0);
+  readonly advanceAmount = signal<number | null>(null);
   readonly advanceTarget = signal('general'); // kept for spec back-compat; no longer surfaced in UI
   readonly advanceRemarks = signal<string>('');
   readonly searchQuery = signal('');
@@ -1262,18 +1292,24 @@ export class PaymentsComponent implements OnInit {
     this.advancePaymentEvents().filter(e => e.type === 'deducted').reduce((s, e) => s + e.amount, 0)
   );
 
-  readonly recentDeductions = computed(() =>
-    this.advancePaymentEvents()
-      .filter(e => e.type === 'deducted')
-      .slice(-3)
-      .reverse()
-  );
-
   readonly advanceEventsDesc = computed(() => this.advancePaymentEvents().slice().reverse());
 
-  readonly appliedTargets = computed(() =>
-    ['Cardiology Consultation', 'Upcoming Admission', 'Lab & Diagnostics']
-  );
+  /** Services the advance balance has actually been used for — derived from the
+   *  deduction ledger (distinct categories), not a hardcoded list. */
+  readonly appliedTargets = computed<string[]>(() => {
+    const labels: Record<AdvanceEvent['category'], string> = {
+      advance: '', consultation: 'Consultations', admission: 'Admissions',
+      lab: 'Lab & Diagnostics', radiology: 'Radiology',
+      medication: 'Pharmacy', procedure: 'Procedures'
+    };
+    const seen = new Set<string>();
+    for (const e of this.advancePaymentEvents()) {
+      if (e.type !== 'deducted') continue;
+      const label = labels[e.category];
+      if (label) seen.add(label);
+    }
+    return Array.from(seen);
+  });
 
   // -------- Misc --------
   currencySymbol(): string {
@@ -1491,7 +1527,7 @@ export class PaymentsComponent implements OnInit {
   // -------- Side sheet handlers --------
   openBalanceSheet(): void { this.sheetOpen.set('balance'); }
   openAddAdvanceSheet(): void {
-    this.advanceAmount.set(0);
+    this.advanceAmount.set(null);
     this.advanceRemarks.set('');
     this.showAdvanceForm.set(true);
     this.sheetOpen.set('add');
@@ -1544,7 +1580,7 @@ export class PaymentsComponent implements OnInit {
   }
 
   getDetailLocation(_row: HistoryRow): string {
-    return 'PFSH Juffair · Reception, Block A';
+    return 'GHH Juffair · Reception, Block A';
   }
 
   /** Plain-English context about why this payment exists. */
@@ -1711,7 +1747,7 @@ export class PaymentsComponent implements OnInit {
     this.payments.update(list => [newPayment, ...list]);
 
     this.showAdvanceForm.set(false);
-    this.advanceAmount.set(0);
+    this.advanceAmount.set(null);
     this.advanceRemarks.set('');
     this.sheetOpen.set('balance');
     this.snackBar.open(

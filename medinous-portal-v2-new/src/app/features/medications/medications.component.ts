@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { OfflineStorageService } from '../../core/services/offline-storage.service';
@@ -15,6 +15,16 @@ import { firstValueFrom } from 'rxjs';
 
 type RoutinePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
 type MedFilter = 'all' | 'recent' | 'active' | 'completed';
+type SupplyStatus = 'ok' | 'low' | 'critical' | 'out';
+
+/** Predicted pharmacy supply for one medication, derived from the billed
+ *  receipt (dispensed qty + date) against the prescribed daily dose. */
+interface SupplyInfo {
+  daysLeft: number;
+  status: SupplyStatus;
+  label: string;        // e.g. "1 day left", "Out of stock"
+  runOutLabel: string;  // e.g. "Runs out 22 Jun"
+}
 
 interface SessionMed {
   id: string;
@@ -22,6 +32,7 @@ interface SessionMed {
   doseLine: string;
   instructions: string;
   isActive: boolean;
+  supply: SupplyInfo | null;
 }
 
 interface SessionRoutine {
@@ -130,6 +141,22 @@ interface SessionRoutine {
         }
       } @else {
 
+        <!-- Refill reminder banner — names the meds + how urgent, no click needed -->
+        @if (refillNeeded().length) {
+          <div class="refill-banner" [class.lapsed]="hasLapsed()" role="status">
+            <span class="rb-ic">
+              <mat-icon>{{ hasLapsed() ? 'error_outline' : 'inventory_2' }}</mat-icon>
+            </span>
+            <div class="rb-text">
+              <strong>
+                {{ refillNeeded().length }} medication{{ refillNeeded().length === 1 ? '' : 's' }} to refill
+              </strong>
+              <span class="rb-meds">{{ refillBannerLine() }}</span>
+            </div>
+            <button class="rb-action" (click)="refillAll()">Refill all</button>
+          </div>
+        }
+
         <!-- Today's Routine: 4 collapsible session cards -->
         <section class="routine-section" aria-label="Today's routine">
           @for (s of sessionRoutines(); track s.period) {
@@ -156,15 +183,29 @@ interface SessionRoutine {
                 @if (s.meds.length > 0) {
                   <ul class="sb-list">
                     @for (m of s.meds; track m.id) {
-                      <li class="sb-item">
+                      <li class="sb-item"
+                          [class.needs-refill]="m.supply && m.supply.status !== 'ok'">
                         <span class="sb-bullet" [class]="'sb-bullet-' + s.period"></span>
                         <div class="sb-info">
                           <span class="sb-name">{{ m.name }}</span>
                           @if (m.instructions) {
                             <span class="sb-instr">{{ m.instructions }}</span>
                           }
+                          @if (m.supply && m.supply.status !== 'ok') {
+                            <span class="sb-supply" [class]="'supply-' + m.supply.status">
+                              <mat-icon>{{ m.supply.status === 'out' ? 'error_outline' : 'inventory_2' }}</mat-icon>
+                              {{ m.supply.label }}
+                            </span>
+                          }
                         </div>
-                        <span class="sb-dose">{{ m.doseLine }}</span>
+                        <div class="sb-right">
+                          <span class="sb-dose">{{ m.doseLine }}</span>
+                          @if (m.supply && m.supply.status !== 'ok') {
+                            <button class="sb-refill" (click)="refill(m.name)">
+                              <mat-icon>refresh</mat-icon> Refill
+                            </button>
+                          }
+                        </div>
                       </li>
                     }
                   </ul>
@@ -414,12 +455,82 @@ interface SessionRoutine {
     .sb-info { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
     .sb-name { font-size: 14px; color: #1b3a4b; font-weight: 600; }
     .sb-instr { font-size: 11.5px; color: #98a2ab; line-height: 1.3; }
+    .sb-right {
+      flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    }
     .sb-dose {
       flex-shrink: 0;
       font-size: 12px; font-weight: 700; color: #0d8a8a;
       background: #e8f5f3; padding: 4px 10px; border-radius: 8px;
       letter-spacing: 0.2px;
     }
+
+    /* Per-med supply badge (days left) */
+    .sb-supply {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11.5px; font-weight: 700; line-height: 1;
+      padding: 3px 8px; border-radius: 7px; margin-top: 2px;
+      width: fit-content;
+    }
+    .sb-supply mat-icon {
+      font-size: 13px !important; width: 13px !important; height: 13px !important;
+    }
+    .supply-low      { background: #fff4e0; color: #c66a00; }
+    .supply-critical { background: #fdeceb; color: #d23b30; }
+    .supply-out      { background: #fdeceb; color: #b71c1c; }
+
+    .sb-item.needs-refill { background: #fffaf3; }
+
+    /* One-tap refill on the med row */
+    .sb-refill {
+      display: inline-flex; align-items: center; gap: 3px;
+      border: 1px solid #f0b46a; background: white; color: #c66a00;
+      font-family: inherit; font-size: 11.5px; font-weight: 700;
+      padding: 4px 10px; border-radius: 14px; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s;
+    }
+    .sb-refill:hover { background: #c66a00; border-color: #c66a00; color: white; }
+    .sb-refill mat-icon {
+      font-size: 14px !important; width: 14px !important; height: 14px !important;
+    }
+
+    /* ===== REFILL REMINDER BANNER ===== */
+    .refill-banner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff6e9, #fff1de);
+      border: 1px solid #f3d6a8; border-radius: 14px;
+    }
+    .rb-ic {
+      flex-shrink: 0;
+      width: 38px; height: 38px; border-radius: 11px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #ffe6c2; color: #c66a00;
+    }
+    .rb-ic mat-icon { font-size: 20px !important; width: 20px !important; height: 20px !important; }
+    .rb-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+    .rb-text strong { font-size: 14px; color: #8a4b00; font-weight: 700; }
+    .rb-meds { font-size: 12.5px; color: #a9762f; font-weight: 600; }
+    .rb-action {
+      flex-shrink: 0;
+      border: none; background: #c66a00; color: white;
+      font-family: inherit; font-size: 12.5px; font-weight: 700;
+      padding: 8px 14px; border-radius: 10px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .rb-action:hover { background: #a85900; }
+
+    /* Lapsed variant — at least one med has already run out */
+    .refill-banner.lapsed {
+      background: linear-gradient(135deg, #fdeceb, #fce4e2);
+      border-color: #f3b6b0;
+    }
+    .refill-banner.lapsed .rb-ic { background: #f8cec9; color: #c0392b; }
+    .refill-banner.lapsed .rb-text strong { color: #a32820; }
+    .refill-banner.lapsed .rb-meds { color: #c0564c; }
+    .refill-banner.lapsed .rb-action { background: #c0392b; }
+    .refill-banner.lapsed .rb-action:hover { background: #9e2c20; }
 
     /* ===== FOOTER COUNT ===== */
     .result-count {
@@ -452,6 +563,7 @@ interface SessionRoutine {
 export class MedicationsComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly offlineStorage = inject(OfflineStorageService);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly loading = signal(true);
   readonly medications = signal<Medication[]>([]);
@@ -516,13 +628,41 @@ export class MedicationsComponent implements OnInit {
           name: m.name,
           doseLine: this.getDoseLine(m),
           instructions: m.instructions ?? '',
-          isActive: this.isActive(m)
+          isActive: this.isActive(m),
+          supply: this.supplyInfo(m)
         }))
     }));
   });
 
   readonly totalActiveMeds = computed<number>(() =>
     this.visibleMeds().filter(m => this.isActive(m)).length
+  );
+
+  /** Active meds predicted to run out soon (low / critical / out), de-duped —
+   *  drives the "running low" reminder banner. */
+  readonly refillNeeded = computed<{ med: Medication; supply: SupplyInfo }[]>(() =>
+    this.visibleMeds()
+      .filter(m => this.isActive(m))
+      .map(m => ({ med: m, supply: this.supplyInfo(m) }))
+      .filter((x): x is { med: Medication; supply: SupplyInfo } =>
+        x.supply !== null && x.supply.status !== 'ok')
+      .sort((a, b) => a.supply.daysLeft - b.supply.daysLeft)
+  );
+
+  /** Names the low meds with their status, most urgent first — so the banner
+   *  answers "which ones, and how bad" without the patient opening anything. */
+  readonly refillBannerLine = computed<string>(() => {
+    const items = this.refillNeeded();
+    const named = items.slice(0, 2)
+      .map(x => `${x.med.name} — ${x.supply.label.toLowerCase()}`);
+    let line = named.join('   ·   ');
+    if (items.length > 2) line += `   ·   +${items.length - 2} more`;
+    return line;
+  });
+
+  /** True when at least one med has already run out (the dangerous case). */
+  readonly hasLapsed = computed<boolean>(() =>
+    this.refillNeeded().some(x => x.supply.status === 'out')
   );
 
   ngOnInit(): void {
@@ -620,5 +760,70 @@ export class MedicationsComponent implements OnInit {
       night: 'dark_mode'
     };
     return map[p];
+  }
+
+  // -------- Refill / supply prediction --------
+
+  /** Units the patient consumes per day, parsed from the prescribed frequency
+   *  and multiplied by units-per-dose (defaults to 1). */
+  private dailyDose(med: Medication): number {
+    const f = (med.frequency || '').toLowerCase();
+    let perDay = 1;
+    if (f.includes('four') || f.includes('4 times')) perDay = 4;
+    else if (f.includes('three') || f.includes('3 times')) perDay = 3;
+    else if (f.includes('twice') || f.includes('two')) perDay = 2;
+    else perDay = 1; // "Once daily" / unspecified → 1
+    return perDay * (med.unitsPerDose ?? 1);
+  }
+
+  /** Predicts run-out from the billed receipt: dispensed qty ÷ daily dose,
+   *  counted forward from the dispense date. Returns null when the receipt
+   *  data isn't available (legacy rows), so nothing is shown rather than a guess. */
+  supplyInfo(med: Medication): SupplyInfo | null {
+    if (med.dispensedQty == null || !med.dispensedDate) return null;
+    const perDay = this.dailyDose(med);
+    if (perDay <= 0) return null;
+
+    const daysSupply = Math.floor(med.dispensedQty / perDay);
+    const dispensed = new Date(med.dispensedDate); dispensed.setHours(0, 0, 0, 0);
+    const runOut = new Date(dispensed); runOut.setDate(runOut.getDate() + daysSupply);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((runOut.getTime() - today.getTime()) / 86_400_000);
+
+    const status: SupplyStatus =
+      daysLeft < 0 ? 'out' : daysLeft <= 2 ? 'critical' : daysLeft <= 7 ? 'low' : 'ok';
+
+    let label: string;
+    if (daysLeft < 0) {
+      const over = -daysLeft;
+      label = `Ran out ${over} day${over === 1 ? '' : 's'} ago`;
+    } else if (daysLeft === 0) label = 'Runs out today';
+    else if (daysLeft === 1) label = 'Runs out tomorrow';
+    else label = `${daysLeft} days left`;
+
+    const runOutLabel = (daysLeft < 0 ? 'Ran out ' : 'Runs out ') +
+      runOut.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+
+    return { daysLeft, status, label, runOutLabel };
+  }
+
+  /** POC: a refill request would post to the pharmacy queue / create a refill
+   *  order. For now we acknowledge it so the flow is demonstrable. */
+  refill(name: string): void {
+    this.snackBar.open(
+      `Refill requested for ${name}. The pharmacy will prepare your order for pickup.`,
+      'OK',
+      { duration: 4000 }
+    );
+  }
+
+  refillAll(): void {
+    const names = this.refillNeeded().map(x => x.med.name);
+    if (!names.length) return;
+    this.snackBar.open(
+      `Refill requested for ${names.length} medication${names.length === 1 ? '' : 's'}. The pharmacy will prepare your order.`,
+      'OK',
+      { duration: 4000 }
+    );
   }
 }

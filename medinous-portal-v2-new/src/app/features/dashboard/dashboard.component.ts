@@ -1000,7 +1000,9 @@ interface SpecialtyTile {
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .side-sheet {
-      position: fixed; top: 0; right: 0; bottom: 0;
+      /* Start below the sticky app toolbar (mat-toolbar = 64px) so the sheet's
+         own header + close button aren't hidden behind the global top bar. */
+      position: fixed; top: 64px; right: 0; bottom: 0;
       width: 460px; max-width: 100vw;
       background: white;
       box-shadow: -10px 0 30px rgba(0,0,0,0.18);
@@ -1260,7 +1262,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ];
 
   // Order: most-likely tap targets first
-  // Hospital contact (PFSH primary line). For multi-location white-label
+  // Hospital contact (GHH primary line). For multi-location white-label
   // this would come from the GeographyService / tenant config.
   readonly hospitalPhone = '+973 1781 2000';
   readonly hospitalPhoneRaw = '+97317812000';
