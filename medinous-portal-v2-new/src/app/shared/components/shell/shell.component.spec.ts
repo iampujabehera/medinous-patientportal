@@ -51,7 +51,7 @@ describe('ShellComponent', () => {
   });
 
   it('should get location name by id', () => {
-    expect(component.getLocationName('loc-001')).toBe('Good Health Hospital - Juffair');
+    expect(component.getLocationName('loc-001')).toBe('Prince Fahd Bin Sultan Hospital - Juffair');
     expect(component.getLocationName('invalid')).toBe('');
   });
 

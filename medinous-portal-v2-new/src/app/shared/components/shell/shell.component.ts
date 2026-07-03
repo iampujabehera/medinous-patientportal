@@ -67,7 +67,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="nav-brand">
                 <mat-icon class="brand-icon">local_hospital</mat-icon>
                 <div class="brand-text">
-                  <span class="brand-name">GOOD HEALTH</span>
+                  <span class="brand-name">PRINCE FAHD BIN SULTAN</span>
                   <span class="brand-sub">HOSPITAL</span>
                 </div>
               </div>
@@ -87,7 +87,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <section class="hero">
             <div class="hero-content">
               <p class="hero-tagline">Welcome to</p>
-              <h1>Good Health Hospital</h1>
+              <h1>Prince Fahd Bin Sultan Hospital</h1>
               <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Saudi Arabia since 2009.
                  MOH licensed, internationally accredited, and trusted by over 100,000 patients.</p>
               <div class="hero-actions">
@@ -218,9 +218,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <!-- Footer -->
           <footer class="landing-footer">
             <div class="footer-inner">
-              <strong class="footer-title">GOOD HEALTH HOSPITAL</strong>
+              <strong class="footer-title">PRINCE FAHD BIN SULTAN HOSPITAL</strong>
               <p>Prince Sultan Bin Abdulaziz Road, Sultanah District, P.O. Box: 10588, Tabuk, Kingdom of Saudi Arabia</p>
-              <p class="footer-copy">Copyright 2026 &#64; Good Health Hospital</p>
+              <p class="footer-copy">Copyright 2026 &#64; Prince Fahd Bin Sultan Hospital</p>
             </div>
           </footer>
 
@@ -247,7 +247,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <!--  STEP 3: LOGIN SCREEN                        -->
         <!-- ============================================ -->
         <div class="login-page">
-          <!-- Top strip: GHH hospital brand + branch with Change -->
+          <!-- Top strip: PFSH hospital brand + branch with Change -->
           <div class="login-topbar">
             <div class="topbar-inner">
               <button mat-icon-button class="topbar-back" (click)="goBackToLanding()" matTooltip="Back to website">
@@ -256,7 +256,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="hospital-brand">
                 <div class="hospital-brand-icon"><mat-icon>local_hospital</mat-icon></div>
                 <div class="hospital-brand-text">
-                  <strong>Good Health Hospital</strong>
+                  <strong>Prince Fahd Bin Sultan Hospital</strong>
                   <span class="hospital-brand-ar">مستشفى نورثبريدج التخصصي</span>
                 </div>
               </div>
@@ -286,12 +286,11 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <mat-card class="login-card">
               <!-- Hospital wordmark inside the login card.
                    White-label slot: each tenant's brand image goes here.
-                   Current tenant: Good Health Hospital, Tabuk (KSA). -->
+                   Current tenant: Prince Fahd Bin Sultan Hospital, Tabuk (KSA). -->
               <div class="login-medinous-strip">
-                <div class="hospital-wordmark">
-                  <mat-icon>local_hospital</mat-icon>
-                  <span>Good Health Hospital</span>
-                </div>
+                <img src="prince-fahd-hospital.png"
+                     alt="Prince Fahd Bin Sultan Hospital"
+                     class="hospital-logo">
                 <span class="medinous-tag">Patient Portal</span>
               </div>
 
@@ -776,9 +775,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </button>
           }
 
-          <!-- Brand: Good Health Hospital | Patient Portal -->
+          <!-- Brand: Prince Fahd Bin Sultan Hospital | Patient Portal -->
           <div class="brand">
-            <span class="brand-hospital">Good Health Hospital</span>
+            <span class="brand-hospital">Prince Fahd Bin Sultan Hospital</span>
             <span class="brand-divider"></span>
             <span class="brand-tag">Patient Portal</span>
           </div>
@@ -1226,7 +1225,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `,
   styles: [`
     /* =============================================
-       LANDING PAGE - GHH Hospital Website
+       LANDING PAGE - PFSH Hospital Website
        ============================================= */
     .landing-page {
       min-height: 100vh; background: #fff;
@@ -1473,7 +1472,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       pointer-events: none;
     }
 
-    /* ---------- Top brand strip (GHH hospital + location) ---------- */
+    /* ---------- Top brand strip (PFSH hospital + location) ---------- */
     .login-topbar {
       width: 100%; background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -1578,18 +1577,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       width: auto; max-width: 240px;
       object-fit: contain;
       display: block;
-    }
-    /* Text wordmark shown in place of a tenant logo image. Swap back to an
-       <img> here when a Good Health Hospital logo asset is provided. */
-    .hospital-wordmark {
-      display: inline-flex; align-items: center; gap: 9px;
-    }
-    .hospital-wordmark mat-icon {
-      color: #0d8a8a; font-size: 30px; width: 30px; height: 30px;
-    }
-    .hospital-wordmark > span {
-      font-size: 19px; font-weight: 700; color: #1a237e;
-      letter-spacing: -0.01em; white-space: nowrap;
     }
     .medinous-tag {
       font-size: 11px; color: #888; font-weight: 500;
@@ -2062,7 +2049,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .hamburger { color: #1b3a4b !important; flex-shrink: 0; margin-right: 4px; }
 
-    /* Brand: Good Health Hospital | Patient Portal */
+    /* Brand: Prince Fahd Bin Sultan Hospital | Patient Portal */
     .brand {
       display: flex; align-items: center; gap: 8px;
       min-width: 0;
@@ -2389,7 +2376,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
          (1) hide the hospital name block — the brand icon keeps visual ID,
              and the chip already names the place;
          (2) swap the chip label to branch-only ("Juffair" instead of the
-             full "Good Health Hospital - Juffair");
+             full "Prince Fahd Bin Sultan Hospital - Juffair");
          (3) keep the chip sized to its content (it is a 7-char label — not
              a search bar) and pin it to the right edge of the row so the
              brand icon and chip read as two endpoints, not a stretched
@@ -2421,8 +2408,6 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       .login-medinous-strip { padding: 12px 16px; gap: 8px; }
       .medinous-logo { height: 22px; }
       .hospital-logo { height: 36px; max-width: 180px; }
-      .hospital-wordmark mat-icon { font-size: 26px; width: 26px; height: 26px; }
-      .hospital-wordmark > span { font-size: 16px; }
       .medinous-tag { font-size: 10px; padding-left: 8px; }
       .login-body { padding: 18px 16px 22px; }
       .login-title { font-size: 16px; margin-bottom: 14px; }
@@ -3312,7 +3297,7 @@ export class ShellComponent {
   }
 
   shortLocationName(name: string): string {
-    return name.replace(/^Good Health Hospital\s*-?\s*/i, '').replace(/^GHH\s+/i, '');
+    return name.replace(/^Prince Fahd Bin Sultan Hospital\s*-?\s*/i, '').replace(/^PFSH\s+/i, '');
   }
 
   @HostListener('window:resize')
@@ -3338,7 +3323,7 @@ export class ShellComponent {
   }
 
   /** Branch-only label for the location chip on mobile. Locations are named
-   *  "Good Health Hospital - Juffair" / "GHH Clinic - Riffa" —
+   *  "Prince Fahd Bin Sultan Hospital - Juffair" / "PFSH Clinic - Riffa" —
    *  on narrow screens the hospital prefix repeats the brand banner above
    *  and just adds noise, so we slice to whatever follows the last " - ".
    *  Falls back to the full name if no dash is present. */
