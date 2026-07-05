@@ -33,9 +33,9 @@ const HMS_FAMILY_GROUPS: Record<string, FamilyGroupResponse> = {
     members: [
       {
         patientId: '12345678',
-        firstName: 'Priya',
+        firstName: 'Fatima',
         lastName: 'Sharma',
-        fullName: 'Priya Sharma',
+        fullName: 'Fatima Sharma',
         dateOfBirth: '1990-05-15',
         gender: 'Female',
         relationship: 'Self',
@@ -48,9 +48,9 @@ const HMS_FAMILY_GROUPS: Record<string, FamilyGroupResponse> = {
       },
       {
         patientId: '12345679',
-        firstName: 'Rohan',
+        firstName: 'Salman',
         lastName: 'Sharma',
-        fullName: 'Rohan Sharma',
+        fullName: 'Salman Sharma',
         dateOfBirth: '1988-11-02',
         gender: 'Male',
         relationship: 'Spouse',
@@ -63,11 +63,11 @@ const HMS_FAMILY_GROUPS: Record<string, FamilyGroupResponse> = {
       },
       {
         patientId: '12345680',
-        firstName: 'Aarav',
+        firstName: 'Aisha',
         lastName: 'Sharma',
-        fullName: 'Aarav Sharma',
+        fullName: 'Aisha Sharma',
         dateOfBirth: '2017-08-21',
-        gender: 'Male',
+        gender: 'Female',
         relationship: 'Child',
         isPrimaryOwner: false,
         primaryMobile: '+97333224455',

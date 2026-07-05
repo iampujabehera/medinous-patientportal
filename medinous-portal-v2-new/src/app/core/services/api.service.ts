@@ -45,9 +45,9 @@ const DEFAULT_SLICE: PatientDataSlice = {
 
 // Per-patient slicing — keyed by HMS Patient ID.
 const PATIENT_SLICES: Record<string, PatientDataSlice> = {
-  // Priya — Primary owner, full data
+  // Fatima — Primary owner, full data
   '12345678': DEFAULT_SLICE,
-  // Rohan — Spouse, lighter footprint
+  // Salman — Spouse, lighter footprint
   '12345679': {
     appointments: [0],
     medications: [1],
@@ -58,7 +58,7 @@ const PATIENT_SLICES: Record<string, PatientDataSlice> = {
     vitalsProfile: 'adult',
     alertIndices: [1]
   },
-  // Aarav — Child (minor under guardian)
+  // Aisha — Child (minor under guardian)
   '12345680': {
     appointments: [1],
     medications: [2],            // Vitamin D only

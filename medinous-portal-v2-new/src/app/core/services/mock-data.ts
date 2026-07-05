@@ -7,11 +7,11 @@ import {
 export const MOCK_DASHBOARD: DashboardSummary = {
   patient: {
     id: '12345678',
-    firstName: 'Priya',
+    firstName: 'Fatima',
     lastName: 'Sharma',
     dateOfBirth: '1990-05-15',
     gender: 'Female',
-    email: 'priya.sharma@email.com',
+    email: 'fatima.sharma@email.com',
     phone: '+973 3322 4455',
     avatarUrl: '',
     registrationDate: '2018-03-12T09:15:00',
@@ -19,17 +19,17 @@ export const MOCK_DASHBOARD: DashboardSummary = {
   },
   upcomingAppointments: [
     {
-      id: 'a-001', doctorName: 'Dr. Rajesh Kumar', specialty: 'Cardiology',
+      id: 'a-001', doctorName: 'Dr. Walid Al-Habeeb', specialty: 'Cardiology',
       date: '2026-04-15', time: '10:00 AM', status: 'scheduled',
       location: 'Medinous Clinic - Block A', type: 'in_person'
     },
     {
-      id: 'a-002', doctorName: 'Dr. Sarah Chen', specialty: 'Dermatology',
+      id: 'a-002', doctorName: 'Dr. Samar Al-Homoud', specialty: 'Dermatology',
       date: '2026-04-18', time: '02:30 PM', status: 'scheduled',
       location: 'Telehealth', type: 'telehealth'
     },
     {
-      id: 'a-003', doctorName: 'Dr. Ahmed Hassan', specialty: 'Endocrinology',
+      id: 'a-003', doctorName: 'Dr. Adnan Ezzat', specialty: 'Endocrinology',
       date: '2026-04-22', time: '11:00 AM', status: 'scheduled',
       location: 'Medinous Clinic - Block B', type: 'in_person'
     }
@@ -37,28 +37,28 @@ export const MOCK_DASHBOARD: DashboardSummary = {
   activeMedications: [
     {
       id: 'm-001', name: 'Metformin', dosage: '500mg', frequency: 'Twice daily',
-      startDate: '2026-01-10', prescribedBy: 'Dr. Rajesh Kumar', prescribedBySpecialty: 'Cardiology',
+      startDate: '2026-01-10', prescribedBy: 'Dr. Walid Al-Habeeb', prescribedBySpecialty: 'Cardiology',
       refillsRemaining: 3, taken: [true, true, false, true, true, true, true],
       instructions: 'Take with meals',
       dispensedQty: 90, dispensedDate: '2026-05-08'
     },
     {
       id: 'm-002', name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily',
-      startDate: '2026-02-01', prescribedBy: 'Dr. Rajesh Kumar', prescribedBySpecialty: 'Cardiology',
+      startDate: '2026-02-01', prescribedBy: 'Dr. Walid Al-Habeeb', prescribedBySpecialty: 'Cardiology',
       refillsRemaining: 5, taken: [true, true, true, true, true, false, true],
       instructions: 'Take in the evening',
       dispensedQty: 30, dispensedDate: '2026-05-15'
     },
     {
       id: 'm-003', name: 'Vitamin D3', dosage: '1000 IU', frequency: 'Once daily',
-      startDate: '2026-03-01', prescribedBy: 'Dr. Ahmed Hassan', prescribedBySpecialty: 'Endocrinology',
+      startDate: '2026-03-01', prescribedBy: 'Dr. Adnan Ezzat', prescribedBySpecialty: 'Endocrinology',
       refillsRemaining: 8, taken: [true, false, true, true, true, true, true],
       instructions: 'Take in the morning with breakfast',
       dispensedQty: 90, dispensedDate: '2026-06-01'
     },
     {
       id: 'm-004', name: 'Calcium + Vitamin K2', dosage: '600mg', frequency: 'Once daily',
-      startDate: '2026-03-15', prescribedBy: 'Dr. Ahmed Hassan', prescribedBySpecialty: 'Endocrinology',
+      startDate: '2026-03-15', prescribedBy: 'Dr. Adnan Ezzat', prescribedBySpecialty: 'Endocrinology',
       refillsRemaining: 6, taken: [true, true, true, false, true, true, true],
       instructions: 'Take in the afternoon after lunch',
       dispensedQty: 30, dispensedDate: '2026-06-10'
@@ -107,7 +107,7 @@ const GENERATED_TIMELINE: TimelineEvent[] = Array.from({ length: 100 }, (_, i) =
     medical_report: ['Discharge Summary', 'Annual Health Report', 'Specialist Referral Report', 'Insurance Medical Report']
   };
 
-  const providers = ['Dr. Rajesh Kumar', 'Dr. Sarah Chen', 'Dr. Ahmed Hassan', 'Dr. Lisa Wong'];
+  const providers = ['Dr. Walid Al-Habeeb', 'Dr. Samar Al-Homoud', 'Dr. Adnan Ezzat', 'Dr. Fatimah Al-Huwail'];
 
   return {
     id: `tl-${i}`,
@@ -143,7 +143,7 @@ export const MOCK_TIMELINE: TimelineEvent[] = [...SELF_DOCUMENTS, ...GENERATED_T
 export const MOCK_DOCTORS: Doctor[] = [
   // ---- Endocrinology ----
   {
-    id: 'd-004', name: 'Dr. Lisa Wong', specialty: 'Endocrinology', rating: 4.8,
+    id: 'd-004', name: 'Dr. Fatimah Al-Huwail', specialty: 'Endocrinology', rating: 4.8,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Consultant Endocrinologist', experienceYears: 14,
     languages: ['English', 'Mandarin'], videoConsultFee: 20,
@@ -151,7 +151,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Diabetes', 'Thyroid Disorders', 'PCOS', 'Hormonal Imbalances']
   },
   {
-    id: 'd-003', name: 'Dr. Ahmed Hassan', specialty: 'Endocrinology', rating: 4.7,
+    id: 'd-003', name: 'Dr. Adnan Ezzat', specialty: 'Endocrinology', rating: 4.7,
     nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Endocrinologist', experienceYears: 12,
     languages: ['English', 'Arabic'], videoConsultFee: 15,
@@ -159,7 +159,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Diabetes', 'Thyroid Disorders', 'Obesity', 'Insulin Resistance']
   },
   {
-    id: 'd-010', name: 'Dr. Priya Nair', specialty: 'Endocrinology', rating: 4.9,
+    id: 'd-010', name: 'Dr. Selwa Al-Hazzaa', specialty: 'Endocrinology', rating: 4.9,
     nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Specialist Endocrinologist', experienceYears: 9,
     languages: ['English', 'Hindi', 'Malayalam'], videoConsultFee: 12,
@@ -168,7 +168,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- General Medicine ----
   {
-    id: 'd-011', name: 'Dr. David Miller', specialty: 'General Medicine', rating: 4.6,
+    id: 'd-011', name: 'Dr. Hani Najm', specialty: 'General Medicine', rating: 4.6,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 12, advanceFee: 12,
     designation: 'Consultant Physician', experienceYears: 10,
     languages: ['English'], videoConsultFee: 8,
@@ -177,7 +177,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- Cardiology ----
   {
-    id: 'd-001', name: 'Dr. Rajesh Kumar', specialty: 'Cardiology', rating: 4.8,
+    id: 'd-001', name: 'Dr. Walid Al-Habeeb', specialty: 'Cardiology', rating: 4.8,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Senior Consultant Cardiologist', experienceYears: 18,
     languages: ['English', 'Hindi', 'Arabic'], videoConsultFee: 15,
@@ -185,7 +185,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Heart Disease', 'Hypertension', 'Arrhythmia', 'Chest Pain']
   },
   {
-    id: 'd-006', name: 'Dr. Fatima Al-Rashid', specialty: 'Cardiology', rating: 4.9,
+    id: 'd-006', name: 'Dr. Noura Al-Faisal', specialty: 'Cardiology', rating: 4.9,
     nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 35, advanceFee: 35,
     designation: 'Consultant Cardiologist', experienceYears: 22,
     languages: ['English', 'Arabic', 'French'], videoConsultFee: 20,
@@ -194,7 +194,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- Dermatology ----
   {
-    id: 'd-002', name: 'Dr. Sarah Chen', specialty: 'Dermatology', rating: 4.9,
+    id: 'd-002', name: 'Dr. Samar Al-Homoud', specialty: 'Dermatology', rating: 4.9,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Consultant Dermatologist', experienceYears: 11,
     languages: ['English', 'Mandarin'], videoConsultFee: 10,
@@ -202,7 +202,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Acne', 'Skin Rash', 'Eczema', 'Pigmentation']
   },
   {
-    id: 'd-012', name: 'Dr. Noor Abbas', specialty: 'Dermatology', rating: 4.7,
+    id: 'd-012', name: 'Dr. Reem Al-Dossary', specialty: 'Dermatology', rating: 4.7,
     nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 17, advanceFee: 17,
     designation: 'Specialist Dermatologist', experienceYears: 8,
     languages: ['English', 'Arabic'], videoConsultFee: 11,
@@ -211,7 +211,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- Orthopedics ----
   {
-    id: 'd-005', name: 'Dr. Vikram Patel', specialty: 'Orthopedics', rating: 4.8,
+    id: 'd-005', name: 'Dr. Qasim Al-Qasabi', specialty: 'Orthopedics', rating: 4.8,
     nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Orthopedic Surgeon', experienceYears: 20,
     languages: ['English', 'Hindi', 'Gujarati'], videoConsultFee: 12,
@@ -219,7 +219,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Back Pain', 'Knee Pain', 'Joint Pain', 'Fractures']
   },
   {
-    id: 'd-013', name: 'Dr. Sanjay Mehta', specialty: 'Orthopedics', rating: 4.7,
+    id: 'd-013', name: 'Dr. Bandar Al-Mutairi', specialty: 'Orthopedics', rating: 4.7,
     nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 22, advanceFee: 22,
     designation: 'Consultant Orthopedic Surgeon', experienceYears: 15,
     languages: ['English', 'Hindi'], videoConsultFee: 13,
@@ -228,7 +228,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- Pediatrics ----
   {
-    id: 'd-007', name: 'Dr. Maria Gonzalez', specialty: 'Pediatrics', rating: 4.9,
+    id: 'd-007', name: 'Dr. Latifa Al-Shammari', specialty: 'Pediatrics', rating: 4.9,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 18, advanceFee: 18,
     designation: 'Consultant Pediatrician', experienceYears: 13,
     languages: ['English', 'Spanish', 'Arabic'], videoConsultFee: 12,
@@ -236,7 +236,7 @@ export const MOCK_DOCTORS: Doctor[] = [
     treats: ['Child Fever', 'Vaccination', 'Growth Issues', 'Allergies']
   },
   {
-    id: 'd-008', name: 'Dr. Imran Sheikh', specialty: 'Pediatrics', rating: 4.7,
+    id: 'd-008', name: 'Dr. Abdullah Al-Rabeeah', specialty: 'Pediatrics', rating: 4.7,
     nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 16, advanceFee: 16,
     designation: 'Specialist Pediatrician', experienceYears: 9,
     languages: ['English', 'Urdu', 'Arabic'], videoConsultFee: 10,
@@ -245,7 +245,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   // ---- Gynecology ----
   {
-    id: 'd-009', name: 'Dr. Aisha Rahman', specialty: 'Gynecology', rating: 4.8,
+    id: 'd-009', name: 'Dr. Hind Al-Qahtani', specialty: 'Gynecology', rating: 4.8,
     nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 28, advanceFee: 28,
     designation: 'Consultant Gynecologist', experienceYears: 17,
     languages: ['English', 'Arabic', 'Hindi'], videoConsultFee: 16,
@@ -278,7 +278,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-001', date: '2026-05-12T10:30:00', amount: 350, currency: 'AED',
     status: 'completed', method: 'card', description: 'Cardiology Consultation',
-    appointmentId: 'a-001', doctorName: 'Dr. Rajesh Kumar',
+    appointmentId: 'a-001', doctorName: 'Dr. Walid Al-Habeeb',
     receiptUrl: '/receipts/pay-001.pdf', invoiceNumber: 'INV-2026-0041',
     breakdown: [
       { label: 'Consultation Fee', amount: 300 },
@@ -292,7 +292,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-002', date: '2026-05-08T14:00:00', amount: 200, currency: 'AED',
     status: 'completed', method: 'upi', description: 'Dermatology Follow-up',
-    appointmentId: 'a-002', doctorName: 'Dr. Sarah Chen',
+    appointmentId: 'a-002', doctorName: 'Dr. Samar Al-Homoud',
     receiptUrl: '/receipts/pay-002.pdf', invoiceNumber: 'INV-2026-0038',
     breakdown: [
       { label: 'Consultation Fee', amount: 200 }
@@ -301,7 +301,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-003', date: '2026-05-04T09:00:00', amount: 1250, currency: 'AED',
     status: 'completed', method: 'insurance', description: 'Lab Work - Complete Panel',
-    doctorName: 'Dr. Ahmed Hassan',
+    doctorName: 'Dr. Adnan Ezzat',
     receiptUrl: '/receipts/pay-003.pdf', invoiceNumber: 'INV-2026-0035',
     breakdown: [
       { label: 'Complete Blood Count', amount: 150 },
@@ -318,7 +318,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-004', date: '2026-04-30T11:00:00', amount: 500, currency: 'AED',
     status: 'pending', method: 'insurance', description: 'Endocrinology Consultation',
-    doctorName: 'Dr. Lisa Wong', invoiceNumber: 'INV-2026-0030',
+    doctorName: 'Dr. Fatimah Al-Huwail', invoiceNumber: 'INV-2026-0030',
     breakdown: [
       { label: 'Consultation Fee', amount: 400 },
       { label: 'Glucose Monitoring Setup', amount: 100 }
@@ -340,7 +340,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-006', date: '2026-04-24T10:00:00', amount: 800, currency: 'AED',
     status: 'completed', method: 'card', description: 'General Checkup + ECG',
-    doctorName: 'Dr. Ahmed Hassan',
+    doctorName: 'Dr. Adnan Ezzat',
     receiptUrl: '/receipts/pay-006.pdf', invoiceNumber: 'INV-2026-0020',
     breakdown: [
       { label: 'Annual Physical', amount: 500 },
@@ -351,7 +351,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-007', date: '2026-04-20T13:30:00', amount: 275, currency: 'AED',
     status: 'completed', method: 'bank_transfer', description: 'Orthopedic Consultation',
-    doctorName: 'Dr. Vikram Patel',
+    doctorName: 'Dr. Qasim Al-Qasabi',
     receiptUrl: '/receipts/pay-007.pdf', invoiceNumber: 'INV-2026-0018',
     breakdown: [
       { label: 'Consultation Fee', amount: 275 }
@@ -360,7 +360,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-008', date: '2026-04-16T09:30:00', amount: 2100, currency: 'AED',
     status: 'completed', method: 'insurance', description: 'MRI Knee - Left',
-    doctorName: 'Dr. Vikram Patel',
+    doctorName: 'Dr. Qasim Al-Qasabi',
     receiptUrl: '/receipts/pay-008.pdf', invoiceNumber: 'INV-2026-0012',
     breakdown: [
       { label: 'MRI Scan', amount: 1800 },
@@ -390,7 +390,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-011', date: '2026-05-03T10:00:00', amount: 175, currency: 'AED',
     status: 'refunded', method: 'card', description: 'Cancelled Lab Test — Refund',
-    doctorName: 'Dr. Ahmed Hassan',
+    doctorName: 'Dr. Adnan Ezzat',
     receiptUrl: '/receipts/pay-011.pdf', invoiceNumber: 'REF-2026-0007',
     breakdown: [
       { label: 'Refund — Vitamin D Panel', amount: 175 }
@@ -399,7 +399,7 @@ export const MOCK_PAYMENTS: Payment[] = [
   {
     id: 'pay-012', date: '2026-04-22T15:30:00', amount: 90, currency: 'AED',
     status: 'refunded', method: 'card', description: 'Cancelled Consultation — Refund',
-    doctorName: 'Dr. Sarah Chen',
+    doctorName: 'Dr. Samar Al-Homoud',
     receiptUrl: '/receipts/pay-012.pdf', invoiceNumber: 'REF-2026-0004',
     breakdown: [
       { label: 'Refund — Dermatology Consultation', amount: 90 }
@@ -424,20 +424,20 @@ export const MOCK_DOCUMENTS: PatientDocument[] = [
   {
     id: 'doc-003', name: 'Chest X-Ray Report', type: 'radiology',
     category: 'Radiology', fileType: 'image', fileSize: 3200000,
-    uploadDate: '2026-03-20T11:00:00', uploadedBy: 'Dr. Ahmed Hassan',
+    uploadDate: '2026-03-20T11:00:00', uploadedBy: 'Dr. Adnan Ezzat',
     url: '/documents/doc-003.jpg', thumbnailUrl: '/documents/doc-003-thumb.jpg',
     tags: ['chest', 'x-ray', 'cardiology']
   },
   {
     id: 'doc-004', name: 'ECG Report - March 2026', type: 'radiology',
     category: 'Cardiology', fileType: 'pdf', fileSize: 520000,
-    uploadDate: '2026-03-15T10:45:00', uploadedBy: 'Dr. Rajesh Kumar',
+    uploadDate: '2026-03-15T10:45:00', uploadedBy: 'Dr. Walid Al-Habeeb',
     url: '/documents/doc-004.pdf', tags: ['ECG', 'heart', 'cardiology']
   },
   {
     id: 'doc-005', name: 'Metformin Prescription', type: 'prescription',
     category: 'Prescriptions', fileType: 'pdf', fileSize: 95000,
-    uploadDate: '2026-01-10T09:00:00', uploadedBy: 'Dr. Rajesh Kumar',
+    uploadDate: '2026-01-10T09:00:00', uploadedBy: 'Dr. Walid Al-Habeeb',
     url: '/documents/doc-005.pdf', tags: ['metformin', 'diabetes', 'prescription']
   },
   {
@@ -449,7 +449,7 @@ export const MOCK_DOCUMENTS: PatientDocument[] = [
   {
     id: 'doc-007', name: 'MRI Knee Report', type: 'radiology',
     category: 'Radiology', fileType: 'pdf', fileSize: 4800000,
-    uploadDate: '2026-02-25T15:00:00', uploadedBy: 'Dr. Vikram Patel',
+    uploadDate: '2026-02-25T15:00:00', uploadedBy: 'Dr. Qasim Al-Qasabi',
     url: '/documents/doc-007.pdf', tags: ['MRI', 'knee', 'orthopedics']
   },
   {
@@ -464,7 +464,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-001',
     date: '2026-04-09T10:30:00',
-    doctorName: 'Dr. Rajesh Kumar',
+    doctorName: 'Dr. Walid Al-Habeeb',
     doctorSpecialty: 'Cardiology',
     location: 'PFSH Juffair · Block A',
     type: 'in_person',
@@ -542,7 +542,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-002',
     date: '2026-03-22T15:30:00',
-    doctorName: 'Dr. Sarah Chen',
+    doctorName: 'Dr. Samar Al-Homoud',
     doctorSpecialty: 'Dermatology',
     location: 'Telehealth',
     type: 'telehealth',
@@ -565,7 +565,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-003',
     date: '2026-02-18T11:00:00',
-    doctorName: 'Dr. Lisa Wong',
+    doctorName: 'Dr. Fatimah Al-Huwail',
     doctorSpecialty: 'Endocrinology',
     location: 'PFSH Juffair · Block C',
     type: 'in_person',
@@ -630,7 +630,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-004',
     date: '2026-01-30T09:00:00',
-    doctorName: 'Dr. Ahmed Hassan',
+    doctorName: 'Dr. Adnan Ezzat',
     doctorSpecialty: 'Endocrinology',
     location: 'PFSH Juffair · Block A',
     type: 'in_person',
@@ -662,7 +662,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-005',
     date: '2025-11-12T14:00:00',
-    doctorName: 'Dr. Vikram Patel',
+    doctorName: 'Dr. Qasim Al-Qasabi',
     doctorSpecialty: 'Orthopedics',
     location: 'PFSH Juffair · Block B',
     type: 'in_person',
@@ -692,7 +692,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-006',
     date: '2025-09-04T16:30:00',
-    doctorName: 'Dr. Fatima Al-Rashid',
+    doctorName: 'Dr. Noura Al-Faisal',
     doctorSpecialty: 'ENT',
     location: 'PFSH Juffair · Block A',
     type: 'in_person',
@@ -722,7 +722,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-007',
     date: '2025-07-21T11:30:00',
-    doctorName: 'Dr. Rajesh Kumar',
+    doctorName: 'Dr. Walid Al-Habeeb',
     doctorSpecialty: 'Cardiology',
     location: 'Telehealth',
     type: 'telehealth',

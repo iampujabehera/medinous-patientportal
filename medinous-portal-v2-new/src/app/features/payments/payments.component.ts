@@ -1221,10 +1221,10 @@ export class PaymentsComponent implements OnInit {
 
   // -------- Pending charges (sample) --------
   readonly pendingChargesData = signal<PendingCharge[]>([
-    { id: 'pc-1', name: 'Cardiology Consultation', detail: 'Dr. Rajesh Kumar',
+    { id: 'pc-1', name: 'Cardiology Consultation', detail: 'Dr. Walid Al-Habeeb',
       amount: 25, category: 'consultation',
       dueDate: '2026-05-10T09:00:00', dueStatus: 'overdue' },
-    { id: 'pc-2', name: 'MRI Brain Scan', detail: 'Radiology — Dr. Ahmed Hassan',
+    { id: 'pc-2', name: 'MRI Brain Scan', detail: 'Radiology — Dr. Adnan Ezzat',
       amount: 120, category: 'radiology',
       dueDate: '2026-05-13T11:00:00', dueStatus: 'due-today' },
     { id: 'pc-3', name: 'Admission Deposit', detail: 'General Surgery — pre-admission',
@@ -1233,7 +1233,7 @@ export class PaymentsComponent implements OnInit {
     { id: 'pc-4', name: 'Lab Tests (CBC + Lipid Panel)', detail: 'Diagnostic Lab',
       amount: 47, category: 'lab',
       dueDate: '2026-05-20T10:00:00', dueStatus: 'upcoming' },
-    { id: 'pc-5', name: 'Pharmacy — Metformin & Amlodipine', detail: 'Dr. Rajesh Kumar prescription',
+    { id: 'pc-5', name: 'Pharmacy — Metformin & Amlodipine', detail: 'Dr. Walid Al-Habeeb prescription',
       amount: 38, category: 'medication',
       dueDate: '2026-05-09T14:00:00', dueStatus: 'overdue' }
   ]);

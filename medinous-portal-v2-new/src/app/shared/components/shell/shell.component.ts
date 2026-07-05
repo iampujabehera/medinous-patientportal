@@ -3016,12 +3016,12 @@ export class ShellComponent {
   }
 
   readonly previewDoctors = [
-    { name: 'Dr. Rajesh Kumar', dept: 'Cardiology' },
-    { name: 'Dr. Sarah Chen', dept: 'Dermatology' },
-    { name: 'Dr. Ahmed Hassan', dept: 'General Medicine' },
-    { name: 'Dr. Lisa Wong', dept: 'Endocrinology' },
-    { name: 'Dr. Vikram Patel', dept: 'Orthopedics' },
-    { name: 'Dr. Fatima Al-Rashid', dept: 'Cardiology' }
+    { name: 'Dr. Walid Al-Habeeb', dept: 'Cardiology' },
+    { name: 'Dr. Samar Al-Homoud', dept: 'Dermatology' },
+    { name: 'Dr. Adnan Ezzat', dept: 'General Medicine' },
+    { name: 'Dr. Fatimah Al-Huwail', dept: 'Endocrinology' },
+    { name: 'Dr. Qasim Al-Qasabi', dept: 'Orthopedics' },
+    { name: 'Dr. Noura Al-Faisal', dept: 'Cardiology' }
   ];
 
   readonly hospitalServices = [
@@ -3244,7 +3244,7 @@ export class ShellComponent {
 
     // The verified mobile is what unlocks the family group; the CPR is the
     // login handle. Both must succeed for any patient context to be selected.
-    const authenticatedMobile = '+97333224455'; // demo: Priya's verified mobile
+    const authenticatedMobile = '+97333224455'; // demo: Fatima's verified mobile
     this.family.loadFamilyForMobile(authenticatedMobile).subscribe(group => {
       const selectable = this.family.selectableMembers();
 
