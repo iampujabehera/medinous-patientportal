@@ -173,6 +173,12 @@ export interface ClinicLocation {
 // Consultation history models
 export interface Consultation {
   id: string;
+  /**
+   * Outpatient encounter number issued by HMIS ("OP No." on hospital
+   * reports). This — not the portal's internal `id` — is the key feedback,
+   * billing and clinical records are filed against in the hospital system.
+   */
+  opNumber?: string;
   date: string;
   doctorName: string;
   doctorSpecialty: string;

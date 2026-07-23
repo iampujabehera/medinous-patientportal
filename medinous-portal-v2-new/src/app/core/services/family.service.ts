@@ -154,6 +154,57 @@ export type PatientLookupResult =
   | { status: 'not_found' };
 
 // =====================================================================
+// HMIS PATIENT INDEX — Create Account "Account step" lookup
+// =====================================================================
+// A verified mobile number can map to 0, 1, or MANY HMS patient records
+// (one household, one shared phone). The Create Account workflow looks a
+// patient up here after OTP verification to auto-populate their identity.
+// A resolvable National / Patient ID wins outright; otherwise (ID absent
+// OR unknown to HMS) the lookup falls back to the verified mobile.
+//
+// DEMO — the ID on the Identify step is optional, so the branches are
+// driven by the (ID, Mobile) pair; leave the ID blank to force the
+// mobile-based lookup:
+//   • ID blank,    mobile 1234567890 → TWO records → picker modal ★
+//   • ID 12345678, any mobile     → Fatima — ALREADY registered → info dialog
+//   • ID 12345679, any mobile     → Salman — single record → auto-populate
+//   • ID 87654321, any mobile     → Yusuf  — single record → auto-populate
+//   • ID 99999999, mobile 3322445599 → unknown ID → mobile → THREE records → picker modal
+//   • ID 99999999, mobile 3322445501 → unknown ID → mobile → ONE record (Yusuf)
+//   • ID 99999999, mobile 0000000000 → nothing matches → empty, manual entry
+//
+// `hasPortalAccount` mirrors the portal-side account ledger. Production
+// resolves it via GET /portal/accounts?patientId= — here it is a flag.
+// =====================================================================
+export interface HmisPatientRecord {
+  patientId: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  dateOfBirth: string;                 // ISO yyyy-mm-dd
+  gender: 'Male' | 'Female' | 'Other';
+  mobile: string;                      // 10-digit local, as typed in signup
+  hasPortalAccount: boolean;           // already registered on the portal?
+}
+
+const HMIS_PATIENT_INDEX: HmisPatientRecord[] = [
+  // --- Headline demo: two profiles on one mobile (1234567890) ---------
+  // Leave the optional ID blank, type this number, verify the OTP, and
+  // the Account step opens the Select Patient Profile modal with exactly
+  // these two records. Neither has a portal account yet, so both are
+  // registerable and the flow never dead-ends on the "already exists"
+  // dialog.
+  { patientId: '20114477', firstName: 'Noura',  lastName: 'Al-Otaibi', fullName: 'Noura Al-Otaibi', dateOfBirth: '1992-04-18', gender: 'Female', mobile: '1234567890', hasPortalAccount: false },
+  { patientId: '20114478', firstName: 'Khalid', lastName: 'Al-Otaibi', fullName: 'Khalid Al-Otaibi', dateOfBirth: '1989-12-05', gender: 'Male',   mobile: '1234567890', hasPortalAccount: false },
+  // --- Shared-mobile household (3322445599) → multi-record modal ------
+  { patientId: '12345678', firstName: 'Fatima', lastName: 'Sharma', fullName: 'Fatima Sharma', dateOfBirth: '1990-05-15', gender: 'Female', mobile: '3322445599', hasPortalAccount: true },
+  { patientId: '12345679', firstName: 'Salman', lastName: 'Sharma', fullName: 'Salman Sharma', dateOfBirth: '1988-11-02', gender: 'Male',   mobile: '3322445599', hasPortalAccount: false },
+  { patientId: '12345680', firstName: 'Aisha',  lastName: 'Sharma', fullName: 'Aisha Sharma',  dateOfBirth: '2017-08-21', gender: 'Female', mobile: '3322445599', hasPortalAccount: false },
+  // --- Single-record patient (3322445501) → auto-populate ------------
+  { patientId: '87654321', firstName: 'Yusuf',  lastName: 'Khan',   fullName: 'Yusuf Khan',    dateOfBirth: '1979-03-30', gender: 'Male',   mobile: '3322445501', hasPortalAccount: false }
+];
+
+// =====================================================================
 // FAMILY SERVICE
 // =====================================================================
 @Injectable({ providedIn: 'root' })
@@ -643,6 +694,67 @@ export class FamilyService {
     if (inDirectory) return { status: 'found', patient: inDirectory };
 
     return { status: 'not_found' };
+  }
+
+  // =============================================
+  // HMIS LOOKUP — Create Account "Account step"
+  // =============================================
+  // Portal-side ledger of HMS patient IDs that have already minted a
+  // Patient Portal login during this session (on top of the seeded
+  // `hasPortalAccount` flags). Lets the "already registered" guard
+  // reflect accounts created within the same demo run.
+  private readonly _portalRegistered = new Set<string>();
+
+  /**
+   * HMIS lookup for the Create Account flow. Prefers the National ID /
+   * Patient ID when one is supplied; otherwise falls back to the verified
+   * mobile number. Returns EVERY matching record (0, 1, or many) — the
+   * caller decides how to render each count.
+   *
+   * Production hits HMS: GET /patients?nationalId= or ?mobile=. The demo
+   * matches against HMIS_PATIENT_INDEX so the flow is deterministic.
+   */
+  hmisLookup(input: { cpr?: string; mobile?: string }): HmisPatientRecord[] {
+    const cpr = (input.cpr || '').replace(/\D/g, '');
+    if (cpr) {
+      const byId = HMIS_PATIENT_INDEX.filter(p => p.patientId === cpr);
+      // An ID that resolves wins outright. If the ID is provided but HMS
+      // doesn't know it (typo, or an ID from a different facility), we
+      // fall through to the verified mobile rather than dead-ending a
+      // patient whose phone is already on file.
+      if (byId.length > 0) return byId;
+    }
+    const mobile = (input.mobile || '').replace(/\D/g, '');
+    if (!mobile) return [];
+    return HMIS_PATIENT_INDEX.filter(p => this.mobileMatches(p.mobile, mobile));
+  }
+
+  /** True when the HMS patient already has a Patient Portal login. */
+  hmisHasPortalAccount(patientId: string): boolean {
+    if (this._portalRegistered.has(patientId)) return true;
+    const rec = HMIS_PATIENT_INDEX.find(p => p.patientId === patientId);
+    return rec?.hasPortalAccount === true;
+  }
+
+  /**
+   * Link a freshly-created Patient Portal account to its HMS patient
+   * record. Production: POST /portal/accounts { patientId }. Demo: record
+   * the ID so a repeat registration attempt hits the "already registered"
+   * guard.
+   */
+  hmisLinkPortalAccount(patientId: string): void {
+    if (patientId) this._portalRegistered.add(patientId);
+  }
+
+  /** Compare two mobile numbers ignoring country-code / formatting noise
+   *  by matching on the shared trailing digits (min 8). */
+  private mobileMatches(a: string, b: string): boolean {
+    const da = (a || '').replace(/\D/g, '');
+    const db = (b || '').replace(/\D/g, '');
+    if (!da || !db) return false;
+    const min = Math.min(da.length, db.length);
+    if (min < 8) return da === db;
+    return da.slice(-min) === db.slice(-min);
   }
 
   private withDisabledReason(member: FamilyMember): FamilyMember {

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, HostListener, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
 import { OfflineStorageService } from '../../core/services/offline-storage.service';
@@ -14,7 +15,7 @@ import { Medication } from '../../core/models/patient.model';
 import { firstValueFrom } from 'rxjs';
 
 type RoutinePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
-type MedFilter = 'all' | 'recent' | 'active' | 'completed';
+type MedTab = 'active' | 'completed';
 type SupplyStatus = 'ok' | 'low' | 'critical' | 'out';
 
 /** Predicted pharmacy supply for one medication, derived from the billed
@@ -35,6 +36,25 @@ interface SessionMed {
   supply: SupplyInfo | null;
 }
 
+/** One drug in the Past list, with every prescription of it in that year. */
+interface PastGroup {
+  key: string;
+  name: string;
+  dosage: string;
+  /** Status of the most recent prescription in the group. */
+  isActive: boolean;
+  prescribedBy: string;
+  spanLabel: string;
+  lastEnd: string;
+  items: {
+    id: string;
+    frequency: string;
+    instructions: string;
+    prescribedBy: string;
+    rangeLabel: string;
+  }[];
+}
+
 interface SessionRoutine {
   period: RoutinePeriod;
   icon: string;
@@ -48,7 +68,7 @@ interface SessionRoutine {
   imports: [
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatMenuModule,
-    MatChipsModule, MatSnackBarModule, SkeletonCardComponent
+    MatChipsModule, MatSnackBarModule, MatTooltipModule, SkeletonCardComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -118,20 +138,83 @@ interface SessionRoutine {
         </mat-menu>
       </div>
 
-      <!-- Filter chips (no time-period chips — sessions are visible by default) -->
-      <div class="med-filters">
-        <button class="filter-chip" [class.active]="activeFilter() === 'all'" (click)="activeFilter.set('all')">
-          All
+      <!-- ===== Status tabs + date filter =====
+           Two status tabs. The date filter applies to Completed only: Active is
+           never date-filtered (a live script must always show), so on Active the
+           control is shown disabled rather than removed, keeping the toolbar
+           steady across tab switches. On Completed it windows the archive by
+           6 / 9 / 12 months or a custom range (max 1 year). -->
+      <div class="med-tabs" role="tablist">
+        <button class="med-tab" role="tab" [class.on]="tab() === 'active'"
+                [attr.aria-selected]="tab() === 'active'" (click)="setTab('active')">
+          <span class="dot active-dot"></span>
+          Active
+          @if (!loading()) { <span class="mt-count">{{ activeMeds().length }}</span> }
         </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'recent'" (click)="activeFilter.set('recent')">
-          <mat-icon>schedule</mat-icon> Recent
+        <button class="med-tab" role="tab" [class.on]="tab() === 'completed'"
+                [attr.aria-selected]="tab() === 'completed'" (click)="setTab('completed')">
+          <span class="dot done-dot"></span>
+          Completed
         </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'active'" (click)="activeFilter.set('active')">
-          <span class="dot active-dot"></span> Active
-        </button>
-        <button class="filter-chip" [class.active]="activeFilter() === 'completed'" (click)="activeFilter.set('completed')">
-          <span class="dot done-dot"></span> Completed
-        </button>
+
+        <!-- Filter 2 of 2: date. (Filter 1, doctor, sits in the search row.) -->
+        @if (tab() === 'completed') {
+          <button class="year-btn" [matMenuTriggerFor]="rangeMenu">
+            <mat-icon>calendar_today</mat-icon>
+            <span>{{ completedRangeLabel() }}</span>
+            <mat-icon class="yb-caret">expand_more</mat-icon>
+          </button>
+          <mat-menu #rangeMenu="matMenu">
+            @for (p of completedRangePresets; track p.days) {
+              <button mat-menu-item (click)="setCompletedRange(p.days)">
+                <mat-icon [class.invisible]="isCompletedCustom() || completedRangeDays() !== p.days">check</mat-icon>
+                <span>{{ p.label }}</span>
+              </button>
+            }
+            <button mat-menu-item (click)="openRangePicker()">
+              <mat-icon [class.invisible]="!isCompletedCustom()">check</mat-icon>
+              <span>Custom range…</span>
+            </button>
+          </mat-menu>
+
+          <!-- Custom range popover, anchored under the filter button -->
+          @if (rangePickerOpen()) {
+            <div class="cr-backdrop" (click)="cancelRangePicker()"></div>
+            <div class="cr-panel" role="dialog" aria-modal="true" aria-label="Custom date range">
+              <div class="cr-head">
+                <mat-icon>date_range</mat-icon>
+                <strong>Custom range</strong>
+              </div>
+              <div class="cr-fields">
+                <label class="cr-field">
+                  <span>From</span>
+                  <input type="date" [max]="today"
+                         [ngModel]="crFrom()" (ngModelChange)="crFrom.set($event)">
+                </label>
+                <label class="cr-field">
+                  <span>To</span>
+                  <input type="date" [min]="crFrom()" [max]="today"
+                         [ngModel]="crTo()" (ngModelChange)="crTo.set($event)">
+                </label>
+              </div>
+              @if (crError()) {
+                <p class="cr-err">{{ crError() }}</p>
+              }
+              <div class="cr-actions">
+                <button mat-button type="button" (click)="cancelRangePicker()">Cancel</button>
+                <button mat-flat-button type="button" class="cr-apply"
+                        [disabled]="!!crError() || !crFrom() || !crTo()"
+                        (click)="applyRangePicker()">Apply</button>
+              </div>
+            </div>
+          }
+        } @else {
+          <button class="year-btn is-off" disabled
+                  matTooltip="Active medications are always shown, whenever they were prescribed">
+            <mat-icon>calendar_today</mat-icon>
+            <span>All active</span>
+          </button>
+        }
       </div>
 
       <!-- Loading -->
@@ -139,7 +222,7 @@ interface SessionRoutine {
         @for (i of [1,2,3,4]; track i) {
           <app-skeleton-card [lines]="2" [showAvatar]="true" variant="compact" />
         }
-      } @else {
+      } @else if (tab() === 'active') {
 
         <!-- Refill reminder banner — names the meds + how urgent, no click needed -->
         @if (refillNeeded().length) {
@@ -215,13 +298,85 @@ interface SessionRoutine {
           }
         </section>
 
-        <!-- Footer summary -->
-        <p class="result-count">
-          {{ totalActiveMeds() }} active medication{{ totalActiveMeds() === 1 ? '' : 's' }}
-          @if (selectedDoctor() !== 'all') {
-            · {{ selectedDoctor() }}
+        @if (!activeMeds().length) {
+          <div class="empty-state">
+            <mat-icon>medication</mat-icon>
+            <h3>No active medications</h3>
+            <p>Nothing to take right now. Past prescriptions are under the Completed tab.</p>
+          </div>
+        }
+
+      } @else {
+
+        <!-- ===== COMPLETED: grouped by drug, paginated =====
+             Grouped because a repeat prescription would otherwise print the
+             same drug 20 times; the group row IS the drug's history, which is
+             what answers "when was this prescribed to me?". -->
+        @if (!pagedGroups().length) {
+          <div class="empty-state">
+            <mat-icon>history</mat-icon>
+            <h3>No completed medications in this period</h3>
+            <p>Try a wider range from the date filter above.</p>
+          </div>
+        } @else {
+          <ul class="past-list">
+            @for (g of pagedGroups(); track g.key) {
+              <li class="past-item">
+                <button class="pi-head" type="button" (click)="toggleGroup(g.key)"
+                        [attr.aria-expanded]="isGroupOpen(g.key)">
+                  <div class="pi-main">
+                    <div class="pi-line-1">
+                      <strong>{{ g.name }}</strong>
+                      <span class="pi-dose">{{ g.dosage }}</span>
+                      <span class="pi-status" [class.on]="g.isActive">
+                        {{ g.isActive ? 'Active' : 'Completed' }}
+                      </span>
+                    </div>
+                    <div class="pi-meta">
+                      <span><mat-icon>person</mat-icon>{{ g.prescribedBy }}</span>
+                      <span class="pi-dot">·</span>
+                      <span>{{ g.spanLabel }}</span>
+                    </div>
+                  </div>
+                  <div class="pi-right">
+                    @if (g.items.length > 1) {
+                      <span class="pi-count">{{ g.items.length }} prescriptions</span>
+                    }
+                    <mat-icon class="pi-caret" [class.open]="isGroupOpen(g.key)">expand_more</mat-icon>
+                  </div>
+                </button>
+
+                @if (isGroupOpen(g.key)) {
+                  <ul class="pi-history">
+                    @for (it of g.items; track it.id) {
+                      <li>
+                        <span class="ph-date">{{ it.rangeLabel }}</span>
+                        <span class="ph-detail">{{ it.frequency }}@if (it.instructions) { · {{ it.instructions }} }</span>
+                        <span class="ph-doc">{{ it.prescribedBy }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+              </li>
+            }
+          </ul>
+
+          <!-- Pagination — 15 rows max per page. These lists are archives, so
+               they page; Active is a task list and never does. -->
+          @if (totalPages() > 1) {
+            <div class="pager">
+              <button class="pg-arrow" [disabled]="pastPage() === 1"
+                      aria-label="Newer" (click)="goToPast(pastPage() - 1)">
+                <mat-icon>chevron_left</mat-icon><span>Newer</span>
+              </button>
+              <span class="pg-pos">Page {{ pastPage() }} of {{ totalPages() }}</span>
+              <button class="pg-arrow" [disabled]="pastPage() === totalPages()"
+                      aria-label="Older" (click)="goToPast(pastPage() + 1)">
+                <span>Older</span><mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
           }
-        </p>
+        }
       }
     </div>
   `,
@@ -325,40 +480,145 @@ interface SessionRoutine {
     .doc-option-specialty { font-size: 12px; color: #0d8a8a; font-weight: 500; }
 
     /* ===== FILTER CHIPS ===== */
-    .med-filters {
-      display: flex; gap: 6px;
-      overflow-x: auto;
-      padding: 4px 2px 8px;
-      margin-bottom: 14px;
-      scrollbar-width: thin;
+    /* ===== STATUS TABS + YEAR FILTER ===== */
+    .med-tabs {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+      position: relative;            /* anchors the custom-range popover */
     }
-    .med-filters::-webkit-scrollbar { height: 4px; }
-    .med-filters::-webkit-scrollbar-thumb { background: #d8e3e3; border-radius: 2px; }
-    .filter-chip {
-      flex-shrink: 0;
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 6px 12px; height: 32px;
-      border-radius: 18px;
-      border: 1px solid #e0e8e8; background: white;
-      cursor: pointer; transition: all 0.15s;
-      font-family: inherit; font-size: 12.5px; font-weight: 600;
-      color: #6b7884; white-space: nowrap;
+    .med-tab {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 38px; padding: 0 16px; border-radius: 999px;
+      border: 1.5px solid #e0e6e6; background: #fff;
+      font: inherit; font-size: 13.5px; font-weight: 600; color: #5b6b6b;
+      cursor: pointer; transition: all .14s;
     }
-    .filter-chip mat-icon {
-      font-size: 15px !important; width: 15px !important; height: 15px !important;
+    .med-tab:hover { border-color: #80cbc4; color: #0d8a8a; }
+    .med-tab.on {
+      background: #0d8a8a; border-color: #0d8a8a; color: #fff;
     }
-    .filter-chip:hover { border-color: #80cbc4; color: #0d8a8a; }
-    .filter-chip.active {
-      background: #0d8a8a; border-color: #0d8a8a; color: white;
-      box-shadow: 0 2px 6px rgba(13,138,138,0.22);
+    .med-tab mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .med-tab .dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf50; }
+    .med-tab.on .dot { background: #fff; }
+    .mt-count {
+      font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+      background: #eef4f4; color: #0d8a8a;
     }
-    .filter-chip.active mat-icon { color: white; }
-    .filter-chip .dot {
-      width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+    .med-tab.on .mt-count { background: rgba(255,255,255,.22); color: #fff; }
+
+    .year-btn {
+      display: inline-flex; align-items: center; gap: 5px; margin-left: auto;
+      height: 38px; padding: 0 12px; border-radius: 999px;
+      border: 1.5px solid #d8e3e3; background: #f7fbfb;
+      font: inherit; font-size: 13px; font-weight: 700; color: #00695c;
+      cursor: pointer;
     }
-    .filter-chip .active-dot { background: #4caf50; }
-    .filter-chip .done-dot { background: #c0c8d0; }
-    .filter-chip.active .dot { background: white; }
+    .year-btn:hover:not([disabled]) { background: #e0f2f1; border-color: #80cbc4; }
+    .year-btn.is-off { background: #f5f7f7; border-color: #eceff1; color: #b0bec5; cursor: default; }
+    .year-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .yb-caret { opacity: .6; }
+
+    /* ---------- Active-tab custom date-range popover ---------- */
+    .cr-backdrop { position: fixed; inset: 0; z-index: 40; }
+    .cr-panel {
+      position: absolute; top: calc(100% + 8px); right: 0; z-index: 41;
+      width: 300px; max-width: calc(100vw - 32px);
+      background: #fff; border: 1px solid #d8e3e3; border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.16);
+      padding: 14px; animation: crPop 140ms cubic-bezier(.16,1,.3,1);
+    }
+    @keyframes crPop {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .cr-head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+    .cr-head mat-icon { color: #0d8a8a; font-size: 18px; width: 18px; height: 18px; }
+    .cr-head strong { font-size: 13.5px; color: #1b3a4b; }
+    .cr-fields { display: flex; flex-direction: column; gap: 10px; }
+    .cr-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #607d8b; font-weight: 600; }
+    .cr-field input {
+      height: 38px; padding: 0 10px; border: 1.5px solid #d8e3e3; border-radius: 9px;
+      font: inherit; font-size: 13px; color: #1b3a4b; background: #fff;
+    }
+    .cr-field input:focus { outline: none; border-color: #0d8a8a; }
+    .cr-err { margin: 10px 0 0; font-size: 12px; color: #d32f2f; font-weight: 600; line-height: 1.4; }
+    .cr-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    .cr-apply { background: #0d8a8a !important; color: #fff !important; }
+
+    /* ===== PAST MEDICATIONS ===== */
+    .past-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .past-item {
+      background: #fff; border: 1px solid #e9eeee; border-radius: 12px; overflow: hidden;
+    }
+    .pi-head {
+      display: flex; align-items: center; gap: 12px; width: 100%;
+      padding: 12px 14px; border: none; background: transparent;
+      font: inherit; text-align: left; cursor: pointer;
+    }
+    .pi-head:hover { background: #fafcfc; }
+    .pi-main { flex: 1; min-width: 0; }
+    .pi-line-1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .pi-line-1 strong { font-size: 14.5px; color: #1b3a4b; }
+    .pi-dose { font-size: 12.5px; color: #78909c; }
+    .pi-status.on { background: #e8f5e9; color: #2e7d32; }
+    .pi-status {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+      padding: 2px 8px; border-radius: 6px; background: #eceff1; color: #78909c;
+    }
+    .pi-meta {
+      display: flex; align-items: center; gap: 5px; margin-top: 3px;
+      font-size: 12px; color: #8a9a9a;
+    }
+    .pi-meta mat-icon { font-size: 13px; width: 13px; height: 13px; vertical-align: -2px; margin-right: 2px; }
+    .pi-dot { color: #cfd8dc; }
+    .pi-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .pi-count {
+      font-size: 11px; font-weight: 700; color: #0d8a8a;
+      background: #e0f2f1; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    }
+    .pi-caret { color: #b0bec5; transition: transform .16s; }
+    .pi-caret.open { transform: rotate(180deg); }
+
+    .pi-history {
+      list-style: none; margin: 0; padding: 4px 14px 12px 14px;
+      border-top: 1px dashed #eef2f2;
+    }
+    .pi-history li {
+      display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+      padding: 8px 0; border-bottom: 1px solid #f4f7f7;
+    }
+    .pi-history li:last-child { border-bottom: none; }
+    .ph-date { font-size: 12.5px; font-weight: 700; color: #1b3a4b; min-width: 165px; }
+    .ph-detail { font-size: 12.5px; color: #607d8b; flex: 1; min-width: 0; }
+    .ph-doc { font-size: 11.5px; color: #a5b0b0; }
+
+    /* ===== PAGER (Past only) ===== */
+    .pager {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-top: 16px;
+    }
+    .pg-arrow {
+      display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      min-height: 44px; padding: 0 16px;
+      border: 1.5px solid #d8e3e3; border-radius: 12px; background: #fff;
+      font: inherit; font-size: 13.5px; font-weight: 700; color: #00695c; cursor: pointer;
+    }
+    .pg-arrow:hover:not([disabled]) { background: #e0f2f1; border-color: #80cbc4; }
+    .pg-arrow[disabled] { color: #b0bec5; border-color: #eceff1; cursor: default; }
+    .pg-arrow mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .pg-pos { font-size: 13px; font-weight: 700; color: #1b3a4b; }
+
+    .empty-state {
+      text-align: center; padding: 44px 20px; color: #90a4ae;
+    }
+    .empty-state mat-icon { font-size: 40px; width: 40px; height: 40px; color: #cfd8dc; }
+    .empty-state h3 { margin: 10px 0 4px; font-size: 15px; color: #607d8b; }
+    .empty-state p { margin: 0; font-size: 13px; }
+
+    @media (max-width: 600px) {
+      .pg-arrow span { display: none; }
+      .pg-arrow { flex: 0 0 56px; padding: 0; min-height: 48px; }
+      .ph-date { min-width: 100%; }
+    }
 
     /* ===== TODAY'S ROUTINE — SESSION CARDS ===== */
     .routine-section {
@@ -556,7 +816,6 @@ interface SessionRoutine {
       .sb-name { font-size: 13.5px; }
       .sb-instr { font-size: 11px; }
       .sb-dose { font-size: 11.5px; padding: 3px 8px; }
-      .filter-chip { font-size: 12px; padding: 5px 10px; height: 30px; }
     }
   `]
 })
@@ -569,7 +828,66 @@ export class MedicationsComponent implements OnInit {
   readonly medications = signal<Medication[]>([]);
   readonly searchQuery = signal('');
   readonly selectedDoctor = signal<string>('all');
-  readonly activeFilter = signal<MedFilter>('all');
+
+  // ---- Status tabs (Active is the default surface) ----------------
+  readonly tab = signal<MedTab>('active');
+  readonly pastPage = signal(1);
+  /** 15 rows max per page, however wide the date range gets. */
+  readonly PAGE_SIZE = 15;
+
+  // ---- Completed-tab date range -----------------------------------
+  // Windows the completed archive by when each script ended. Presets plus a
+  // custom range; the custom span is capped at one year (MAX_RANGE_DAYS).
+  // Active is never date-filtered — a live script must show whenever it was
+  // prescribed — so this state applies to the Completed tab only.
+  readonly completedRangePresets = [
+    { days: 180, label: 'Last 6 months' },
+    { days: 270, label: 'Last 9 months' },
+    { days: 365, label: 'Last 1 year' }
+  ];
+  readonly COMPLETED_CUSTOM = -1;
+  readonly MAX_RANGE_DAYS = 366;
+  /** Default: last 6 months. */
+  readonly completedRangeDays = signal<number>(180);
+  readonly isCompletedCustom = computed(() => this.completedRangeDays() === this.COMPLETED_CUSTOM);
+  readonly today = new Date().toISOString().slice(0, 10);
+
+  /** Committed custom range (empty unless a custom range is active). */
+  readonly completedFrom = signal('');
+  readonly completedTo = signal('');
+  /** Draft values bound to the picker inputs. */
+  readonly crFrom = signal('');
+  readonly crTo = signal('');
+  readonly rangePickerOpen = signal(false);
+
+  /** Label on the date-filter button. */
+  readonly completedRangeLabel = computed<string>(() => {
+    if (this.isCompletedCustom()) {
+      const fmt = (iso: string) => {
+        const d = new Date(iso);
+        return Number.isNaN(d.getTime())
+          ? iso
+          : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      };
+      return `${fmt(this.completedFrom())} – ${fmt(this.completedTo())}`;
+    }
+    return this.completedRangePresets.find(p => p.days === this.completedRangeDays())?.label ?? 'Last 6 months';
+  });
+
+  /** Validation for the draft custom range (empty = valid). */
+  readonly crError = computed<string>(() => {
+    const from = this.crFrom();
+    const to = this.crTo();
+    if (!from || !to) return '';
+    if (from > to) return 'The "From" date must be on or before the "To" date.';
+    if (to > this.today) return 'The "To" date cannot be in the future.';
+    const spanDays = (Date.parse(to) - Date.parse(from)) / 86_400_000;
+    if (spanDays > this.MAX_RANGE_DAYS) {
+      return 'You can select up to 1 year at a time. Shorten the range and try again.';
+    }
+    return '';
+  });
+  private readonly openGroups = signal<ReadonlySet<string>>(new Set());
   readonly isOffline = signal(typeof navigator !== 'undefined' ? !navigator.onLine : false);
 
   // Sessions collapsed by user. Default: all expanded (empty set).
@@ -596,27 +914,109 @@ export class MedicationsComponent implements OnInit {
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  /** Meds visible after applying search, doctor, and active-filter (recent/active/completed). */
+  /** Meds visible after applying search and doctor only — status is the tab. */
   private readonly visibleMeds = computed<Medication[]>(() => {
     const q = this.searchQuery().trim().toLowerCase();
     const doc = this.selectedDoctor();
-    const filter = this.activeFilter();
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const thirtyDaysAgo = new Date(today); thirtyDaysAgo.setDate(today.getDate() - 30);
 
     return this.medications().filter(m => {
       if (doc !== 'all' && m.prescribedBy !== doc) return false;
       if (q && !m.name.toLowerCase().includes(q) && !m.dosage.toLowerCase().includes(q)) return false;
-      if (filter === 'active' && !this.isActive(m)) return false;
-      if (filter === 'completed' && this.isActive(m)) return false;
-      if (filter === 'recent' && new Date(m.startDate) < thirtyDaysAgo) return false;
       return true;
     });
   });
 
-  /** Today's Routine: 4 sessions, each with its meds. */
+  /**
+   * Everything currently being taken, whatever year it was prescribed in — the
+   * Active tab is never date-filtered by design (a live script must always
+   * show). Feeds the routine sessions, refill banner and count. Search + doctor
+   * already applied via visibleMeds.
+   */
+  readonly activeMeds = computed<Medication[]>(() =>
+    this.visibleMeds().filter(m => this.isActive(m))
+  );
+
+  /** Stopped / completed prescriptions — the archive. */
+  private readonly pastMeds = computed<Medication[]>(() =>
+    this.visibleMeds().filter(m => !this.isActive(m))
+  );
+
+  /** Completed prescriptions within the selected date range, keyed off when
+   *  each script ended (falling back to its start date). */
+  private readonly rangedPastMeds = computed<Medication[]>(() => {
+    const meds = this.pastMeds();
+    const dateOf = (m: Medication) => (m.endDate ?? m.startDate).slice(0, 10);
+    if (this.isCompletedCustom()) {
+      const from = this.completedFrom();
+      const to = this.completedTo();
+      return meds.filter(m => {
+        const d = dateOf(m);
+        return (!from || d >= from) && (!to || d <= to);
+      });
+    }
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - this.completedRangeDays());
+    const cutoffIso = cutoff.toISOString().slice(0, 10);
+    return meds.filter(m => dateOf(m) >= cutoffIso);
+  });
+
+  /**
+   * Rows for the Completed tab, grouped by drug + strength. A repeat course
+   * produces one row carrying the whole span and a count, expandable into the
+   * individual prescriptions — otherwise the same drug prints 20 times.
+   */
+  readonly pastGroups = computed<PastGroup[]>(() => {
+    const source = this.rangedPastMeds();
+
+    const map = new Map<string, Medication[]>();
+    for (const m of source) {
+      const key = `${m.name}|${m.dosage}`;
+      const bucket = map.get(key);
+      if (bucket) bucket.push(m);
+      else map.set(key, [m]);
+    }
+
+    return [...map.entries()]
+      .map(([key, meds]) => {
+        const sorted = [...meds].sort((a, b) =>
+          (b.endDate ?? b.startDate).localeCompare(a.endDate ?? a.startDate));
+        const earliest = sorted[sorted.length - 1];
+        const latest = sorted[0];
+        return {
+          key,
+          name: latest.name,
+          dosage: latest.dosage,
+          isActive: this.isActive(latest),
+          prescribedBy: latest.prescribedBy,
+          spanLabel: this.rangeLabel(earliest.startDate, latest.endDate),
+          lastEnd: latest.endDate ?? latest.startDate,
+          items: sorted.map(m => ({
+            id: m.id,
+            frequency: m.frequency,
+            instructions: m.instructions ?? '',
+            prescribedBy: m.prescribedBy,
+            rangeLabel: this.rangeLabel(m.startDate, m.endDate)
+          }))
+        };
+      })
+      .sort((a, b) => b.lastEnd.localeCompare(a.lastEnd));
+  });
+
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.pastGroups().length / this.PAGE_SIZE))
+  );
+
+  /** Clamped on read, so a filter change that shrinks the list can never
+   *  strand the patient on an empty page. */
+  readonly pagedGroups = computed<PastGroup[]>(() => {
+    const page = Math.min(this.pastPage(), this.totalPages());
+    const start = (page - 1) * this.PAGE_SIZE;
+    return this.pastGroups().slice(start, start + this.PAGE_SIZE);
+  });
+
+  /** Today's Routine: 4 sessions, each with its meds. Active only. */
   readonly sessionRoutines = computed<SessionRoutine[]>(() => {
-    const meds = this.visibleMeds();
+    const meds = this.activeMeds();
     return this.periods.map(p => ({
       period: p,
       icon: this.periodIcon(p),
@@ -634,15 +1034,83 @@ export class MedicationsComponent implements OnInit {
     }));
   });
 
-  readonly totalActiveMeds = computed<number>(() =>
-    this.visibleMeds().filter(m => this.isActive(m)).length
-  );
+  readonly totalActiveMeds = computed<number>(() => this.activeMeds().length);
+
+  // ---- Tab / paging behaviour -------------------------------------
+  setTab(t: MedTab): void {
+    this.tab.set(t);
+    this.pastPage.set(1);
+  }
+
+  // ---- Completed-tab date-range behaviour --------------------------
+  /** Pick a preset window; clears any committed custom range. */
+  setCompletedRange(days: number): void {
+    this.completedRangeDays.set(days);
+    this.completedFrom.set('');
+    this.completedTo.set('');
+    this.pastPage.set(1);
+  }
+
+  /** Open the custom-range popover, seeding the draft from the committed range
+   *  or a sensible default (last 6 months) so it never opens empty. */
+  openRangePicker(): void {
+    if (this.completedFrom() && this.completedTo()) {
+      this.crFrom.set(this.completedFrom());
+      this.crTo.set(this.completedTo());
+    } else {
+      const start = new Date();
+      start.setDate(start.getDate() - 180);
+      this.crFrom.set(start.toISOString().slice(0, 10));
+      this.crTo.set(this.today);
+    }
+    this.rangePickerOpen.set(true);
+  }
+
+  cancelRangePicker(): void {
+    this.rangePickerOpen.set(false);
+  }
+
+  applyRangePicker(): void {
+    if (this.crError() || !this.crFrom() || !this.crTo()) return;
+    this.completedFrom.set(this.crFrom());
+    this.completedTo.set(this.crTo());
+    this.completedRangeDays.set(this.COMPLETED_CUSTOM);
+    this.rangePickerOpen.set(false);
+    this.pastPage.set(1);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeRangePicker(): void {
+    if (this.rangePickerOpen()) this.cancelRangePicker();
+  }
+
+  goToPast(target: number): void {
+    this.pastPage.set(Math.min(Math.max(1, target), this.totalPages()));
+  }
+
+  isGroupOpen(key: string): boolean {
+    return this.openGroups().has(key);
+  }
+
+  toggleGroup(key: string): void {
+    this.openGroups.update(s => {
+      const next = new Set(s);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  /** "12 Feb 2024 – 08 Aug 2024", or "Since 12 Feb 2024" when still open. */
+  private rangeLabel(start: string, end?: string): string {
+    const fmt = (iso: string) =>
+      new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return end ? `${fmt(start)} – ${fmt(end)}` : `Since ${fmt(start)}`;
+  }
 
   /** Active meds predicted to run out soon (low / critical / out), de-duped —
    *  drives the "running low" reminder banner. */
   readonly refillNeeded = computed<{ med: Medication; supply: SupplyInfo }[]>(() =>
-    this.visibleMeds()
-      .filter(m => this.isActive(m))
+    this.activeMeds()
       .map(m => ({ med: m, supply: this.supplyInfo(m) }))
       .filter((x): x is { med: Medication; supply: SupplyInfo } =>
         x.supply !== null && x.supply.status !== 'ok')

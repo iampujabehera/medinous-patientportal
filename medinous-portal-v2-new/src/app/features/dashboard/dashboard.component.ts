@@ -18,6 +18,7 @@ import { FormsModule } from '@angular/forms';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
 import { ApiService } from '../../core/services/api.service';
+import { FeedbackService } from '../../core/services/feedback.service';
 import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation, ConsultationInvestigation } from '../../core/models/patient.model';
 
 type CareItemKind = 'lab-ready' | 'lab-prescribed' | 'followup';
@@ -308,15 +309,27 @@ interface SpecialtyTile {
           <span class="ff-rating-label">{{ ratingWord(feedbackRating()) }}</span>
         </div>
 
-        <!-- What this feedback is about -->
-        <label class="ff-label">What is your feedback about?</label>
+        <!-- What this feedback is about — the visit being reviewed.
+             REQ 8.6.5 lists every eligible appointment; 8.6.6 shows the
+             identifying details (doctor, specialty, date, time, type);
+             8.6.7 always surfaces the time so two visits with the same
+             doctor on the same day stay distinguishable; 8.6.8 selecting
+             a row targets the feedback at that appointment. -->
+        <label class="ff-label">Which visit is this feedback for?</label>
         <mat-form-field appearance="outline" class="ff-full" subscriptSizing="dynamic">
           <mat-select [ngModel]="ffVisit()" (ngModelChange)="ffVisit.set($event)"
-                      placeholder="Select a visit">
+                      panelClass="ff-visit-panel" placeholder="Select a visit">
+            <mat-select-trigger>{{ selectedVisitLabel() }}</mat-select-trigger>
+
             <mat-option value="general">General hospital experience</mat-option>
-            @for (c of recentVisitOptions(); track c.id) {
+
+            @for (c of eligibleFeedbackAppointments(); track c.id) {
               <mat-option [value]="c.id">
-                {{ c.doctorName }} · {{ c.doctorSpecialty }} · {{ c.date | date:'mediumDate' }}
+                <span class="ff-opt-name">{{ c.doctorName }}</span>
+                <span class="ff-opt-meta">
+                  {{ c.doctorSpecialty }} · {{ c.date | date:'d MMM yyyy' }} ·
+                  {{ c.date | date:'h:mm a' }} · {{ feedbackTypeLabel(c.type) }}
+                </span>
               </mat-option>
             }
           </mat-select>
@@ -1183,6 +1196,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly feedbackService = inject(FeedbackService);
 
   @ViewChild('feedbackFormTpl', { static: true })
   private readonly feedbackFormTpl!: TemplateRef<unknown>;
@@ -1251,6 +1265,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly ffPositives = signal<Set<string>>(new Set());
   readonly ffNegatives = signal<Set<string>>(new Set());
   readonly ffComments = signal<string>('');
+  // Appointment ids that already have feedback submitted this session —
+  // they're filtered out of the eligible list (REQ 8.6.5 / 8.6.9).
+  readonly submittedFeedbackIds = signal<Set<string>>(new Set());
 
   readonly positiveTags = [
     'Friendly staff', 'Clean facility', 'Short wait time',
@@ -1273,7 +1290,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { label: 'Medications', icon: 'medication', route: '/medications', color: '#ef6c00' },
     { label: 'Records', icon: 'folder_shared', route: '/timeline', color: '#00897b' },
     { label: 'Payments', icon: 'payments', route: '/payments', color: '#43a047' },
-    { label: 'Telehealth', icon: 'videocam', route: '/appointments', color: '#1565c0' }
+    { label: 'Telehealth', icon: 'videocam', route: '/telehealth', color: '#1565c0' }
   ];
 
   readonly specialtyTiles: SpecialtyTile[] = [
@@ -1587,15 +1604,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   submitFullFeedback(): void {
-    // In a real build, POST to feedback endpoint. For demo, just log + thank-you.
+    const visitId = this.ffVisit();
+    const appt = visitId === 'general'
+      ? null
+      : this.consultations().find(c => c.id === visitId) ?? null;
+
+    // REQ 8.6.9 — associate the feedback with the selected appointment in
+    // HMIS. Written as a header row keyed to the OUTPATIENT ENCOUNTER
+    // (OP No. + OP Date + doctor) plus one detail row per question, which
+    // is exactly how the hospital's Patient Feedback Report reads it.
+    // ALWAYS persist. When no visit was chosen ("General hospital
+    // experience") the encounter fields are simply omitted and the row is
+    // stored as hospital-level feedback — we never discard a submission.
+    const patient = this.data()?.patient;
+    this.feedbackService.submitFeedback({
+      patientId: patient?.id ?? '',
+      patientName: `${patient?.firstName ?? ''} ${patient?.lastName ?? ''}`.trim(),
+      opNumber: appt?.opNumber ?? appt?.id,
+      opDate: appt?.date,
+      doctorName: appt?.doctorName,
+      specialty: appt?.doctorSpecialty,
+      consultationType: appt?.type,
+      rating: this.feedbackRating(),
+      positives: Array.from(this.ffPositives()),
+      negatives: Array.from(this.ffNegatives()),
+      comments: this.ffComments(),
+      source: 'patient_portal'
+    });
+
+    if (appt) {
+      this.submittedFeedbackIds.update(s => {
+        const next = new Set(s);
+        next.add(appt.id);
+        return next;
+      });
+    }
+
+    const ctx = appt
+      ? `for your ${this.feedbackTypeLabel(appt.type).toLowerCase()} with ${appt.doctorName}`
+      : 'about your hospital experience';
     this.snackBar.open(
-      `Thanks for your feedback (${this.feedbackRating()}★) — your responses help us improve`,
+      `Thanks for your feedback (${this.feedbackRating()}★) ${ctx}`,
       'Close',
       { duration: 4000 }
     );
+
     this.feedbackFormOpen.set(false);
     this.feedbackDismissed.set(true);
     // Reset form so re-opening starts fresh next time
+    this.feedbackRating.set(0);
     this.ffPositives.set(new Set());
     this.ffNegatives.set(new Set());
     this.ffComments.set('');
@@ -1607,12 +1664,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return ({ 1: 'Poor', 2: 'Fair', 3: 'Okay', 4: 'Good', 5: 'Excellent' } as Record<number, string>)[rating] ?? '';
   }
 
-  readonly recentVisitOptions = computed(() =>
-    this.consultations()
+  /**
+   * REQ 8.6.5 — every appointment eligible for feedback. Eligible = a
+   * past (completed) visit the patient has not already reviewed. Past
+   * visits come from the consultation history; once feedback is submitted
+   * for one (REQ 8.6.9) its id lands in `submittedFeedbackIds` and it
+   * drops off this list. Sorted most-recent first.
+   */
+  readonly eligibleFeedbackAppointments = computed(() => {
+    const reviewedOps = this.feedbackService.reviewedOpNumbers();
+    return this.consultations()
       .slice()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5)
-  );
+      .filter(c => !this.submittedFeedbackIds().has(c.id))
+      .filter(c => !reviewedOps.has(c.opNumber ?? c.id));
+  });
+
+  /** Human label for the consultation type (REQ 8.6.6). */
+  feedbackTypeLabel(type: Consultation['type']): string {
+    return type === 'telehealth' ? 'Video Consultation' : 'Hospital Visit';
+  }
+
+  /**
+   * Single-line label for the closed dropdown. Keeps doctor + date + time
+   * visible (REQ 8.6.6 / 8.6.7) without wrapping the collapsed field.
+   */
+  readonly selectedVisitLabel = computed(() => {
+    const id = this.ffVisit();
+    if (id === 'general') return 'General hospital experience';
+    const c = this.consultations().find(x => x.id === id);
+    if (!c) return 'Select a visit';
+    const d = new Date(c.date);
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${c.doctorName} · ${date}, ${time}`;
+  });
 
   dismissAlert(id: string): void {
     const d = this.data();

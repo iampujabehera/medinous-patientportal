@@ -27,12 +27,26 @@ export const routes: Routes = [
         loadChildren: () => import('./features/medications/medications.routes').then(m => m.MEDICATIONS_ROUTES)
       },
       {
+        path: 'telehealth',
+        loadChildren: () => import('./features/telehealth/telehealth.routes').then(m => m.TELEHEALTH_ROUTES)
+      },
+      {
         path: 'payments',
         loadChildren: () => import('./features/payments/payments.routes').then(m => m.PAYMENTS_ROUTES)
       },
       {
         path: 'profile',
         loadChildren: () => import('./features/profile/profile.routes').then(m => m.PROFILE_ROUTES)
+      },
+      {
+        path: 'my-feedback',
+        loadChildren: () => import('./features/my-feedback/my-feedback.routes').then(m => m.MY_FEEDBACK_ROUTES)
+      },
+      {
+        // Back-office view: the HMIS Patient Feedback Report (row per
+        // question). Not in the patient sidenav — reached directly.
+        path: 'feedback-report',
+        loadChildren: () => import('./features/feedback-report/feedback-report.routes').then(m => m.FEEDBACK_REPORT_ROUTES)
       },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

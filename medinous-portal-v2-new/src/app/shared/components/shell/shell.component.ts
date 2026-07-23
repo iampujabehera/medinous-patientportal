@@ -16,11 +16,12 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { A11yModule } from '@angular/cdk/a11y';
 import { FormsModule } from '@angular/forms';
 import { GeographyService } from '../../../core/services/geography.service';
 import { I18nService, SupportedLang } from '../../../core/services/i18n.service';
 import { LocationService } from '../../../core/services/location.service';
-import { FamilyService } from '../../../core/services/family.service';
+import { FamilyService, HmisPatientRecord } from '../../../core/services/family.service';
 import { SelectPatientComponent } from '../../../features/select-patient/select-patient.component';
 import { SignupHandoffService, SignupPrefill } from '../../../core/services/signup-handoff.service';
 import { TranslatePipe } from '../../pipes/translate.pipe';
@@ -34,6 +35,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     MatIconModule, MatButtonModule, MatMenuModule, MatSelectModule,
     MatDividerModule, MatChipsModule, MatTooltipModule, MatCardModule,
     MatCheckboxModule, MatFormFieldModule, MatInputModule, MatSnackBarModule, FormsModule,
+    A11yModule,
     TranslatePipe,
     SelectPatientComponent
   ],
@@ -523,7 +525,13 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   <button mat-button class="back-btn" (click)="setMode('signin')">
                     <mat-icon>arrow_back</mat-icon> Back to sign in
                   </button>
-                  <h2 class="login-title">Create your account</h2>
+                  <h2 class="login-title">
+                    @switch (signupStep()) {
+                      @case (2) { Verify your mobile }
+                      @case (3) { Complete your registration }
+                      @default { Create your account }
+                    }
+                  </h2>
 
                   <div class="stepper">
                     <div class="step" [class.active]="signupStep() >= 1" [class.done]="signupStep() > 1">
@@ -538,40 +546,15 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                     <div class="step-line" [class.done]="signupStep() > 2"></div>
                     <div class="step" [class.active]="signupStep() >= 3">
                       <span class="step-num">3</span>
-                      <span class="step-label">Password</span>
+                      <span class="step-label">Account</span>
                     </div>
                   </div>
 
                   @if (signupStep() === 1) {
-                    <p class="step-desc">Enter your details to begin registration.</p>
-
-                    <div class="signup-row">
-                      <mat-form-field appearance="outline" class="login-field signup-half">
-                        <mat-label>First Name</mat-label>
-                        <mat-icon matPrefix>person</mat-icon>
-                        <input matInput maxlength="60"
-                               [ngModel]="signupFirstName()"
-                               (ngModelChange)="signupFirstName.set($event)"
-                               placeholder="As per National ID">
-                        @if (fnInvalid()) {
-                          <mat-error>{{ signupFirstName().trim().length === 0 ? 'First name is required' : 'Maximum 60 characters' }}</mat-error>
-                        }
-                      </mat-form-field>
-
-                      <mat-form-field appearance="outline" class="login-field signup-half">
-                        <mat-label>Last Name</mat-label>
-                        <input matInput maxlength="60"
-                               [ngModel]="signupLastName()"
-                               (ngModelChange)="signupLastName.set($event)"
-                               placeholder="Family name">
-                        @if (lnInvalid()) {
-                          <mat-error>{{ signupLastName().trim().length === 0 ? 'Last name is required' : 'Maximum 60 characters' }}</mat-error>
-                        }
-                      </mat-form-field>
-                    </div>
+                    <p class="step-desc">Enter your ID and mobile number to begin.</p>
 
                     <mat-form-field appearance="outline" class="login-field">
-                      <mat-label>National ID / Patient ID</mat-label>
+                      <mat-label>National ID / Patient ID (optional)</mat-label>
                       <mat-icon matPrefix>badge</mat-icon>
                       <input matInput inputmode="numeric" maxlength="8"
                              [ngModel]="signupCpr()"
@@ -584,38 +567,78 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                       }
                     </mat-form-field>
 
-                    <div class="signup-row phone-row">
-                      <mat-form-field appearance="outline" class="login-field signup-cc">
-                        <mat-label>Code</mat-label>
-                        <mat-select [ngModel]="signupCountryCode()" (ngModelChange)="signupCountryCode.set($event)">
-                          @for (cc of countryCodes; track cc.code) {
-                            <mat-option [value]="cc.code">{{ cc.code }} · {{ cc.country }}</mat-option>
-                          }
-                        </mat-select>
-                      </mat-form-field>
+                    <!-- Unified phone field: country code + number in one
+                         control (flag box opens the country menu; the dial
+                         code sits inline as the input's prefix). -->
+                    <label class="signup-phone-label">
+                      Mobile Number <span class="req-ast" aria-hidden="true">*</span>
+                    </label>
+                    <div class="phone-row-split">
+                      <button type="button" class="cc-box"
+                              [matMenuTriggerFor]="signupCcMenu"
+                              [attr.aria-label]="'Country: ' + signupCountry().country">
+                        <img class="cc-flag-img"
+                             [src]="flagUrl(signupCountry().iso)"
+                             [alt]="signupCountry().country + ' flag'"
+                             width="28" height="20" loading="eager">
+                        <mat-icon class="cc-caret">expand_more</mat-icon>
+                      </button>
 
-                      <mat-form-field appearance="outline" class="login-field signup-phone">
-                        <mat-label>Mobile Number</mat-label>
-                        <mat-icon matPrefix>phone</mat-icon>
-                        <input matInput inputmode="numeric" maxlength="10"
+                      <div class="phone-field"
+                           [class.phone-field-valid]="signupPhone().length === 10"
+                           [class.phone-field-warn]="signupPhone().length > 0 && signupPhone().length < 10">
+                        <span class="phone-prefix">{{ signupCountry().code }}</span>
+                        <input class="phone-input"
+                               type="tel"
+                               name="signup-phone"
+                               autocomplete="tel-national"
+                               inputmode="numeric"
+                               maxlength="10"
+                               required aria-required="true"
                                [ngModel]="signupPhone()"
                                (ngModelChange)="onSignupPhoneInput($event)"
-                               placeholder="10-digit number">
-                        @if (phInvalid()) {
-                          <mat-error>Mobile number must be exactly 10 digits</mat-error>
-                        } @else {
-                          <mat-hint align="end">{{ signupPhone().length }}/10</mat-hint>
+                               placeholder="Mobile number"
+                               aria-label="Mobile number">
+                        @if (signupPhone().length > 0) {
+                          <button class="phone-clear" type="button"
+                                  (click)="onSignupPhoneInput('')"
+                                  aria-label="Clear mobile number">
+                            <mat-icon>cancel</mat-icon>
+                          </button>
                         }
-                      </mat-form-field>
-                    </div>
+                      </div>
 
-                    <button mat-flat-button class="login-btn" (click)="sendSignupOtp()">
+                      <mat-menu #signupCcMenu="matMenu" class="cc-menu">
+                        @for (cc of countryCodes; track cc.code) {
+                          <button mat-menu-item type="button"
+                                  (click)="signupCountryCode.set(cc.code)">
+                            <img class="cc-menu-flag-img"
+                                 [src]="flagUrl(cc.iso)"
+                                 [alt]="cc.country + ' flag'"
+                                 width="22" height="16" loading="lazy">
+                            <span class="cc-menu-text">
+                              <strong>{{ cc.country }}</strong>
+                              <span class="cc-menu-code">{{ cc.code }}</span>
+                            </span>
+                            @if (signupCountryCode() === cc.code) {
+                              <mat-icon class="cc-menu-tick">check</mat-icon>
+                            }
+                          </button>
+                        }
+                      </mat-menu>
+                    </div>
+                    @if (phInvalid()) {
+                      <p class="signup-phone-error">Mobile number is required (10 digits)</p>
+                    }
+
+                    <button mat-flat-button class="login-btn"
+                            [disabled]="!signupStep1Valid()" (click)="sendSignupOtp()">
                       Send OTP <mat-icon>send</mat-icon>
                     </button>
                   }
 
                   @if (signupStep() === 2) {
-                    <p class="step-desc">We sent a 6-digit code to the mobile number registered with ID <strong>{{ signupCpr() }}</strong>.</p>
+                    <p class="step-desc">We sent a 6-digit code to <strong>{{ signupCountryCode() }} {{ signupPhone() }}</strong>.</p>
                     <mat-form-field appearance="outline" class="login-field">
                       <mat-label>Enter OTP</mat-label>
                       <mat-icon matPrefix>sms</mat-icon>
@@ -633,43 +656,74 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                   }
 
                   @if (signupStep() === 3) {
-                    <p class="step-desc">How would you like to set your password?</p>
-                    <div class="pwd-choice">
-                      <label class="choice-card" [class.selected]="passwordChoice() === 'hospital'">
-                        <input type="radio" name="pwdChoice" value="hospital"
-                               [checked]="passwordChoice() === 'hospital'"
-                               (change)="passwordChoice.set('hospital')">
-                        <mat-icon>business</mat-icon>
-                        <div class="choice-text">
-                          <strong>Use the password from hospital</strong>
-                          <span>The one given to you at registration</span>
-                        </div>
-                      </label>
-                      <label class="choice-card" [class.selected]="passwordChoice() === 'own'">
-                        <input type="radio" name="pwdChoice" value="own"
-                               [checked]="passwordChoice() === 'own'"
-                               (change)="passwordChoice.set('own')">
-                        <mat-icon>vpn_key</mat-icon>
-                        <div class="choice-text">
-                          <strong>Set my own password</strong>
-                          <span>Choose a new password right now</span>
-                        </div>
-                      </label>
+                    <!-- ACCOUNT STEP — identity is HMIS-sourced after OTP.
+                         When a single record (or a picked profile) backs
+                         this account, First/Last/DOB are verified and
+                         read-only; only Create Password stays editable.
+                         With no HMIS match every field is empty & editable
+                         so the user can self-register. -->
+                    @if (signupHmisLocked()) {
+                      <p class="step-desc">Details verified from your hospital record — just set a password to finish.</p>
+                    } @else {
+                      <p class="step-desc">We couldn't find an existing record — let's create one.</p>
+                    }
+
+                    <div class="signup-row">
+                      <mat-form-field appearance="outline" class="login-field signup-half">
+                        <mat-label>First Name</mat-label>
+                        <mat-icon matPrefix>person</mat-icon>
+                        <input matInput maxlength="60"
+                               [readonly]="signupHmisLocked()"
+                               [ngModel]="signupFirstName()"
+                               (ngModelChange)="signupFirstName.set($event)"
+                               placeholder="First name">
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="login-field signup-half">
+                        <mat-label>Last Name</mat-label>
+                        <input matInput maxlength="60"
+                               [readonly]="signupHmisLocked()"
+                               [ngModel]="signupLastName()"
+                               (ngModelChange)="signupLastName.set($event)"
+                               placeholder="Last name">
+                      </mat-form-field>
                     </div>
 
-                    @if (passwordChoice() === 'own') {
-                      <mat-form-field appearance="outline" class="login-field">
-                        <mat-label>New Password</mat-label>
-                        <mat-icon matPrefix>lock</mat-icon>
-                        <input matInput type="password"
-                               [ngModel]="signupNewPassword()"
-                               (ngModelChange)="signupNewPassword.set($event)"
-                               placeholder="Minimum 6 characters">
-                      </mat-form-field>
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>Date of Birth</mat-label>
+                      <mat-icon matPrefix>cake</mat-icon>
+                      <input matInput type="date"
+                             [readonly]="signupHmisLocked()"
+                             [max]="today"
+                             [ngModel]="signupDob()"
+                             (ngModelChange)="signupDob.set($event)">
+                    </mat-form-field>
+
+                    <!-- Create Password — the patient sets their own portal password. -->
+                    <mat-form-field appearance="outline" class="login-field">
+                      <mat-label>Create Password</mat-label>
+                      <mat-icon matPrefix>lock</mat-icon>
+                      <input matInput [type]="showSignupPwd() ? 'text' : 'password'"
+                             autocomplete="new-password"
+                             [ngModel]="signupNewPassword()"
+                             (ngModelChange)="signupNewPassword.set($event)"
+                             placeholder="Minimum 6 characters">
+                      <button mat-icon-button matSuffix type="button"
+                              (click)="showSignupPwd.set(!showSignupPwd())"
+                              [attr.aria-label]="showSignupPwd() ? 'Hide password' : 'Show password'">
+                        <mat-icon>{{ showSignupPwd() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                      </button>
+                    </mat-form-field>
+
+                    @if (signupAlreadyRegistered()) {
+                      <div class="hmis-registered-note" role="status">
+                        <mat-icon>info</mat-icon>
+                        <span>A Patient Portal account already exists for this patient. Please Sign In or use Forgot Password.</span>
+                      </div>
                     }
 
                     <button mat-flat-button class="login-btn"
-                            [disabled]="!passwordChoice() || (passwordChoice() === 'own' && signupNewPassword().length < 6)"
+                            [disabled]="!accountStepValid()"
                             (click)="completeSignup()">
                       Create Account <mat-icon>check_circle</mat-icon>
                     </button>
@@ -757,6 +811,79 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               Secured by
               <img src="medinous-logo.svg" alt="Medinous" class="medinous-logo-foot">
             </p>
+
+            <!-- ================================================= -->
+            <!-- ACCOUNT STEP · SELECT PATIENT PROFILE MODAL       -->
+            <!-- Multiple HMS records share the verified mobile.   -->
+            <!-- Mandatory pick: backdrop / ESC do NOT dismiss     -->
+            <!-- (cancellation is not allowed). Focus is trapped   -->
+            <!-- inside the dialog and auto-captured on open.      -->
+            <!-- ================================================= -->
+            @if (loginMode() === 'create' && signupProfileModalOpen()) {
+              <div class="pp-backdrop">
+                <div class="pp-modal" role="dialog" aria-modal="true"
+                     aria-labelledby="pp-title" aria-describedby="pp-sub"
+                     cdkTrapFocus cdkTrapFocusAutoCapture>
+                  <header class="pp-head">
+                    <div class="pp-head-text">
+                      <strong id="pp-title">Select Patient Profile</strong>
+                      <span id="pp-sub">Multiple patient records were found for this mobile number. Select the profile you want to register.</span>
+                    </div>
+                  </header>
+
+                  <ul class="pp-list" role="listbox" aria-label="Patient profiles">
+                    @for (p of signupProfileChoices(); track p.patientId) {
+                      <li>
+                        <button type="button" class="pp-card"
+                                role="option" [attr.aria-selected]="false"
+                                (click)="selectSignupProfile(p)">
+                          <span class="pp-avatar" [class.pp-avatar-female]="p.gender === 'Female'">
+                            {{ hmisInitials(p) }}
+                          </span>
+                          <span class="pp-card-text">
+                            <span class="pp-card-name">{{ p.fullName }}</span>
+                            <span class="pp-card-meta">
+                              ID {{ p.patientId }} · {{ formatHmisDob(p.dateOfBirth) }}
+                              @if (p.gender) { · {{ p.gender }} }
+                            </span>
+                          </span>
+                          <mat-icon class="pp-chevron">chevron_right</mat-icon>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+
+                  <footer class="pp-foot">
+                    <button type="button" class="pp-manual-link" (click)="signupRegisterManually()">
+                      None of these — register manually
+                    </button>
+                  </footer>
+                </div>
+              </div>
+            }
+
+            <!-- ================================================= -->
+            <!-- ACCOUNT STEP · ALREADY-REGISTERED INFO DIALOG     -->
+            <!-- Dismissible (ESC / backdrop / OK all close it).   -->
+            <!-- ================================================= -->
+            @if (loginMode() === 'create' && signupRegisteredDialogOpen()) {
+              <div class="pp-backdrop" (click)="signupRegisteredDialogOpen.set(false)">
+                <div class="pp-info" role="alertdialog" aria-modal="true"
+                     aria-labelledby="pp-info-title" aria-describedby="pp-info-body"
+                     cdkTrapFocus cdkTrapFocusAutoCapture
+                     (click)="$event.stopPropagation()">
+                  <div class="pp-info-icon"><mat-icon>info</mat-icon></div>
+                  <h3 id="pp-info-title" class="pp-info-title">Account already exists</h3>
+                  <p id="pp-info-body" class="pp-info-body">
+                    A Patient Portal account already exists for this patient. Please Sign In or use Forgot Password.
+                  </p>
+                  <div class="pp-info-actions">
+                    <button mat-stroked-button (click)="signupGoForgot()">Forgot Password</button>
+                    <button mat-flat-button class="pp-info-primary" (click)="signupGoSignIn()">Sign In</button>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
       }
@@ -1989,38 +2116,23 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     .phone-row { gap: 8px; }
     .signup-cc { width: 110px; flex-shrink: 0; }
     .signup-phone { flex: 1; min-width: 0; }
+    /* Mandatory-field asterisk on the Mobile Number label. */
+    .req-ast { color: #d32f2f; font-weight: 700; }
+    /* Label + error line for the unified signup phone field (which isn't a
+       mat-form-field, so it has no floating label / mat-error of its own). */
+    .signup-phone-label {
+      display: block;
+      margin: 2px 0 6px 2px;
+      font-size: 12.5px; font-weight: 500; color: rgba(0,0,0,0.6);
+    }
+    .signup-phone-error {
+      margin: 6px 0 0 2px;
+      font-size: 12px; color: #d32f2f; font-weight: 500;
+    }
     @media (max-width: 420px) {
       .signup-row { flex-direction: column; gap: 0; }
       .signup-cc { width: 100%; }
     }
-
-    /* ---------- Password choice cards ---------- */
-    .pwd-choice {
-      display: flex; flex-direction: column; gap: 10px;
-      margin-bottom: 14px;
-    }
-    .choice-card {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px; border-radius: 10px;
-      border: 2px solid #e3ecec; background: #fafcfc;
-      cursor: pointer; transition: all 0.2s;
-    }
-    .choice-card:hover { border-color: #80cbc4; background: #f5fafa; }
-    .choice-card.selected {
-      border-color: #0d8a8a; background: #e0f2f1;
-      box-shadow: 0 2px 8px rgba(13,138,138,0.15);
-    }
-    .choice-card input[type="radio"] {
-      accent-color: #0d8a8a; width: 18px; height: 18px; flex-shrink: 0;
-      margin: 0;
-    }
-    .choice-card mat-icon {
-      color: #0d8a8a; font-size: 24px; width: 24px; height: 24px;
-      flex-shrink: 0;
-    }
-    .choice-text { display: flex; flex-direction: column; gap: 2px; }
-    .choice-text strong { font-size: 14px; color: #1b3a4b; font-weight: 600; }
-    .choice-text span { font-size: 12px; color: #777; }
 
     /* ---------- Footer ---------- */
     .powered-by-foot {
@@ -2664,6 +2776,162 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         margin: 0; border-radius: 0;
       }
     }
+
+    /* =========================================================
+       ACCOUNT STEP — HMIS verified-record note + already-
+       registered notice. Same type/spacing language as the
+       existing signup card. */
+    .hmis-registered-note {
+      display: flex; align-items: flex-start; gap: 8px;
+      margin: 0 0 12px; padding: 10px 12px;
+      background: #fff8e1; border: 1px solid #ffe0a3;
+      border-radius: 10px;
+      font-size: 12.5px; color: #6b5b3e; line-height: 1.45;
+    }
+    .hmis-registered-note mat-icon {
+      font-size: 18px; width: 18px; height: 18px; color: #b45309;
+      flex: 0 0 auto;
+    }
+
+    /* =========================================================
+       SELECT PATIENT PROFILE MODAL + ALREADY-REGISTERED DIALOG
+       Mobile-first bottom sheet → centred popup on ≥769px, in
+       lockstep with the family picker (select-patient) so both
+       account-selection surfaces feel like one component.
+       ========================================================= */
+    .pp-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 35, 41, 0.42);
+      backdrop-filter: blur(2px);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 1300;
+      animation: ppFade 160ms ease-out;
+    }
+    @keyframes ppFade { from { opacity: 0; } to { opacity: 1; } }
+
+    .pp-modal {
+      width: 100%; max-width: 480px; max-height: 90vh;
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+      display: flex; flex-direction: column; overflow: hidden;
+      animation: ppSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes ppSlideUp {
+      from { transform: translateY(100%); opacity: 0.4; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .pp-modal::before {
+      content: ''; display: block;
+      width: 36px; height: 4px;
+      background: #d8e3e3; border-radius: 999px;
+      margin: 8px auto 0; flex-shrink: 0;
+    }
+
+    .pp-head {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #eef2f2;
+    }
+    .pp-head-text { display: flex; flex-direction: column; }
+    .pp-head-text strong { font-size: 16px; font-weight: 700; color: #111827; }
+    .pp-head-text span { font-size: 12px; color: #6b7280; margin-top: 4px; line-height: 1.45; }
+
+    .pp-list {
+      list-style: none; padding: 8px; margin: 0;
+      overflow-y: auto; flex: 1 1 auto;
+    }
+    .pp-list li { margin: 0; }
+    .pp-card {
+      width: 100%;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px; margin-bottom: 6px;
+      background: #fff;
+      border: 1px solid #e2e8f0; border-radius: 12px;
+      cursor: pointer; text-align: left; font: inherit; color: inherit;
+      transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    }
+    .pp-card:hover {
+      background: #f0f9f8; border-color: #80cbc4;
+      box-shadow: 0 2px 8px rgba(0, 137, 123, 0.10);
+    }
+    .pp-card:focus-visible { outline: 2px solid #00897b; outline-offset: 1px; }
+    .pp-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #00897b, #00bfa5);
+      color: #fff; font-weight: 700; font-size: 14px;
+      display: inline-flex; align-items: center; justify-content: center;
+      letter-spacing: 0.4px; flex: 0 0 auto;
+    }
+    .pp-avatar-female { background: linear-gradient(135deg, #d81b60, #f06292); }
+    .pp-card-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .pp-card-name {
+      font-size: 14px; font-weight: 700; color: #111827;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pp-card-meta {
+      font-size: 11.5px; color: #6b7280; margin-top: 3px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pp-chevron { color: #cbd5e1; font-size: 22px; width: 22px; height: 22px; flex: 0 0 auto; }
+    .pp-foot {
+      padding: 10px 16px 16px;
+      border-top: 1px solid #eef2f2;
+      display: flex; justify-content: center;
+    }
+    .pp-manual-link {
+      background: none; border: none; padding: 6px 4px;
+      color: #00897b; font: inherit; font-size: 12.5px; font-weight: 700;
+      cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+    }
+    .pp-manual-link:hover { color: #00695c; }
+    .pp-manual-link:focus-visible { outline: 2px solid #80cbc4; outline-offset: 2px; border-radius: 4px; }
+
+    /* Already-registered info dialog — a compact centred alert. */
+    .pp-info {
+      width: 100%; max-width: 420px;
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+      padding: 24px 22px 20px;
+      text-align: center;
+      animation: ppSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .pp-info-icon {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: #e3f2fd; color: #1565c0;
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+    }
+    .pp-info-icon mat-icon { font-size: 28px; width: 28px; height: 28px; }
+    .pp-info-title { margin: 0 0 8px; font-size: 17px; font-weight: 700; color: #111827; }
+    .pp-info-body { margin: 0 0 20px; font-size: 13.5px; color: #4b5563; line-height: 1.5; }
+    .pp-info-actions { display: flex; gap: 10px; justify-content: center; }
+    .pp-info-actions button {
+      height: 42px !important; font-weight: 600 !important;
+      border-radius: 10px !important; padding: 0 20px !important;
+    }
+    .pp-info-primary { background: #00897b !important; color: #fff !important; }
+
+    @media (min-width: 769px) {
+      .pp-backdrop { align-items: center; padding: 16px; }
+      .pp-modal {
+        max-width: 460px; max-height: calc(100vh - 32px);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+        animation: ppPop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .pp-modal::before { display: none; }
+      .pp-info { border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22); }
+    }
+    @keyframes ppPop {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+
+    @media (max-width: 768px) {
+      .pp-modal { max-width: 100%; max-height: 92vh; border-radius: 18px 18px 0 0; }
+      .pp-info { max-width: 100%; border-radius: 18px 18px 0 0; }
+    }
   `]
 })
 export class ShellComponent {
@@ -2895,7 +3163,39 @@ export class ShellComponent {
   readonly signupAttempted = signal(false);
   readonly signupOtp = signal('');
   readonly signupNewPassword = signal('');
-  readonly passwordChoice = signal<'hospital' | 'own' | null>(null);
+
+  // ---- Account step (post-OTP HMIS lookup) --------------------------
+  // After OTP verification we look the patient up in HMIS and drive the
+  // Account step from the result: 1 record → auto-populate + lock name/
+  // DOB; 0 → empty editable fields; many → mandatory "Select Patient
+  // Profile" modal. `signupSelectedPatientId` is the HMS record the new
+  // portal login will be linked to (null for a pure manual signup).
+  readonly signupDob = signal('');
+  readonly showSignupPwd = signal(false);
+  readonly signupHmisLocked = signal(false);
+  readonly signupSelectedPatientId = signal<string | null>(null);
+  readonly signupProfileChoices = signal<HmisPatientRecord[]>([]);
+  readonly signupProfileModalOpen = signal(false);
+  readonly signupAlreadyRegistered = signal(false);
+  readonly signupRegisteredDialogOpen = signal(false);
+
+  /** Today's date (yyyy-mm-dd) — caps the manual DOB picker. */
+  readonly today = new Date().toISOString().slice(0, 10);
+
+  /**
+   * Create Account is enabled only when identity is complete, a password of
+   * 6+ characters has been set, the mandatory profile modal is closed, and
+   * the selected patient is NOT already registered on the portal.
+   */
+  readonly accountStepValid = computed(() => {
+    if (this.signupProfileModalOpen()) return false;
+    if (this.signupAlreadyRegistered()) return false;
+    const identityOk = this.signupFirstName().trim().length > 0 &&
+                       this.signupLastName().trim().length > 0 &&
+                       this.signupDob().trim().length > 0;
+    if (!identityOk) return false;
+    return this.signupNewPassword().length >= 6;
+  });
 
   // ISO 3166-1 alpha-2 codes drive flag-image lookup via flagcdn.com.
   // Emoji flags render as plain text ("BH", "IN") on Windows because the
@@ -2919,6 +3219,12 @@ export class ShellComponent {
     this.countryCodes.find(c => c.code === this.signinOtpCountryCode()) ?? this.countryCodes[0]
   );
 
+  /** Active country for the Create Account phone field — drives the flag
+   *  and in-field dial-code prefix in the unified phone input. */
+  readonly signupCountry = computed(() =>
+    this.countryCodes.find(c => c.code === this.signupCountryCode()) ?? this.countryCodes[0]
+  );
+
   /** Flag-CDN URL for a country. 40px-wide PNG hits the sweet spot for
    *  small UI chips on retina — sharper than the SVG at this size and
    *  smaller payload (~1KB vs ~5-15KB SVG). */
@@ -2926,32 +3232,25 @@ export class ShellComponent {
     return `https://flagcdn.com/w40/${iso}.png`;
   }
 
-  // Field-level invalid states (only shown after first Send OTP attempt)
-  readonly fnInvalid = computed(() => {
-    if (!this.signupAttempted()) return false;
-    const v = this.signupFirstName().trim();
-    return v.length === 0 || v.length > 60;
-  });
-  readonly lnInvalid = computed(() => {
-    if (!this.signupAttempted()) return false;
-    const v = this.signupLastName().trim();
-    return v.length === 0 || v.length > 60;
-  });
+  // Field-level invalid states (only shown after first Send OTP attempt).
+  // Identify now collects ID + mobile only — the patient's name/DOB come
+  // from HMIS (or the manual Account step), not this screen.
+  // National ID is OPTIONAL (used when provided; otherwise we fall back to
+  // the verified mobile). Only flag it when a partial ID has been typed.
   readonly cprInvalid = computed(() => {
     if (!this.signupAttempted()) return false;
-    return this.signupCpr().length !== 8;
+    const len = this.signupCpr().length;
+    return len !== 0 && len !== 8;
   });
+  // Mobile is MANDATORY — it's the number the OTP is sent to.
   readonly phInvalid = computed(() => {
     if (!this.signupAttempted()) return false;
     return this.signupPhone().length !== 10;
   });
   readonly signupStep1Valid = computed(() => {
-    const fn = this.signupFirstName().trim();
-    const ln = this.signupLastName().trim();
-    return fn.length > 0 && fn.length <= 60 &&
-           ln.length > 0 && ln.length <= 60 &&
-           this.signupCpr().length === 8 &&
-           this.signupPhone().length === 10;
+    const cprLen = this.signupCpr().length;
+    const cprOk = cprLen === 0 || cprLen === 8;   // optional; 8 digits if present
+    return cprOk && this.signupPhone().length === 10;
   });
 
   // Forgot-password flow
@@ -2983,7 +3282,7 @@ export class ShellComponent {
       this.signupAttempted.set(false);
       this.signupOtp.set('');
       this.signupNewPassword.set('');
-      this.passwordChoice.set(null);
+      this.resetAccountStepState();
       this.signupStep.set(1);
     } else {
       // Sign-in mode: only the CPR / Patient ID field is prefillable.
@@ -3350,8 +3649,8 @@ export class ShellComponent {
       this.signupAttempted.set(false);
       this.signupOtp.set('');
       this.signupNewPassword.set('');
-      this.passwordChoice.set(null);
       this.signupPrefill.set(null);
+      this.resetAccountStepState();
     } else if (mode === 'forgot') {
       this.forgotStep.set(1);
       this.forgotCpr.set('');
@@ -3379,13 +3678,149 @@ export class ShellComponent {
 
   verifySignupOtp(): void {
     if (this.signupOtp() === '123456') {
-      this.signupStep.set(3);
+      this.enterAccountStep();
+    }
+  }
+
+  /**
+   * Land on the Account step and immediately run the HMIS lookup. Prefers
+   * the National ID / Patient ID when one was entered; otherwise uses the
+   * verified mobile. Branches on the number of records found:
+   *   1  → auto-populate + lock name/DOB, run the registration guard
+   *   0  → leave the fields editable so the user can self-register
+   *   >1 → open the mandatory "Select Patient Profile" modal
+   */
+  /** Clear all Account-step / HMIS-lookup state (used on mode changes and
+   *  when a fresh Create Account session starts). */
+  private resetAccountStepState(): void {
+    this.signupDob.set('');
+    this.showSignupPwd.set(false);
+    this.signupHmisLocked.set(false);
+    this.signupSelectedPatientId.set(null);
+    this.signupProfileChoices.set([]);
+    this.signupProfileModalOpen.set(false);
+    this.signupAlreadyRegistered.set(false);
+    this.signupRegisteredDialogOpen.set(false);
+  }
+
+  private enterAccountStep(): void {
+    this.signupStep.set(3);
+    this.signupNewPassword.set('');
+    this.showSignupPwd.set(false);
+    this.signupAlreadyRegistered.set(false);
+    this.signupRegisteredDialogOpen.set(false);
+    this.signupSelectedPatientId.set(null);
+    this.signupProfileChoices.set([]);
+    this.signupProfileModalOpen.set(false);
+
+    const cpr = this.signupCpr().trim();
+    // National ID / Patient ID takes precedence; the service falls back to
+    // the verified mobile when the ID isn't provided or isn't in HMS.
+    const matches = this.family.hmisLookup({
+      cpr: cpr.length === 8 ? cpr : '',
+      mobile: this.signupPhone()
+    });
+
+    if (matches.length === 1) {
+      this.applyHmisRecord(matches[0]);
+    } else if (matches.length === 0) {
+      // No HMIS record → manual account. Identify no longer collects a
+      // name, so present empty, editable First/Last/DOB fields for the
+      // user to self-register (requirement #4).
+      this.signupHmisLocked.set(false);
+      this.signupFirstName.set('');
+      this.signupLastName.set('');
+      this.signupDob.set('');
+    } else {
+      // Multiple records share this mobile → force a profile selection.
+      this.signupHmisLocked.set(false);
+      this.signupProfileChoices.set(matches);
+      this.signupProfileModalOpen.set(true);
+    }
+  }
+
+  /** Populate the Account fields from a chosen HMIS record, lock name/DOB,
+   *  and run the "already has a portal account" guard. */
+  private applyHmisRecord(rec: HmisPatientRecord): void {
+    this.signupFirstName.set(rec.firstName);
+    this.signupLastName.set(rec.lastName);
+    this.signupDob.set(rec.dateOfBirth);
+    this.signupSelectedPatientId.set(rec.patientId);
+    this.signupHmisLocked.set(true);
+    this.signupProfileModalOpen.set(false);
+
+    const registered = this.family.hmisHasPortalAccount(rec.patientId);
+    this.signupAlreadyRegistered.set(registered);
+    this.signupRegisteredDialogOpen.set(registered);
+  }
+
+  /** A profile card was tapped in the "Select Patient Profile" modal. */
+  selectSignupProfile(rec: HmisPatientRecord): void {
+    this.applyHmisRecord(rec);
+  }
+
+  /** "None of these — register manually": close the modal and fall back to
+   *  the empty, editable manual-registration path (requirement #4). */
+  signupRegisterManually(): void {
+    this.signupProfileModalOpen.set(false);
+    this.signupProfileChoices.set([]);
+    this.signupHmisLocked.set(false);
+    this.signupSelectedPatientId.set(null);
+    this.signupFirstName.set('');
+    this.signupLastName.set('');
+    this.signupDob.set('');
+    this.signupAlreadyRegistered.set(false);
+  }
+
+  /** Info dialog → "Sign In": carry the ID over to the sign-in card. */
+  signupGoSignIn(): void {
+    const id = this.signupSelectedPatientId() ?? this.signupCpr();
+    this.signupRegisteredDialogOpen.set(false);
+    this.setMode('signin');
+    this.loginCpr.set(id);
+  }
+
+  /** Info dialog → "Forgot Password": carry the ID over to reset. */
+  signupGoForgot(): void {
+    const id = this.signupSelectedPatientId() ?? this.signupCpr();
+    this.signupRegisteredDialogOpen.set(false);
+    this.setMode('forgot');
+    this.forgotCpr.set(id);
+  }
+
+  /** Initials for a profile-card avatar. */
+  hmisInitials(rec: HmisPatientRecord): string {
+    return `${rec.firstName[0] ?? ''}${rec.lastName[0] ?? ''}`.toUpperCase();
+  }
+
+  /** Format an ISO DOB as "15 May 1990" for profile cards. */
+  formatHmisDob(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /**
+   * ESC handling for the Account-step modals. The info dialog is
+   * dismissible → ESC closes it. The "Select Patient Profile" modal is
+   * mandatory (blocks until a profile is chosen) → ESC is a no-op, since
+   * cancellation is not allowed there.
+   */
+  @HostListener('document:keydown.escape')
+  onAccountModalEscape(): void {
+    if (this.signupRegisteredDialogOpen()) {
+      this.signupRegisteredDialogOpen.set(false);
     }
   }
 
   completeSignup(): void {
-    // Account created — drop them into sign-in with their CPR pre-filled.
-    this.loginCpr.set(this.signupCpr());
+    if (!this.accountStepValid()) return;
+    // Link the new portal login to its HMIS patient record when the
+    // account is HMIS-backed (single match or a picked profile).
+    const pid = this.signupSelectedPatientId();
+    if (pid) this.family.hmisLinkPortalAccount(pid);
+    // Account created — drop them into sign-in with their ID pre-filled.
+    this.loginCpr.set(pid ?? this.signupCpr());
     this.loginPassword.set('');
     this.setMode('signin');
   }

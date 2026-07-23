@@ -89,15 +89,29 @@ export const MOCK_DASHBOARD: DashboardSummary = {
   ]
 };
 
-const GENERATED_TIMELINE: TimelineEvent[] = Array.from({ length: 100 }, (_, i) => {
-  const types: TimelineEvent['type'][] = ['appointment', 'lab_result', 'prescription', 'vaccination', 'imaging', 'procedure', 'medical_report', 'note'];
-  const type = types[i % types.length];
-  const daysAgo = i * 3;
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
+/**
+ * Records generated per month, going back 48 months (index 0 = current month).
+ * The shape is deliberately irregular — the cluster around index 24–26 reads as
+ * a real episode of care (admission + follow-ups) on the density calendar,
+ * where a flat line would look synthetic. Totals ~400 records over four years,
+ * which is the volume My Records pagination has to hold up against.
+ */
+const MONTHLY_VOLUME = [
+  12, 9, 7, 11, 5, 8, 12, 4, 7, 9, 6, 10,   // last 12 months
+  8, 5, 9, 7, 12, 6, 10, 4, 8, 11, 7, 9,    // 1–2 years ago
+  31, 22, 14, 6, 4, 9, 7, 5, 12, 8, 6, 10,  // 2–3 years ago (heavy episode)
+  8, 3, 7, 4, 9, 6, 5, 8, 5, 7, 3, 6        // 3–4 years ago
+];
+
+const GENERATED_TIMELINE: TimelineEvent[] = (() => {
+  // 'appointment' is excluded — My Records filters visits out, so generating
+  // them would inflate the count without producing a visible record.
+  const types: TimelineEvent['type'][] = [
+    'lab_result', 'prescription', 'vaccination', 'imaging',
+    'procedure', 'medical_report', 'note'
+  ];
 
   const titles: Record<string, string[]> = {
-    appointment: ['Cardiology Consultation', 'General Checkup', 'Dermatology Follow-up', 'Endocrinology Review'],
     lab_result: ['Complete Blood Count', 'HbA1c Test', 'Lipid Panel', 'Thyroid Function Test'],
     prescription: ['Metformin Prescribed', 'Amlodipine Renewed', 'Vitamin D3 Added', 'Aspirin Started'],
     vaccination: ['Flu Vaccine', 'COVID-19 Booster', 'Hepatitis B', 'Tetanus Booster'],
@@ -109,15 +123,40 @@ const GENERATED_TIMELINE: TimelineEvent[] = Array.from({ length: 100 }, (_, i) =
 
   const providers = ['Dr. Walid Al-Habeeb', 'Dr. Samar Al-Homoud', 'Dr. Adnan Ezzat', 'Dr. Fatimah Al-Huwail'];
 
-  return {
-    id: `tl-${i}`,
-    type,
-    title: titles[type][i % titles[type].length],
-    description: `${type.replace('_', ' ')} record from your visit on ${date.toLocaleDateString()}`,
-    date: date.toISOString(),
-    provider: providers[i % providers.length]
-  };
-});
+  const now = new Date();
+  const out: TimelineEvent[] = [];
+  let seq = 0;
+
+  MONTHLY_VOLUME.forEach((count, monthsAgo) => {
+    const anchor = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+    const year = anchor.getFullYear();
+    const month = anchor.getMonth();
+    // Days available this month — never place a record in the future.
+    const lastDay = monthsAgo === 0
+      ? now.getDate()
+      : new Date(year, month + 1, 0).getDate();
+
+    for (let k = 0; k < count; k++) {
+      const type = types[seq % types.length];
+      const day = 1 + ((k * 7 + monthsAgo * 3) % Math.max(lastDay, 1));
+      const date = new Date(year, month, Math.min(day, lastDay), 9 + (k % 8), (k * 13) % 60);
+
+      out.push({
+        id: `tl-${seq}`,
+        type,
+        title: titles[type][seq % titles[type].length],
+        description: `${type.replace('_', ' ')} record from your visit on ${date.toLocaleDateString()}`,
+        date: date.toISOString(),
+        provider: providers[seq % providers.length]
+      });
+      seq++;
+    }
+  });
+
+  // Most recent first — the list, the pager and the date-span header all
+  // assume descending order.
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+})();
 
 // Patient-uploaded personal documents — surfaced under the "Self Documents"
 // filter. These have no clinical provider, so they read as "Self-uploaded".
@@ -138,7 +177,10 @@ const SELF_DOCUMENTS: TimelineEvent[] = (() => {
   ];
 })();
 
-export const MOCK_TIMELINE: TimelineEvent[] = [...SELF_DOCUMENTS, ...GENERATED_TIMELINE];
+// Sorted newest-first so that the page-size cap applied per patient slice
+// trims the oldest records, not an arbitrary mix.
+export const MOCK_TIMELINE: TimelineEvent[] = [...SELF_DOCUMENTS, ...GENERATED_TIMELINE]
+  .sort((a, b) => b.date.localeCompare(a.date));
 
 export const MOCK_DOCTORS: Doctor[] = [
   // ---- Endocrinology ----
@@ -272,7 +314,79 @@ export const MOCK_SLOTS: BookingSlot[] = [
   { id: 's-015', date: '2026-04-12', time: '03:30 PM', available: true, doctorId: 'd-005' }
 ];
 
-export const MOCK_MEDICATIONS: Medication[] = MOCK_DASHBOARD.activeMedications;
+/**
+ * Stopped / completed prescriptions — the Past tab of My Medications.
+ * Deliberately contains REPEATS of the same drug across years (Metformin,
+ * Atorvastatin, Levothyroxine): the Past list groups by drug, so repeats
+ * collapse into one row with a prescription count instead of 20 near-identical
+ * rows. Spans 2022–2026 so the year filter has something to filter.
+ */
+const PAST_MEDICATIONS: Medication[] = (() => {
+  const make = (
+    id: string, name: string, dosage: string, frequency: string,
+    startDate: string, endDate: string,
+    prescribedBy: string, prescribedBySpecialty: string,
+    instructions?: string
+  ): Medication => ({
+    id, name, dosage, frequency, startDate, endDate,
+    prescribedBy, prescribedBySpecialty, refillsRemaining: 0,
+    taken: [], instructions
+  });
+
+  const CARD = ['Dr. Walid Al-Habeeb', 'Cardiology'] as const;
+  const ENDO = ['Dr. Adnan Ezzat', 'Endocrinology'] as const;
+  const GEN  = ['Dr. Samar Al-Homoud', 'Internal Medicine'] as const;
+  const ORTH = ['Dr. Fatimah Al-Huwail', 'Orthopaedics'] as const;
+
+  // Dates relative to today, so the "Recent" tab (last 30 days) always has
+  // content no matter when the demo is run.
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  return [
+    // --- Prescribed in the last 30 days (drives the Recent tab) ---
+    make('pm-r01', 'Azithromycin', '500mg', 'Once daily', daysAgo(9), daysAgo(4), ...GEN, 'Complete the full course'),
+    make('pm-r02', 'Pantoprazole', '40mg', 'Once daily', daysAgo(18), daysAgo(-12), ...GEN, 'Take before breakfast'),
+    make('pm-r03', 'Diclofenac Gel', '1%', 'Twice daily', daysAgo(25), daysAgo(3), ...ORTH, 'Apply to the affected area'),
+
+    // --- Repeat courses of drugs still or recently in use ---
+    make('pm-001', 'Metformin', '500mg', 'Twice daily', '2025-07-01', '2025-12-31', ...CARD, 'Take with meals'),
+    make('pm-002', 'Metformin', '500mg', 'Twice daily', '2025-01-05', '2025-06-30', ...CARD, 'Take with meals'),
+    make('pm-003', 'Metformin', '500mg', 'Once daily',  '2024-08-12', '2024-12-30', ...CARD, 'Take with meals'),
+    make('pm-004', 'Atorvastatin', '10mg', 'Once daily', '2025-03-01', '2025-11-20', ...CARD, 'Take at night'),
+    make('pm-005', 'Atorvastatin', '10mg', 'Once daily', '2024-04-10', '2024-12-15', ...CARD, 'Take at night'),
+    make('pm-006', 'Levothyroxine', '50mcg', 'Once daily', '2024-02-01', '2024-11-30', ...ENDO, 'Take on an empty stomach'),
+    make('pm-007', 'Levothyroxine', '25mcg', 'Once daily', '2023-05-15', '2023-12-20', ...ENDO, 'Take on an empty stomach'),
+
+    // --- Short courses ---
+    make('pm-008', 'Amoxicillin + Clavulanate', '625mg', 'Three times daily', '2026-02-10', '2026-02-17', ...GEN, 'Complete the full course'),
+    make('pm-009', 'Pantoprazole', '40mg', 'Once daily', '2026-01-08', '2026-02-08', ...GEN, 'Take before breakfast'),
+    make('pm-010', 'Ibuprofen', '400mg', 'As needed', '2025-11-02', '2025-11-16', ...ORTH, 'Take after food'),
+    make('pm-011', 'Prednisolone', '10mg', 'Once daily', '2025-09-05', '2025-09-19', ...GEN, 'Taper as advised'),
+    make('pm-012', 'Cetirizine', '10mg', 'Once daily', '2025-06-01', '2025-06-21', ...GEN),
+    make('pm-013', 'Azithromycin', '500mg', 'Once daily', '2025-04-12', '2025-04-17', ...GEN, 'Complete the full course'),
+    make('pm-014', 'Ferrous Sulphate', '200mg', 'Twice daily', '2024-10-01', '2025-01-31', ...GEN, 'Take with vitamin C'),
+    make('pm-015', 'Ranitidine', '150mg', 'Twice daily', '2024-06-14', '2024-08-14', ...GEN),
+    make('pm-016', 'Diclofenac Gel', '1%', 'Twice daily', '2024-05-02', '2024-06-02', ...ORTH, 'Apply to the affected area'),
+    make('pm-017', 'Cefixime', '200mg', 'Twice daily', '2024-03-08', '2024-03-15', ...GEN, 'Complete the full course'),
+    make('pm-018', 'Montelukast', '10mg', 'Once daily', '2023-11-01', '2024-02-28', ...GEN, 'Take at night'),
+    make('pm-019', 'Vitamin B12', '1500mcg', 'Once daily', '2023-08-01', '2023-12-31', ...ENDO),
+    make('pm-020', 'Paracetamol', '650mg', 'As needed', '2023-06-10', '2023-06-20', ...GEN, 'Maximum 4 doses a day'),
+    make('pm-021', 'Omeprazole', '20mg', 'Once daily', '2023-02-01', '2023-05-01', ...GEN, 'Take before breakfast'),
+    make('pm-022', 'Calcium Carbonate', '500mg', 'Twice daily', '2022-09-01', '2023-03-01', ...ORTH, 'Take after meals'),
+    make('pm-023', 'Tramadol', '50mg', 'As needed', '2022-07-05', '2022-07-25', ...ORTH, 'May cause drowsiness'),
+    make('pm-024', 'Cephalexin', '500mg', 'Three times daily', '2022-04-02', '2022-04-09', ...GEN, 'Complete the full course')
+  ];
+})();
+
+// Active prescriptions first, then the stopped/completed history.
+export const MOCK_MEDICATIONS: Medication[] = [
+  ...MOCK_DASHBOARD.activeMedications,
+  ...PAST_MEDICATIONS
+];
 
 export const MOCK_PAYMENTS: Payment[] = [
   {
@@ -463,6 +577,7 @@ export const MOCK_DOCUMENTS: PatientDocument[] = [
 export const MOCK_CONSULTATIONS: Consultation[] = [
   {
     id: 'con-001',
+    opNumber: '3081801',
     date: '2026-04-09T10:30:00',
     doctorName: 'Dr. Walid Al-Habeeb',
     doctorSpecialty: 'Cardiology',
@@ -540,7 +655,34 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     followUp: { date: '2026-05-07', reason: 'BP reassessment and medication review' }
   },
   {
+    // Same doctor (Dr. Walid Al-Habeeb) on the SAME day as con-001 but a
+    // different time / type — exercises REQ 8.6.7 (time distinguishes two
+    // eligible appointments with the same doctor on the same day).
+    id: 'con-001b',
+    opNumber: '3081815',
+    date: '2026-04-09T15:45:00',
+    doctorName: 'Dr. Walid Al-Habeeb',
+    doctorSpecialty: 'Cardiology',
+    location: 'Telehealth',
+    type: 'telehealth',
+    chiefComplaint: 'Same-day teleconsult to review afternoon ambulatory blood-pressure readings.',
+    diagnosis: [
+      { description: 'Essential (primary) hypertension', code: 'I10', type: 'primary' }
+    ],
+    investigations: [],
+    procedures: [],
+    medications: [
+      { name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily', duration: '90 days', instructions: 'Continue as advised' }
+    ],
+    vitalsRecorded: [
+      { label: 'Blood Pressure', value: '138/86', unit: 'mmHg' }
+    ],
+    notes: 'Afternoon readings improved versus the morning clinic visit. Continue current therapy; no change required.',
+    followUp: { date: '2026-05-07', reason: 'BP reassessment and medication review' }
+  },
+  {
     id: 'con-002',
+    opNumber: '3079420',
     date: '2026-03-22T15:30:00',
     doctorName: 'Dr. Samar Al-Homoud',
     doctorSpecialty: 'Dermatology',
@@ -564,6 +706,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   },
   {
     id: 'con-003',
+    opNumber: '3074188',
     date: '2026-02-18T11:00:00',
     doctorName: 'Dr. Fatimah Al-Huwail',
     doctorSpecialty: 'Endocrinology',
@@ -629,6 +772,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   },
   {
     id: 'con-004',
+    opNumber: '3069903',
     date: '2026-01-30T09:00:00',
     doctorName: 'Dr. Adnan Ezzat',
     doctorSpecialty: 'Endocrinology',
@@ -661,6 +805,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   },
   {
     id: 'con-005',
+    opNumber: '3061254',
     date: '2025-11-12T14:00:00',
     doctorName: 'Dr. Qasim Al-Qasabi',
     doctorSpecialty: 'Orthopedics',
@@ -691,6 +836,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   },
   {
     id: 'con-006',
+    opNumber: '3052771',
     date: '2025-09-04T16:30:00',
     doctorName: 'Dr. Noura Al-Faisal',
     doctorSpecialty: 'ENT',
@@ -721,6 +867,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
   },
   {
     id: 'con-007',
+    opNumber: '3044096',
     date: '2025-07-21T11:30:00',
     doctorName: 'Dr. Walid Al-Habeeb',
     doctorSpecialty: 'Cardiology',
