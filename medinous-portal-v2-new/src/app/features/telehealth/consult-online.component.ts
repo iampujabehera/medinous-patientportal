@@ -56,10 +56,12 @@ import { TELE_STYLES } from './telehealth.styles';
           <div class="mc-icon" style="background:linear-gradient(135deg,#00897b,#26a69a)"><mat-icon>event</mat-icon></div>
           <h3>Book a scheduled video consultation</h3>
           <p>Choose a specific doctor and a time that suits you. Opens the hospital's booking journey with video preselected.</p>
-          <button class="th-btn th-btn-ghost th-btn-block" (click)="bookScheduled()">
+          <button class="th-btn th-btn-primary th-btn-block" (click)="go('/telehealth/consult/video-consult')">
             <mat-icon>videocam</mat-icon> Book a video consultation
           </button>
-          <span class="mc-note"><mat-icon>link</mat-icon> Uses your hospital's existing Book Appointment flow</span>
+          <button class="th-btn th-btn-ghost th-btn-block" (click)="bookScheduled()" style="margin-top:8px">
+            <mat-icon>link</mat-icon> Or use the hospital's booking flow
+          </button>
         </article>
       </section>
     </div>

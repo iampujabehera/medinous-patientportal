@@ -15,6 +15,7 @@ export const TELEHEALTH_ROUTES: Routes = [
   // Consult a doctor online
   { path: 'consult', loadComponent: () => import('./consult-online.component').then(m => m.ConsultOnlineComponent) },
   { path: 'consult/instant', loadComponent: () => import('./instant-consult.component').then(m => m.InstantConsultComponent) },
+  { path: 'consult/video-consult', loadComponent: () => import('./video-consult-demo.component').then(m => m.VideoConsultDemoComponent) },
   { path: 'consult/room/:id', loadComponent: () => import('./video-room.component').then(m => m.VideoRoomComponent) },
   { path: 'consult/outcome/:id', loadComponent: () => import('./consult-outcome.component').then(m => m.ConsultOutcomeComponent) },
 
