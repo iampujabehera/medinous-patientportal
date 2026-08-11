@@ -75,7 +75,7 @@ import { FeedbackService } from '../../core/services/feedback.service';
             <div>{{ org.web }}</div>
           </div>
           <div class="mf-lh-logo">
-            <img [src]="org.logo" [alt]="org.name">
+            <mat-icon class="mf-lh-emblem">local_hospital</mat-icon>
             <div class="mf-lh-name">{{ org.name }}</div>
           </div>
           <div class="mf-lh-ar" dir="rtl">
@@ -227,6 +227,7 @@ import { FeedbackService } from '../../core/services/feedback.service';
     .mf-lh-ar { text-align: right; }
     .mf-lh-logo { text-align: center; }
     .mf-lh-logo img { height: 48px; object-fit: contain; }
+    .mf-lh-emblem { color: #0d8a8a; font-size: 40px; width: 40px; height: 40px; }
     .mf-lh-name { font-size: 12.5px; font-weight: 700; margin-top: 3px; }
 
     .mf-title {
@@ -322,8 +323,7 @@ export class MyFeedbackComponent {
     addr1Ar: 'طريق الملك خالد',
     addr2Ar: 'تبوك، المملكة العربية السعودية',
     tel: '1883883',
-    web: 'www.pfsh.med.sa',
-    logo: 'prince-fahd-hospital.png'
+    web: 'www.ghh.med.sa'
   };
 
   readonly patientId = signal<string>('');

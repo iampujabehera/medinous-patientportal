@@ -290,9 +290,12 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
                    White-label slot: each tenant's brand image goes here.
                    Current tenant: Good Health Hospital, Tabuk (KSA). -->
               <div class="login-medinous-strip">
-                <img src="prince-fahd-hospital.png"
-                     alt="Good Health Hospital"
-                     class="hospital-logo">
+                <!-- White-label slot: drop a tenant logo <img> here when a real
+                     asset is supplied; text wordmark stands in meanwhile. -->
+                <div class="hospital-wordmark">
+                  <mat-icon>local_hospital</mat-icon>
+                  <span>Good Health Hospital</span>
+                </div>
                 <span class="medinous-tag">Patient Portal</span>
               </div>
 
@@ -1704,6 +1707,17 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       width: auto; max-width: 240px;
       object-fit: contain;
       display: block;
+    }
+    /* Text wordmark standing in for a tenant logo image. */
+    .hospital-wordmark {
+      display: inline-flex; align-items: center; gap: 9px;
+    }
+    .hospital-wordmark mat-icon {
+      color: #0d8a8a; font-size: 30px; width: 30px; height: 30px;
+    }
+    .hospital-wordmark > span {
+      font-size: 19px; font-weight: 700; color: #1a237e;
+      letter-spacing: -0.01em; white-space: nowrap;
     }
     .medinous-tag {
       font-size: 11px; color: #888; font-weight: 500;

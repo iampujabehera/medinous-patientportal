@@ -62,7 +62,7 @@ import { FeedbackService } from '../../core/services/feedback.service';
             <div>{{ org.web }}</div>
           </div>
           <div class="fr-lh-logo">
-            <img [src]="org.logo" [alt]="org.name">
+            <mat-icon class="fr-lh-emblem">local_hospital</mat-icon>
             <div class="fr-lh-name">{{ org.name }}</div>
             <div class="fr-lh-name-ar" dir="rtl">{{ org.nameAr }}</div>
           </div>
@@ -146,6 +146,7 @@ import { FeedbackService } from '../../core/services/feedback.service';
     .fr-lh-web-ar { direction: ltr; text-align: right; }
     .fr-lh-logo { text-align: center; }
     .fr-lh-logo img { height: 54px; object-fit: contain; display: inline-block; }
+    .fr-lh-emblem { color: #0d8a8a; font-size: 44px; width: 44px; height: 44px; }
     .fr-lh-name { font-size: 13px; font-weight: 700; margin-top: 3px; }
     .fr-lh-name-ar { font-size: 11.5px; color: #37474f; }
 
@@ -206,15 +207,14 @@ export class FeedbackReportComponent {
    *  production; hard-coded here for the demo tenant. */
   readonly org = {
     name: 'Good Health Hospital',
-    nameAr: 'مستشفى الأمير فهد بن سلطان',
+    nameAr: 'مستشفى الصحة الجيدة',
     addr1: 'King Khalid Road',
     addr2: 'Tabuk, Saudi Arabia',
     addr1Ar: 'طريق الملك خالد',
     addr2Ar: 'تبوك، المملكة العربية السعودية',
     tel: '1883883',
-    email: 'info@pfsh.med.sa',
-    web: 'www.pfsh.med.sa',
-    logo: 'prince-fahd-hospital.png'
+    email: 'info@ghh.med.sa',
+    web: 'www.ghh.med.sa'
   };
 
   // Default window mirrors the legacy report's wide default range.
