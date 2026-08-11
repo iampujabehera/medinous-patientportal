@@ -186,7 +186,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Endocrinology ----
   {
     id: 'd-004', name: 'Dr. Fatimah Al-Huwail', specialty: 'Endocrinology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Consultant Endocrinologist', experienceYears: 14,
     languages: ['English', 'Mandarin'], videoConsultFee: 20,
     nextHospitalSlot: 'Today, 10:30 AM', nextVideoSlot: 'Today, 01:00 PM',
@@ -194,7 +194,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-003', name: 'Dr. Adnan Ezzat', specialty: 'Endocrinology', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Endocrinologist', experienceYears: 12,
     languages: ['English', 'Arabic'], videoConsultFee: 15,
     nextHospitalSlot: 'Tomorrow, 09:30 AM', nextVideoSlot: 'Tomorrow, 02:30 PM',
@@ -202,7 +202,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-010', name: 'Dr. Selwa Al-Hazzaa', specialty: 'Endocrinology', rating: 4.9,
-    nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
+    nextAvailable: '2026-06-11', location: 'GHH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Specialist Endocrinologist', experienceYears: 9,
     languages: ['English', 'Hindi', 'Malayalam'], videoConsultFee: 12,
     nextHospitalSlot: '10 Jun, 11:00 AM', nextVideoSlot: '10 Jun, 04:00 PM',
@@ -211,7 +211,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- General Medicine ----
   {
     id: 'd-011', name: 'Dr. Hani Najm', specialty: 'General Medicine', rating: 4.6,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 12, advanceFee: 12,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 12, advanceFee: 12,
     designation: 'Consultant Physician', experienceYears: 10,
     languages: ['English'], videoConsultFee: 8,
     nextHospitalSlot: 'Today, 09:00 AM', nextVideoSlot: 'Today, 12:00 PM',
@@ -220,7 +220,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Cardiology ----
   {
     id: 'd-001', name: 'Dr. Walid Al-Habeeb', specialty: 'Cardiology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 25, advanceFee: 25,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 25, advanceFee: 25,
     designation: 'Senior Consultant Cardiologist', experienceYears: 18,
     languages: ['English', 'Hindi', 'Arabic'], videoConsultFee: 15,
     nextHospitalSlot: 'Today, 04:30 PM', nextVideoSlot: 'Tomorrow, 11:00 AM',
@@ -228,7 +228,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-006', name: 'Dr. Noura Al-Faisal', specialty: 'Cardiology', rating: 4.9,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 35, advanceFee: 35,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 35, advanceFee: 35,
     designation: 'Consultant Cardiologist', experienceYears: 22,
     languages: ['English', 'Arabic', 'French'], videoConsultFee: 20,
     nextHospitalSlot: 'Tomorrow, 09:00 AM', nextVideoSlot: 'Tomorrow, 12:30 PM',
@@ -237,7 +237,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Dermatology ----
   {
     id: 'd-002', name: 'Dr. Samar Al-Homoud', specialty: 'Dermatology', rating: 4.9,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 15, advanceFee: 15,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 15, advanceFee: 15,
     designation: 'Consultant Dermatologist', experienceYears: 11,
     languages: ['English', 'Mandarin'], videoConsultFee: 10,
     nextHospitalSlot: 'Today, 02:00 PM', nextVideoSlot: 'Today, 06:30 PM',
@@ -245,7 +245,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-012', name: 'Dr. Reem Al-Dossary', specialty: 'Dermatology', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 17, advanceFee: 17,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 17, advanceFee: 17,
     designation: 'Specialist Dermatologist', experienceYears: 8,
     languages: ['English', 'Arabic'], videoConsultFee: 11,
     nextHospitalSlot: 'Tomorrow, 01:30 PM', nextVideoSlot: 'Tomorrow, 05:00 PM',
@@ -254,7 +254,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Orthopedics ----
   {
     id: 'd-005', name: 'Dr. Qasim Al-Qasabi', specialty: 'Orthopedics', rating: 4.8,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 20, advanceFee: 20,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 20, advanceFee: 20,
     designation: 'Senior Consultant Orthopedic Surgeon', experienceYears: 20,
     languages: ['English', 'Hindi', 'Gujarati'], videoConsultFee: 12,
     nextHospitalSlot: 'Tomorrow, 11:30 AM', nextVideoSlot: 'Today, 05:00 PM',
@@ -262,7 +262,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-013', name: 'Dr. Bandar Al-Mutairi', specialty: 'Orthopedics', rating: 4.7,
-    nextAvailable: '2026-06-11', location: 'PFSH Juffair', consultationFee: 22, advanceFee: 22,
+    nextAvailable: '2026-06-11', location: 'GHH Juffair', consultationFee: 22, advanceFee: 22,
     designation: 'Consultant Orthopedic Surgeon', experienceYears: 15,
     languages: ['English', 'Hindi'], videoConsultFee: 13,
     nextHospitalSlot: '10 Jun, 10:30 AM', nextVideoSlot: 'Tomorrow, 03:00 PM',
@@ -271,7 +271,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Pediatrics ----
   {
     id: 'd-007', name: 'Dr. Latifa Al-Shammari', specialty: 'Pediatrics', rating: 4.9,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 18, advanceFee: 18,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 18, advanceFee: 18,
     designation: 'Consultant Pediatrician', experienceYears: 13,
     languages: ['English', 'Spanish', 'Arabic'], videoConsultFee: 12,
     nextHospitalSlot: 'Today, 03:30 PM', nextVideoSlot: 'Today, 07:00 PM',
@@ -279,7 +279,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   },
   {
     id: 'd-008', name: 'Dr. Abdullah Al-Rabeeah', specialty: 'Pediatrics', rating: 4.7,
-    nextAvailable: '2026-06-10', location: 'PFSH Juffair', consultationFee: 16, advanceFee: 16,
+    nextAvailable: '2026-06-10', location: 'GHH Juffair', consultationFee: 16, advanceFee: 16,
     designation: 'Specialist Pediatrician', experienceYears: 9,
     languages: ['English', 'Urdu', 'Arabic'], videoConsultFee: 10,
     nextHospitalSlot: 'Tomorrow, 10:00 AM', nextVideoSlot: 'Tomorrow, 02:30 PM',
@@ -288,7 +288,7 @@ export const MOCK_DOCTORS: Doctor[] = [
   // ---- Gynecology ----
   {
     id: 'd-009', name: 'Dr. Hind Al-Qahtani', specialty: 'Gynecology', rating: 4.8,
-    nextAvailable: '2026-06-09', location: 'PFSH Juffair', consultationFee: 28, advanceFee: 28,
+    nextAvailable: '2026-06-09', location: 'GHH Juffair', consultationFee: 28, advanceFee: 28,
     designation: 'Consultant Gynecologist', experienceYears: 17,
     languages: ['English', 'Arabic', 'Hindi'], videoConsultFee: 16,
     nextHospitalSlot: 'Today, 11:00 AM', nextVideoSlot: 'Tomorrow, 09:00 AM',
@@ -581,7 +581,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-04-09T10:30:00',
     doctorName: 'Dr. Walid Al-Habeeb',
     doctorSpecialty: 'Cardiology',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Intermittent chest tightness and palpitations on exertion for the past 2 weeks.',
     diagnosis: [
@@ -710,7 +710,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-02-18T11:00:00',
     doctorName: 'Dr. Fatimah Al-Huwail',
     doctorSpecialty: 'Endocrinology',
-    location: 'PFSH Juffair · Block C',
+    location: 'GHH Juffair · Block C',
     type: 'in_person',
     chiefComplaint: 'Quarterly diabetes follow-up. Self-reported fasting glucose has been creeping up.',
     diagnosis: [
@@ -776,7 +776,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2026-01-30T09:00:00',
     doctorName: 'Dr. Adnan Ezzat',
     doctorSpecialty: 'Endocrinology',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Annual comprehensive health check-up. No active complaints.',
     diagnosis: [
@@ -809,7 +809,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-11-12T14:00:00',
     doctorName: 'Dr. Qasim Al-Qasabi',
     doctorSpecialty: 'Orthopedics',
-    location: 'PFSH Juffair · Block B',
+    location: 'GHH Juffair · Block B',
     type: 'in_person',
     chiefComplaint: 'Left knee pain on stairs and after long walks for the past 6 weeks. No trauma.',
     diagnosis: [
@@ -840,7 +840,7 @@ export const MOCK_CONSULTATIONS: Consultation[] = [
     date: '2025-09-04T16:30:00',
     doctorName: 'Dr. Noura Al-Faisal',
     doctorSpecialty: 'ENT',
-    location: 'PFSH Juffair · Block A',
+    location: 'GHH Juffair · Block A',
     type: 'in_person',
     chiefComplaint: 'Recurrent nasal congestion, facial pressure and headache. Third episode this year.',
     diagnosis: [

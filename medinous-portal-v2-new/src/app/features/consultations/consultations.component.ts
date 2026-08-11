@@ -9,7 +9,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
+import { RecordVitalsComponent } from '../../shared/components/record-vitals/record-vitals.component';
 import { ApiService } from '../../core/services/api.service';
+import { VitalsService } from '../../core/services/vitals.service';
+import { sourceChipLabel } from '../../core/utils/vitals.util';
 import { Consultation, VitalSign } from '../../core/models/patient.model';
 
 interface ConsultationGroup {
@@ -26,7 +29,7 @@ interface ConsultationGroup {
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
     MatInputModule, MatSnackBarModule,
     FormsModule,
-    SkeletonCardComponent
+    SkeletonCardComponent, RecordVitalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -52,8 +55,13 @@ interface ConsultationGroup {
       @if (dashboardVitals().length > 0) {
         <section class="vitals-section">
           <div class="vs-head">
-            <h2>Health Snapshot</h2>
-            <p class="vs-sub">Latest recorded vitals · {{ latestVitalDate() | date:'mediumDate' }}</p>
+            <div>
+              <h2>Health Snapshot</h2>
+              <p class="vs-sub">Latest recorded vitals · {{ latestVitalDate() | date:'mediumDate' }}</p>
+            </div>
+            <button class="vs-record" (click)="openVitals()">
+              <mat-icon>add</mat-icon> Record readings
+            </button>
           </div>
           <div class="vitals-scroll">
             @for (vital of dashboardVitals(); track vital.type) {
@@ -72,10 +80,20 @@ interface ConsultationGroup {
                   <span class="v-value">{{ vital.value }}</span>
                   <span class="v-unit">{{ vital.unit }}</span>
                 </div>
+                <!-- Source provenance: self-reported vs clinic-measured -->
+                <span class="v-source" [class.src-self]="vital.source === 'self'">
+                  <mat-icon>{{ vital.source === 'self' ? 'person' : 'local_hospital' }}</mat-icon>
+                  {{ sourceChip(vital) }}
+                </span>
               </article>
             }
           </div>
         </section>
+      }
+
+      @if (vitalsOpen()) {
+        <app-record-vitals variant="sheet" context="Saved to My Health · self-reported"
+                           (closed)="vitalsOpen.set(false)" />
       }
 
       <!-- Specialty pills (quick filter) -->
@@ -425,9 +443,24 @@ interface ConsultationGroup {
 
     /* ===== Health Snapshot ===== */
     .vitals-section { margin-bottom: 24px; }
-    .vs-head { margin-bottom: 12px; }
+    .vs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .vs-head h2 { font-size: 16px; font-weight: 600; color: #1b3a4b; margin: 0; }
     .vs-sub { font-size: 12px; color: #90a4ae; margin: 2px 0 0; }
+    .vs-record {
+      display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+      border: 1.5px solid #cfe0e0; background: #f0fdfa; color: #0d8a8a;
+      border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+    .vs-record:hover { background: #e0f2f1; border-color: #80cbc4; }
+    .vs-record mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    /* Source provenance chip on each vital card */
+    .v-source {
+      display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
+      font-size: 10px; font-weight: 600; color: #78909c; background: #eceff1;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .v-source mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .v-source.src-self { color: #5c6bc0; background: #eef0fb; }
     .vitals-scroll {
       display: flex; gap: 12px; overflow-x: auto;
       padding: 4px 2px 8px;
@@ -805,6 +838,11 @@ interface ConsultationGroup {
 export class ConsultationsComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly vitalsStore = inject(VitalsService);
+
+  readonly vitalsOpen = signal(false);
+  openVitals(): void { this.vitalsOpen.set(true); }
+  sourceChip(v: VitalSign): string { return sourceChipLabel(v); }
 
   readonly loading = signal(true);
   readonly consultations = signal<Consultation[]>([]);
@@ -854,9 +892,11 @@ export class ConsultationsComponent implements OnInit {
         const fb = fallback.find(v => v.type === type);
         if (fb) vital = fb;
       }
-      if (vital) result.push(vital);
+      if (vital) result.push({ ...vital, source: vital.source ?? 'clinic' });
     }
-    return result;
+    // Overlay patient self-reported readings: for each metric the newer of
+    // {clinic, self} wins and carries its own source chip.
+    return this.vitalsStore.merge(result);
   });
 
   readonly latestVitalDate = computed<string>(() => {

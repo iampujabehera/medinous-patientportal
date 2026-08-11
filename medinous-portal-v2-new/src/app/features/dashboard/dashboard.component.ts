@@ -17,6 +17,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
+import { RecordVitalsComponent } from '../../shared/components/record-vitals/record-vitals.component';
+import { VitalsService } from '../../core/services/vitals.service';
 import { ApiService } from '../../core/services/api.service';
 import { FeedbackService } from '../../core/services/feedback.service';
 import { DashboardSummary, VitalSign, Appointment, AlertItem, Consultation, ConsultationInvestigation } from '../../core/models/patient.model';
@@ -61,7 +63,7 @@ interface SpecialtyTile {
     MatCardModule, MatIconModule, MatButtonModule, MatChipsModule,
     MatProgressBarModule, MatDividerModule, MatTooltipModule, MatSnackBarModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    SkeletonLoaderComponent, SkeletonCardComponent
+    SkeletonLoaderComponent, SkeletonCardComponent, RecordVitalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -111,6 +113,24 @@ interface SpecialtyTile {
                     <mat-icon>place</mat-icon>
                     <span>{{ appt.location }}</span>
                   </div>
+
+                  <!-- Safety-net entry point: whatever the visit type, let the
+                       patient log recent readings from the dashboard if they
+                       skipped it at booking. Once shared, the nudge collapses to
+                       a quiet confirmation that can still be tapped to update. -->
+                  @if (readingsShared()) {
+                    <button class="ap-readings shared" (click)="openVitals()">
+                      <mat-icon>check_circle</mat-icon>
+                      <span><strong>Recent readings shared</strong> with {{ appt.doctorName }} · tap to update</span>
+                      <mat-icon class="apr-go">chevron_right</mat-icon>
+                    </button>
+                  } @else {
+                    <button class="ap-readings" (click)="openVitals()">
+                      <mat-icon>favorite</mat-icon>
+                      <span><strong>Record recent readings</strong> <em>(optional)</em> — share them with {{ appt.doctorName }} before your {{ appt.type === 'telehealth' ? 'call' : 'visit' }}</span>
+                      <mat-icon class="apr-go">chevron_right</mat-icon>
+                    </button>
+                  }
                 </div>
                 <div class="ap-top-actions">
                   <button mat-flat-button color="primary" class="ap-manage" (click)="openManage()">
@@ -119,6 +139,13 @@ interface SpecialtyTile {
                 </div>
               </article>
             </section>
+          }
+
+          @if (vitalsOpen()) {
+            <app-record-vitals variant="sheet"
+                               [doctorName]="nextAppt()?.doctorName || ''"
+                               context="Before your appointment"
+                               (closed)="vitalsOpen.set(false)" />
           }
 
           <!-- ============================================ -->
@@ -629,6 +656,23 @@ interface SpecialtyTile {
     .ap-spec { font-size: 13px; color: #607d8b; margin-bottom: 4px; }
     .ap-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #546e7a; }
     .ap-meta mat-icon { font-size: 15px; width: 15px; height: 15px; color: #90a4ae; }
+
+    /* "Record recent readings" nudge on video-consult cards */
+    .ap-readings {
+      display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 10px;
+      border: 1.5px dashed #cfe0e0; background: #f0fdfa; border-radius: 12px;
+      padding: 10px 12px; text-align: left; font: inherit; cursor: pointer; color: #0f5c58;
+      transition: background .14s, border-color .14s;
+    }
+    .ap-readings:hover { background: #e0f2f1; border-color: #80cbc4; }
+    .ap-readings > mat-icon { color: #0d8a8a; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
+    .ap-readings span { flex: 1; font-size: 12.5px; line-height: 1.4; }
+    .ap-readings strong { color: #00524e; }
+    .ap-readings em { color: #6b8a88; font-style: normal; }
+    .ap-readings .apr-go { color: #80cbc4; font-size: 20px; width: 20px; height: 20px; }
+    /* Collapsed "already shared" state — solid, calmer, not a dashed call to action */
+    .ap-readings.shared { border-style: solid; border-color: #b6e3d8; background: #edf9f5; }
+    .ap-readings.shared > mat-icon { color: #2e9e86; }
 
     /* Top-right action cluster — calendar icon + Manage Booking */
     .ap-top-actions {
@@ -1202,6 +1246,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private readonly feedbackFormTpl!: TemplateRef<unknown>;
   private readonly overlay = inject(Overlay);
   private readonly viewContainerRef = inject(ViewContainerRef);
+  private readonly vitalsStore = inject(VitalsService);
+
+  readonly vitalsOpen = signal(false);
+  openVitals(): void { this.vitalsOpen.set(true); }
+
+  /** True once the patient has self-reported vitals in the last 7 days — used
+   *  to collapse the dashboard nudge into a "shared ✓" confirmation. */
+  readonly readingsShared = computed(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    const iso = cutoff.toISOString();
+    return this.vitalsStore.selfVitals().some(v => v.timestamp >= iso);
+  });
   private feedbackOverlayRef: OverlayRef | null = null;
 
   constructor() {
@@ -1279,7 +1336,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ];
 
   // Order: most-likely tap targets first
-  // Hospital contact (PFSH primary line). For multi-location white-label
+  // Hospital contact (GHH primary line). For multi-location white-label
   // this would come from the GeographyService / tenant config.
   readonly hospitalPhone = '+973 1781 2000';
   readonly hospitalPhoneRaw = '+97317812000';

@@ -316,7 +316,7 @@ export class MyFeedbackComponent {
 
   /** White-label letterhead slot — tenant config in production. */
   readonly org = {
-    name: 'Prince Fahd Bin Sultan Hospital',
+    name: 'Good Health Hospital',
     addr1: 'King Khalid Road',
     addr2: 'Tabuk, Saudi Arabia',
     addr1Ar: 'طريق الملك خالد',

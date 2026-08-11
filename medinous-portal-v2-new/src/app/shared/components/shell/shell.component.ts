@@ -69,7 +69,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="nav-brand">
                 <mat-icon class="brand-icon">local_hospital</mat-icon>
                 <div class="brand-text">
-                  <span class="brand-name">PRINCE FAHD BIN SULTAN</span>
+                  <span class="brand-name">GOOD HEALTH</span>
                   <span class="brand-sub">HOSPITAL</span>
                 </div>
               </div>
@@ -89,7 +89,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <section class="hero">
             <div class="hero-content">
               <p class="hero-tagline">Welcome to</p>
-              <h1>Prince Fahd Bin Sultan Hospital</h1>
+              <h1>Good Health Hospital</h1>
               <p class="hero-desc">Providing world-class healthcare services in the Kingdom of Saudi Arabia since 2009.
                  MOH licensed, internationally accredited, and trusted by over 100,000 patients.</p>
               <div class="hero-actions">
@@ -220,9 +220,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
           <!-- Footer -->
           <footer class="landing-footer">
             <div class="footer-inner">
-              <strong class="footer-title">PRINCE FAHD BIN SULTAN HOSPITAL</strong>
+              <strong class="footer-title">GOOD HEALTH HOSPITAL</strong>
               <p>Prince Sultan Bin Abdulaziz Road, Sultanah District, P.O. Box: 10588, Tabuk, Kingdom of Saudi Arabia</p>
-              <p class="footer-copy">Copyright 2026 &#64; Prince Fahd Bin Sultan Hospital</p>
+              <p class="footer-copy">Copyright 2026 &#64; Good Health Hospital</p>
             </div>
           </footer>
 
@@ -249,7 +249,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
         <!--  STEP 3: LOGIN SCREEN                        -->
         <!-- ============================================ -->
         <div class="login-page">
-          <!-- Top strip: PFSH hospital brand + branch with Change -->
+          <!-- Top strip: GHH hospital brand + branch with Change -->
           <div class="login-topbar">
             <div class="topbar-inner">
               <button mat-icon-button class="topbar-back" (click)="goBackToLanding()" matTooltip="Back to website">
@@ -258,7 +258,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
               <div class="hospital-brand">
                 <div class="hospital-brand-icon"><mat-icon>local_hospital</mat-icon></div>
                 <div class="hospital-brand-text">
-                  <strong>Prince Fahd Bin Sultan Hospital</strong>
+                  <strong>Good Health Hospital</strong>
                   <span class="hospital-brand-ar">مستشفى نورثبريدج التخصصي</span>
                 </div>
               </div>
@@ -288,10 +288,10 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             <mat-card class="login-card">
               <!-- Hospital wordmark inside the login card.
                    White-label slot: each tenant's brand image goes here.
-                   Current tenant: Prince Fahd Bin Sultan Hospital, Tabuk (KSA). -->
+                   Current tenant: Good Health Hospital, Tabuk (KSA). -->
               <div class="login-medinous-strip">
                 <img src="prince-fahd-hospital.png"
-                     alt="Prince Fahd Bin Sultan Hospital"
+                     alt="Good Health Hospital"
                      class="hospital-logo">
                 <span class="medinous-tag">Patient Portal</span>
               </div>
@@ -902,9 +902,9 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
             </button>
           }
 
-          <!-- Brand: Prince Fahd Bin Sultan Hospital | Patient Portal -->
+          <!-- Brand: Good Health Hospital | Patient Portal -->
           <div class="brand">
-            <span class="brand-hospital">Prince Fahd Bin Sultan Hospital</span>
+            <span class="brand-hospital">Good Health Hospital</span>
             <span class="brand-divider"></span>
             <span class="brand-tag">Patient Portal</span>
           </div>
@@ -1352,7 +1352,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
   `,
   styles: [`
     /* =============================================
-       LANDING PAGE - PFSH Hospital Website
+       LANDING PAGE - GHH Hospital Website
        ============================================= */
     .landing-page {
       min-height: 100vh; background: #fff;
@@ -1599,7 +1599,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
       pointer-events: none;
     }
 
-    /* ---------- Top brand strip (PFSH hospital + location) ---------- */
+    /* ---------- Top brand strip (GHH hospital + location) ---------- */
     .login-topbar {
       width: 100%; background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.04);
@@ -2161,7 +2161,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
     }
     .hamburger { color: #1b3a4b !important; flex-shrink: 0; margin-right: 4px; }
 
-    /* Brand: Prince Fahd Bin Sultan Hospital | Patient Portal */
+    /* Brand: Good Health Hospital | Patient Portal */
     .brand {
       display: flex; align-items: center; gap: 8px;
       min-width: 0;
@@ -2488,7 +2488,7 @@ import { TranslatePipe } from '../../pipes/translate.pipe';
          (1) hide the hospital name block — the brand icon keeps visual ID,
              and the chip already names the place;
          (2) swap the chip label to branch-only ("Juffair" instead of the
-             full "Prince Fahd Bin Sultan Hospital - Juffair");
+             full "Good Health Hospital - Juffair");
          (3) keep the chip sized to its content (it is a 7-char label — not
              a search bar) and pin it to the right edge of the row so the
              brand icon and chip read as two endpoints, not a stretched
@@ -3596,7 +3596,7 @@ export class ShellComponent {
   }
 
   shortLocationName(name: string): string {
-    return name.replace(/^Prince Fahd Bin Sultan Hospital\s*-?\s*/i, '').replace(/^PFSH\s+/i, '');
+    return name.replace(/^Good Health Hospital\s*-?\s*/i, '').replace(/^GHH\s+/i, '');
   }
 
   @HostListener('window:resize')
@@ -3622,7 +3622,7 @@ export class ShellComponent {
   }
 
   /** Branch-only label for the location chip on mobile. Locations are named
-   *  "Prince Fahd Bin Sultan Hospital - Juffair" / "PFSH Clinic - Riffa" —
+   *  "Good Health Hospital - Juffair" / "GHH Clinic - Riffa" —
    *  on narrow screens the hospital prefix repeats the brand banner above
    *  and just adds noise, so we slice to whatever follows the last " - ".
    *  Falls back to the full name if no dash is present. */

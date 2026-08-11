@@ -14,6 +14,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { SkeletonCardComponent } from '../../shared/components/skeleton-loader/skeleton-card.component';
+import { RecordVitalsComponent } from '../../shared/components/record-vitals/record-vitals.component';
 import { ApiService } from '../../core/services/api.service';
 import { GeographyService } from '../../core/services/geography.service';
 import { Doctor, BookingSlot, Appointment } from '../../core/models/patient.model';
@@ -110,7 +111,8 @@ const CONDITION_ICONS: Record<string, string> = {
     CommonModule, FormsModule,
     MatCardModule, MatIconModule, MatButtonModule, MatFormFieldModule,
     MatInputModule, MatProgressSpinnerModule, MatSnackBarModule,
-    MatDividerModule, MatChipsModule, MatMenuModule, MatDialogModule, MatTooltipModule, SkeletonCardComponent
+    MatDividerModule, MatChipsModule, MatMenuModule, MatDialogModule, MatTooltipModule,
+    SkeletonCardComponent, RecordVitalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -599,6 +601,18 @@ const CONDITION_ICONS: Record<string, string> = {
             </div>
           </div>
 
+          <!-- Optional vitals capture, surfaced at the moment of booking so the
+               patient never takes a separate step. Saved to My Health as
+               self-reported and shared with the doctor ahead of the visit. -->
+          <button class="success-readings" (click)="openVitals()">
+            <mat-icon>favorite</mat-icon>
+            <span>
+              <strong>Record recent readings</strong> <em>(optional)</em>
+              <small>BP, sugar, temperature, weight — shared with {{ bookedAppointment()!.doctorName }} and saved to My Health</small>
+            </span>
+            <mat-icon class="sr-go">chevron_right</mat-icon>
+          </button>
+
           <div class="success-actions">
             <button mat-flat-button class="success-primary"
                     (click)="goToManageBooking()">
@@ -610,6 +624,13 @@ const CONDITION_ICONS: Record<string, string> = {
             </button>
           </div>
         </div>
+
+        @if (vitalsOpen()) {
+          <app-record-vitals variant="sheet"
+                             [doctorName]="bookedAppointment()!.doctorName"
+                             context="Before your appointment"
+                             (closed)="vitalsOpen.set(false)" />
+        }
       }
 
       <!-- ============================================ -->
@@ -1804,6 +1825,20 @@ const CONDITION_ICONS: Record<string, string> = {
     .summary-fee { color: #2e7d32 !important; font-weight: 700; }
     .paid { color: #2e7d32; }
     .pending { color: #f57c00; }
+    .success-readings {
+      display: flex; align-items: center; gap: 10px; width: 100%; margin: 4px 0 16px;
+      border: 1.5px dashed #cfe0e0; background: #f0fdfa; border-radius: 12px;
+      padding: 12px 14px; text-align: left; font: inherit; cursor: pointer; color: #0f5c58;
+      transition: background .14s, border-color .14s;
+    }
+    .success-readings:hover { background: #e0f2f1; border-color: #80cbc4; }
+    .success-readings > mat-icon { color: #0d8a8a; font-size: 22px; width: 22px; height: 22px; flex-shrink: 0; }
+    .success-readings span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .success-readings strong { font-size: 13.5px; color: #00524e; }
+    .success-readings em { font-style: normal; color: #6b8a88; font-weight: 600; font-size: 12px; }
+    .success-readings small { font-size: 11.5px; color: #6b8a88; }
+    .success-readings .sr-go { color: #80cbc4; font-size: 22px; width: 22px; height: 22px; }
+
     .success-actions {
       display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
     }
@@ -2055,6 +2090,9 @@ export class AppointmentsComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly geo = inject(GeographyService);
   private readonly snackBar = inject(MatSnackBar);
+
+  readonly vitalsOpen = signal(false);
+  openVitals(): void { this.vitalsOpen.set(true); }
 
   readonly bookingPhase = signal<BookingPhase>('find');
   readonly specialties = signal<string[]>([]);

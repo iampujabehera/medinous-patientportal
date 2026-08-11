@@ -331,7 +331,7 @@ interface CategoryFilter {
             <div class="doc-page">
               <div class="dp-header">
                 <div class="dp-hospital">
-                  <strong>Prince Fahd Bin Sultan Hospital</strong>
+                  <strong>Good Health Hospital</strong>
                   <span>Tabuk · Kingdom of Saudi Arabia</span>
                 </div>
                 <span class="dp-badge" [ngClass]="'chip-' + doc.type">{{ formatType(doc.type) }}</span>
@@ -355,7 +355,7 @@ interface CategoryFilter {
               }
               <div class="dp-footer">
                 <mat-icon>verified</mat-icon>
-                <span>Electronically generated record · Prince Fahd Bin Sultan Hospital Patient Portal</span>
+                <span>Electronically generated record · Good Health Hospital Patient Portal</span>
               </div>
             </div>
           </div>
@@ -1338,7 +1338,7 @@ export class TimelineComponent implements OnInit, AfterViewInit, OnDestroy {
     // by leaving the viewer as-is; the notification lets the user re-open it.
     const sections = this.getDocumentSections(event);
     const lines: string[] = [
-      'PRINCE FAHD BIN SULTAN HOSPITAL',
+      'GOOD HEALTH HOSPITAL',
       'Tabuk · Kingdom of Saudi Arabia',
       '',
       event.title,

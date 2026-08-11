@@ -17,6 +17,10 @@ export interface VitalSign {
   unit: string;
   timestamp: string;
   status: 'normal' | 'warning' | 'critical';
+  /** Who recorded it. Absent = treated as clinic-measured (legacy data). */
+  source?: 'self' | 'clinic';
+  /** Optional qualifier, e.g. glucose reading type "Fasting" / "Post-meal". */
+  context?: string;
 }
 
 export interface Appointment {

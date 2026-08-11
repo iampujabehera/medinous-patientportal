@@ -205,7 +205,7 @@ export class FeedbackReportComponent {
   /** Letterhead details. White-label slot — served from tenant config in
    *  production; hard-coded here for the demo tenant. */
   readonly org = {
-    name: 'Prince Fahd Bin Sultan Hospital',
+    name: 'Good Health Hospital',
     nameAr: 'مستشفى الأمير فهد بن سلطان',
     addr1: 'King Khalid Road',
     addr2: 'Tabuk, Saudi Arabia',

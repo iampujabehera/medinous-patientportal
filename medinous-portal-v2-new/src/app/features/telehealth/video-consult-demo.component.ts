@@ -4,6 +4,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { RecordVitalsComponent } from '../../shared/components/record-vitals/record-vitals.component';
 
 // =============================================================================
 // VIDEO CONSULTATION — full flow demo  (Angular port of VideoConsultDemo.jsx)
@@ -20,13 +21,11 @@ import { MatIconModule } from '@angular/material/icon';
 // =============================================================================
 
 type Stage = 'slots' | 'pay' | 'confirmed' | 'waiting' | 'call' | 'done';
-interface Readings { bp: string; sugar: string; temp: string; weight: string; when: string; }
-interface SavedReadings extends Readings { by: string; at: string; }
 
 @Component({
   selector: 'app-video-consult-demo',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule, RecordVitalsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="vcd-root">
@@ -91,23 +90,8 @@ interface SavedReadings extends Readings { by: string; at: string; }
 
           <div class="vcd-form">
             <div class="vcd-formhead">Have recent readings? Add them for your doctor <small>(optional — everything below can be skipped)</small></div>
-            @if (savedReadings(); as sr) {
-              <div class="vcd-savednote">Saved ✓ — will show to the doctor as <b>patient-reported readings</b>, entered by {{ sr.by }} at {{ sr.at }}. You can edit until the doctor joins.</div>
-            } @else {
-              <div class="vcd-grid">
-                <input placeholder="Blood pressure (e.g. 120/80)" [ngModel]="readings().bp" (ngModelChange)="setReading('bp', $event)" />
-                <input placeholder="Blood sugar (mg/dL)" [ngModel]="readings().sugar" (ngModelChange)="setReading('sugar', $event)" />
-                <input placeholder="Temperature (°C)" [ngModel]="readings().temp" (ngModelChange)="setReading('temp', $event)" />
-                <input placeholder="Weight (kg)" [ngModel]="readings().weight" (ngModelChange)="setReading('weight', $event)" />
-              </div>
-              <div class="vcd-when">
-                Measured:
-                @for (w of whenOptions; track w) {
-                  <button [class.sel]="readings().when === w" (click)="setReading('when', w)">{{ w }}</button>
-                }
-              </div>
-              <button class="vcd-btn ghost" (click)="saveReadings()">Save readings</button>
-            }
+            <!-- Shared, persisting vitals form (source='self' → My Health). -->
+            <app-record-vitals variant="inline" doctorName="Dr. Al-Huwail" />
           </div>
         </div>
       }
@@ -230,12 +214,6 @@ interface SavedReadings extends Readings { by: string; at: string; }
     .vcd-form{margin-top:18px;border-top:1px dashed #e5e7eb;padding-top:14px}
     .vcd-formhead{font-weight:600;font-size:14px;margin-bottom:10px}
     .vcd-formhead small{font-weight:400;color:#6b7280}
-    .vcd-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-    .vcd-grid input{padding:11px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13.5px;font-family:inherit}
-    .vcd-when{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:#6b7280;margin-bottom:6px}
-    .vcd-when button{padding:6px 12px;border:1px solid #e5e7eb;border-radius:999px;background:#fff;font-size:12.5px;cursor:pointer;font-family:inherit}
-    .vcd-when button.sel{background:#0d9488;color:#fff;border-color:#0d9488}
-    .vcd-savednote{background:#f0fdfa;color:#0f766e;border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5}
     .vcd-dark{background:#111827;color:#f3f4f6;border-color:#111827}
     .vcd-dark h3{margin-bottom:12px}
     .vcd-stagebox{display:flex;justify-content:center;padding:8px 0 14px}
@@ -265,7 +243,7 @@ interface SavedReadings extends Readings { by: string; at: string; }
     .vcd-demo button{display:inline-flex;align-items:center;gap:6px;justify-content:center;padding:9px 12px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-size:12.5px;cursor:pointer;font-family:inherit}
     .vcd-demo button mat-icon{font-size:16px;width:16px;height:16px}
     .vcd-demonote{color:#9ca3af;font-size:11px}
-    @media (max-width:560px){.vcd-grid{grid-template-columns:1fr}.vcd-self{width:100%;height:180px}}
+    @media (max-width:560px){.vcd-self{width:100%;height:180px}}
   `]
 })
 export class VideoConsultDemoComponent implements OnDestroy {
@@ -277,7 +255,6 @@ export class VideoConsultDemoComponent implements OnDestroy {
   ];
   private readonly TAKEN = ['09:30 AM', '03:00 PM'];   // booked (shared pool)
   private readonly HELD  = ['10:30 AM'];               // held by another patient
-  readonly whenOptions = ['Today', 'Yesterday', 'This week'];
 
   readonly stage = signal<Stage>('slots');
   readonly slot = signal<string | null>(null);
@@ -285,8 +262,6 @@ export class VideoConsultDemoComponent implements OnDestroy {
   readonly holdLeft = signal(600);        // 10-min hold, seconds
   readonly joinEnabled = signal(false);   // T-10 rule (demo fast-forwards)
   readonly waitSecs = signal(0);          // waiting-room timer (webhook demo)
-  readonly readings = signal<Readings>({ bp: '', sugar: '', temp: '', weight: '', when: 'Today' });
-  readonly savedReadings = signal<SavedReadings | null>(null);
   readonly muted = signal(false);
   readonly camOff = signal(false);
   readonly doctorIn = signal(false);
@@ -354,24 +329,6 @@ export class VideoConsultDemoComponent implements OnDestroy {
     this.stage.set('confirmed');
   }
 
-  // ---- Confirmed: optional readings ----------------------------------------
-  setReading(key: keyof Readings, val: string): void {
-    this.readings.update(r => ({ ...r, [key]: val }));
-  }
-
-  saveReadings(): void {
-    const r = this.readings();
-    if (!(r.bp || r.sugar || r.temp || r.weight)) {
-      alert('All fields are optional — add at least one reading to save, or skip entirely.');
-      return;
-    }
-    this.savedReadings.set({
-      ...r,
-      by: 'Fatima Sharma (patient)',
-      at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-  }
-
   // ---- Waiting room --------------------------------------------------------
   enterWaiting(): void {
     this.stage.set('waiting');
@@ -417,8 +374,6 @@ export class VideoConsultDemoComponent implements OnDestroy {
     this.holdLeft.set(600);
     this.joinEnabled.set(false);
     this.waitSecs.set(0);
-    this.readings.set({ bp: '', sugar: '', temp: '', weight: '', when: 'Today' });
-    this.savedReadings.set(null);
     this.muted.set(false);
     this.camOff.set(false);
     this.doctorIn.set(false);
